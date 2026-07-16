@@ -18,8 +18,18 @@ export default async function ParentsPage() {
     <main className="min-h-screen bg-neutral-50">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <h1 className="text-xl font-semibold">Parents</h1>
-        <p className="text-sm text-neutral-400">Shared across all facilities</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Parents</h1>
+            <p className="text-sm text-neutral-400">Shared across all facilities</p>
+          </div>
+          <a
+            href="/parents/new"
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+          >
+            + New Parent
+          </a>
+        </div>
 
         {(!parents || parents.length === 0) && (
           <p className="mt-8 text-sm text-neutral-400">No parents yet.</p>
@@ -27,10 +37,14 @@ export default async function ParentsPage() {
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(parents ?? []).map((p) => (
-            <div key={p.id} className="rounded-lg border border-neutral-200 bg-white p-4">
+            <a
+              key={p.id}
+              href={`/parents/${p.id}`}
+              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400"
+            >
               <div className="font-medium">{p.first_name} {p.last_name}</div>
               <div className="text-sm text-neutral-500">{p.phone ?? "—"} · {p.email ?? "—"}</div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

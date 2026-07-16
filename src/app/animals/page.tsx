@@ -31,8 +31,18 @@ export default async function AnimalsPage() {
     <main className="min-h-screen bg-neutral-50">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <h1 className="text-xl font-semibold">Animals</h1>
-        <p className="text-sm text-neutral-400">Shared across all facilities</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Animals</h1>
+            <p className="text-sm text-neutral-400">Shared across all facilities</p>
+          </div>
+          <a
+            href="/animals/new"
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+          >
+            + New Animal
+          </a>
+        </div>
 
         {animals.length === 0 && (
           <p className="mt-8 text-sm text-neutral-400">No animals yet.</p>
@@ -40,13 +50,17 @@ export default async function AnimalsPage() {
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {animals.map((a) => (
-            <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4">
+            <a
+              key={a.id}
+              href={`/animals/${a.id}`}
+              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400"
+            >
               <div className="font-medium">{a.name}</div>
               <div className="text-sm text-neutral-500">{a.breed ?? "—"} · {a.size ?? "—"}</div>
               <div className="mt-1 text-xs text-neutral-400">
                 {a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "No parent linked"}
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>
