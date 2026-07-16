@@ -6,3 +6,11 @@ html,
 body {
   height: 100%;
 }
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}

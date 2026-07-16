@@ -29,15 +29,15 @@ export default async function AnimalDetailPage({
   const updateWithId = updateAnimal.bind(null, id);
 
   return (
-    <main className="min-h-screen bg-neutral-50">
+    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href="/animals" className="text-sm text-neutral-400 underline">
+      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+        <a href="/animals" className="text-sm text-neutral-400 underline dark:text-neutral-500">
           ← Animals
         </a>
         <h1 className="mt-2 text-xl font-semibold">{animal.name}</h1>
         {parent && (
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">
             Owner:{" "}
             <a href={`/parents/${parent.id}`} className="underline">
               {parent.first_name} {parent.last_name}
@@ -45,7 +45,7 @@ export default async function AnimalDetailPage({
           </p>
         )}
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-6">
+        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
           <AnimalForm
             action={updateWithId}
             defaults={animal}

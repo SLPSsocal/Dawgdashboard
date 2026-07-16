@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loginWithPin } from "./actions";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default async function LoginPage({
   searchParams,
@@ -17,6 +18,9 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
+      <div className="flex justify-end">
+        <ThemeToggle />
+      </div>
       <div className="text-center text-3xl">🐾</div>
       <h1 className="mt-2 text-center text-lg font-semibold">Staff Login</h1>
 
@@ -26,7 +30,7 @@ export default async function LoginPage({
             <a
               key={f.id}
               href={`/login?facility=${f.slug}`}
-              className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center font-medium hover:border-neutral-400"
+              className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center font-medium hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500"
             >
               {f.name}
             </a>
@@ -38,10 +42,10 @@ export default async function LoginPage({
           <input type="hidden" name="facilitySlug" value={selected.slug} />
           <input type="hidden" name="facilityName" value={selected.name} />
 
-          <div className="text-center text-sm text-neutral-500">{selected.name}</div>
+          <div className="text-center text-sm text-neutral-500 dark:text-neutral-400">{selected.name}</div>
 
           {error && (
-            <div className="rounded-md bg-red-50 px-3 py-2 text-center text-sm text-red-600">
+            <div className="rounded-md bg-red-50 px-3 py-2 text-center text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
               {error === "invalid" ? "Name or PIN not recognized." : "Enter your name and PIN."}
             </div>
           )}
@@ -50,7 +54,7 @@ export default async function LoginPage({
             name="staffName"
             placeholder="Your Name"
             required
-            className="rounded-lg border border-neutral-300 px-4 py-3"
+            className="rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
           />
           <input
             name="pin"
@@ -58,17 +62,17 @@ export default async function LoginPage({
             inputMode="numeric"
             placeholder="PIN"
             required
-            className="rounded-lg border border-neutral-300 px-4 py-3"
+            className="rounded-lg border border-neutral-300 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500"
           />
           <button
             type="submit"
-            className="mt-2 rounded-lg bg-neutral-900 px-4 py-3 font-medium text-white"
+            className="mt-2 rounded-lg bg-neutral-900 px-4 py-3 font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
           >
             Unlock →
           </button>
           <a
             href="/login"
-            className="text-center text-sm text-neutral-400 underline"
+            className="text-center text-sm text-neutral-400 underline dark:text-neutral-500"
           >
             Wrong facility
           </a>

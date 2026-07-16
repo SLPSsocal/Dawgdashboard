@@ -30,44 +30,44 @@ export default async function ParentDetailPage({
   const updateWithId = updateParent.bind(null, id);
 
   return (
-    <main className="min-h-screen bg-neutral-50">
+    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href="/parents" className="text-sm text-neutral-400 underline">
+      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+        <a href="/parents" className="text-sm text-neutral-400 underline dark:text-neutral-500">
           ← Parents
         </a>
         <h1 className="mt-2 text-xl font-semibold">
           {parent.first_name} {parent.last_name}
         </h1>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-neutral-700">Animals</h2>
+        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Animals</h2>
             <a
               href={`/animals/new?parent_id=${id}`}
-              className="text-sm font-medium text-neutral-900 underline"
+              className="text-sm font-medium text-neutral-900 underline dark:text-neutral-100"
             >
               + Add Animal
             </a>
           </div>
           {(!animals || animals.length === 0) && (
-            <p className="mt-2 text-sm text-neutral-400">No animals linked yet.</p>
+            <p className="mt-2 text-sm text-neutral-400 dark:text-neutral-500">No animals linked yet.</p>
           )}
           <div className="mt-3 flex flex-col gap-2">
             {(animals ?? []).map((a) => (
               <a
                 key={a.id}
                 href={`/animals/${a.id}`}
-                className="rounded-md border border-neutral-200 px-3 py-2 text-sm hover:border-neutral-400"
+                className="rounded-md border border-neutral-200 px-3 py-2 text-sm hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600"
               >
                 <span className="font-medium">{a.name}</span>{" "}
-                <span className="text-neutral-400">{a.breed ?? ""}</span>
+                <span className="text-neutral-400 dark:text-neutral-500">{a.breed ?? ""}</span>
               </a>
             ))}
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-6">
+        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
           <ParentForm action={updateWithId} defaults={parent} submitLabel="Save Changes" error={error} />
         </div>
       </div>

@@ -26,7 +26,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-neutral-700">
+      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
@@ -35,7 +35,7 @@ function Field({
         type={type}
         defaultValue={defaultValue ?? ""}
         required={required}
-        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       />
     </label>
   );
@@ -55,7 +55,7 @@ export default function ParentForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
           {error === "missing_name" ? "First and last name are required." : error}
         </div>
       )}
@@ -90,18 +90,18 @@ export default function ParentForm({
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-neutral-700">Notes</span>
+        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Notes</span>
         <textarea
           name="notes"
           defaultValue={defaults?.notes ?? ""}
           rows={3}
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
         />
       </label>
 
       <button
         type="submit"
-        className="mt-2 w-fit rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white"
+        className="mt-2 w-full rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
       >
         {submitLabel}
       </button>

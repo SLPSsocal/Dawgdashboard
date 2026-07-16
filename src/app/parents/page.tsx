@@ -15,24 +15,24 @@ export default async function ParentsPage() {
     .order("last_name");
 
   return (
-    <main className="min-h-screen bg-neutral-50">
+    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold">Parents</h1>
-            <p className="text-sm text-neutral-400">Shared across all facilities</p>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">Shared across all facilities</p>
           </div>
           <a
             href="/parents/new"
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
           >
             + New Parent
           </a>
         </div>
 
         {(!parents || parents.length === 0) && (
-          <p className="mt-8 text-sm text-neutral-400">No parents yet.</p>
+          <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No parents yet.</p>
         )}
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -40,10 +40,10 @@ export default async function ParentsPage() {
             <a
               key={p.id}
               href={`/parents/${p.id}`}
-              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400"
+              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
             >
               <div className="font-medium">{p.first_name} {p.last_name}</div>
-              <div className="text-sm text-neutral-500">{p.phone ?? "—"} · {p.email ?? "—"}</div>
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">{p.phone ?? "—"} · {p.email ?? "—"}</div>
             </a>
           ))}
         </div>
