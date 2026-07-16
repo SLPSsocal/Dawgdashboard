@@ -37,7 +37,7 @@ export default async function ReservationsPage() {
   const expected = rows.filter((r) => r.status === "booked");
 
   return (
-    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <main className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
       <FacilityHeader session={session!} />
 
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
@@ -46,8 +46,16 @@ export default async function ReservationsPage() {
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        <Section title={`🟢 Checked In (${checkedIn.length})`} rows={checkedIn} />
-        <Section title={`📋 Expected Today (${expected.length})`} rows={expected} />
+        <Section
+          title={`🟢 Currently Checked In (${checkedIn.length})`}
+          rows={checkedIn}
+          accent="border-l-green-500"
+        />
+        <Section
+          title={`📋 Expected Today (${expected.length})`}
+          rows={expected}
+          accent="border-l-amber-500"
+        />
 
         {rows.length === 0 && !error && (
           <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">
@@ -60,14 +68,25 @@ export default async function ReservationsPage() {
   );
 }
 
-function Section({ title, rows }: { title: string; rows: Row[] }) {
+function Section({ title, rows, accent }: { title: string; rows: Row[]; accent: string }) {
   if (rows.length === 0) return null;
   return (
-    <div className="mt-6">
-      <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{title}</h2>
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <details
+      open
+      className="group mt-4 rounded-xl border border-neutral-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+    >
+      <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+        <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{title}</h2>
+        <span className="text-neutral-400 transition-transform group-open:rotate-180 dark:text-neutral-500">
+          ▾
+        </span>
+      </summary>
+      <div className="grid grid-cols-1 gap-3 border-t border-neutral-100 p-4 sm:grid-cols-2 dark:border-neutral-800">
         {rows.map((r) => (
-          <div key={r.id} className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+          <div
+            key={r.id}
+            className={`rounded-lg border border-l-4 border-neutral-200 bg-neutral-50 p-4 shadow-sm ${accent} dark:border-neutral-800 dark:bg-neutral-950/60`}
+          >
             <div className="font-medium">{r.animals?.name ?? "Unknown"}</div>
             <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {r.animals?.breed ?? "—"} · {r.reservation_types?.name ?? "—"}
@@ -81,6 +100,6 @@ function Section({ title, rows }: { title: string; rows: Row[] }) {
           </div>
         ))}
       </div>
-    </div>
+    </details>
   );
 }

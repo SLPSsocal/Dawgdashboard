@@ -1,0 +1,145 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { assignLodging } from "@/app/lodging/actions";
+
+export type LodgingArea = {
+  id: string;
+  name: string;
+  area_type: string;
+  capacity: number;
+};
+
+export type ReservationCard = {
+  id: string;
+  animalName: string;
+  breed: string | null;
+  status: string;
+  typeName: string | null;
+  lodgingAreaId: string | null;
+};
+
+export default function LodgingBoard({
+  areas,
+  initialReservations,
+}: {
+  areas: LodgingArea[];
+  initialReservations: ReservationCard[];
+}) {
+  const [reservations, setReservations] = useState(initialReservations);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  function move(reservationId: string, areaId: string | null) {
+    setReservations((prev) =>
+      prev.map((r) => (r.id === reservationId ? { ...r, lodgingAreaId: areaId } : r))
+    );
+    startTransition(() => {
+      assignLodging(reservationId, areaId).catch(() => {
+        // Revert optimistic update if the write failed.
+        setReservations(initialReservations);
+      });
+    });
+  }
+
+  const columns: { id: string | null; name: string; capacity?: number }[] = [
+    { id: null, name: "Unassigned" },
+    ...areas.map((a) => ({ id: a.id, name: a.name, capacity: a.capacity })),
+  ];
+
+  return (
+    <div>
+      <p className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
+        Drag a card into a suite — or on mobile, tap a card, then tap the suite to move it there.
+      </p>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {columns.map((col) => {
+          const key = col.id ?? "unassigned";
+          const cardsHere = reservations.filter((r) => r.lodgingAreaId === col.id);
+          const isOver = overKey === key;
+          const isUnassigned = col.id === null;
+          const overCapacity = col.capacity != null && cardsHere.length > col.capacity;
+
+          return (
+            <div
+              key={key}
+              onClick={() => {
+                if (!selectedId) return;
+                move(selectedId, col.id);
+                setSelectedId(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverKey(key);
+              }}
+              onDragLeave={() => setOverKey((cur) => (cur === key ? null : cur))}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragId) move(dragId, col.id);
+                setDragId(null);
+                setOverKey(null);
+              }}
+              className={`min-h-[110px] rounded-xl border-2 border-dashed p-3 transition-colors ${
+                isOver
+                  ? "border-neutral-900 bg-neutral-100 dark:border-neutral-100 dark:bg-neutral-800"
+                  : isUnassigned
+                    ? "border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20"
+                    : "border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900/40"
+              } ${selectedId ? "cursor-pointer" : ""}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold">{col.name}</div>
+                {col.capacity != null && (
+                  <div
+                    className={`text-xs ${
+                      overCapacity
+                        ? "font-medium text-red-500 dark:text-red-400"
+                        : "text-neutral-400 dark:text-neutral-500"
+                    }`}
+                  >
+                    {cardsHere.length}/{col.capacity}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-col gap-2">
+                {cardsHere.map((r) => (
+                  <div
+                    key={r.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      setDragId(r.id);
+                    }}
+                    onDragEnd={() => setDragId(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedId((cur) => (cur === r.id ? null : r.id));
+                    }}
+                    className={`cursor-grab touch-manipulation rounded-md border bg-white px-3 py-2 text-sm shadow-sm active:cursor-grabbing dark:bg-neutral-900 ${
+                      selectedId === r.id
+                        ? "border-neutral-900 ring-2 ring-neutral-900 dark:border-neutral-100 dark:ring-neutral-100"
+                        : "border-neutral-200 dark:border-neutral-700"
+                    } ${dragId === r.id ? "opacity-40" : ""}`}
+                  >
+                    <div className="font-medium">{r.animalName}</div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500">
+                      {r.breed ?? "—"} · {r.typeName ?? "—"} ·{" "}
+                      {r.status === "checked_in" ? "🟢 in" : "expected"}
+                    </div>
+                  </div>
+                ))}
+                {cardsHere.length === 0 && (
+                  <div className="text-xs text-neutral-300 dark:text-neutral-600">Empty</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
