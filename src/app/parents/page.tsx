@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import SearchableParentsList from "@/components/SearchableParentsList";
 
 export default async function ParentsPage() {
   const session = await getSession();
@@ -31,22 +32,11 @@ export default async function ParentsPage() {
           </a>
         </div>
 
-        {(!parents || parents.length === 0) && (
+        {!parents || parents.length === 0 ? (
           <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No parents yet.</p>
+        ) : (
+          <SearchableParentsList parents={parents} />
         )}
-
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(parents ?? []).map((p) => (
-            <a
-              key={p.id}
-              href={`/parents/${p.id}`}
-              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
-            >
-              <div className="font-medium">{p.first_name} {p.last_name}</div>
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">{p.phone ?? "—"} · {p.email ?? "—"}</div>
-            </a>
-          ))}
-        </div>
       </div>
     </main>
   );

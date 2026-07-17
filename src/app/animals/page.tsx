@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import SearchableAnimalsList from "@/components/SearchableAnimalsList";
 
 type Animal = {
   id: string;
@@ -44,25 +45,11 @@ export default async function AnimalsPage() {
           </a>
         </div>
 
-        {animals.length === 0 && (
+        {animals.length === 0 ? (
           <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No animals yet.</p>
+        ) : (
+          <SearchableAnimalsList animals={animals} />
         )}
-
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {animals.map((a) => (
-            <a
-              key={a.id}
-              href={`/animals/${a.id}`}
-              className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
-            >
-              <div className="font-medium">{a.name}</div>
-              <div className="text-sm text-neutral-500 dark:text-neutral-400">{a.breed ?? "—"} · {a.size ?? "—"}</div>
-              <div className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-                {a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "No parent linked"}
-              </div>
-            </a>
-          ))}
-        </div>
       </div>
     </main>
   );

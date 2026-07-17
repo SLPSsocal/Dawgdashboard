@@ -1,0 +1,55 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+type Parent = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+};
+
+export default function SearchableParentsList({ parents }: { parents: Parent[] }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return parents;
+    return parents.filter((p) => {
+      const fullName = `${p.first_name} ${p.last_name}`;
+      return [fullName, p.phone, p.email]
+        .filter((v): v is string => Boolean(v))
+        .some((v) => v.toLowerCase().includes(q));
+    });
+  }, [parents, query]);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by name, phone, or email…"
+        className="mt-4 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      />
+
+      {filtered.length === 0 && (
+        <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No matches.</p>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {filtered.map((p) => (
+          <a
+            key={p.id}
+            href={`/parents/${p.id}`}
+            className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
+          >
+            <div className="font-medium">{p.first_name} {p.last_name}</div>
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">{p.phone ?? "—"} · {p.email ?? "—"}</div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}

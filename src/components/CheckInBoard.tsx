@@ -1,0 +1,140 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+export type CheckInRow = {
+  id: string;
+  status: string;
+  animalName: string;
+  breed: string | null;
+  ownerName: string | null;
+  typeName: string | null;
+  lodgingName: string | null;
+  endDate: string;
+};
+
+type SortKey = "animalName" | "ownerName" | "typeName" | "lodgingName" | "endDate";
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("endDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matched = !q
+      ? rows
+      : rows.filter((r) =>
+          [r.animalName, r.ownerName, r.breed, r.typeName, r.lodgingName]
+            .filter((v): v is string => Boolean(v))
+            .some((v) => v.toLowerCase().includes(q))
+        );
+    return [...matched].sort((a, b) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      const cmp = av.localeCompare(bv);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [rows, query, sortKey, sortDir]);
+
+  const checkedIn = filtered.filter((r) => r.status === "checked_in");
+  const expected = filtered.filter((r) => r.status === "booked");
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function SortHeader({ label, sortField }: { label: string; sortField: SortKey }) {
+    const active = sortKey === sortField;
+    return (
+      <th
+        onClick={() => toggleSort(sortField)}
+        className="cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+      >
+        {label} {active ? (sortDir === "asc" ? "▲" : "▼") : ""}
+      </th>
+    );
+  }
+
+  function Table({ title, data, accent }: { title: string; data: CheckInRow[]; accent: string }) {
+    if (data.length === 0) return null;
+    return (
+      <details
+        open
+        className="group mt-4 rounded-xl border border-neutral-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+            {title} ({data.length})
+          </h2>
+          <span className="text-neutral-400 transition-transform group-open:rotate-180 dark:text-neutral-500">
+            ▾
+          </span>
+        </summary>
+        <div className="overflow-x-auto border-t border-neutral-100 dark:border-neutral-800">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 dark:border-neutral-800">
+                <SortHeader label="Animal" sortField="animalName" />
+                <SortHeader label="Owner" sortField="ownerName" />
+                <SortHeader label="Type" sortField="typeName" />
+                <SortHeader label="Lodging" sortField="lodgingName" />
+                <SortHeader label="Departure" sortField="endDate" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r) => (
+                <tr
+                  key={r.id}
+                  className={`border-b border-l-4 border-neutral-100 last:border-b-0 dark:border-neutral-800 ${accent}`}
+                >
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{r.animalName}</div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500">{r.breed ?? "—"}</div>
+                  </td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{r.ownerName ?? "—"}</td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{r.typeName ?? "—"}</td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{r.lodgingName ?? "—"}</td>
+                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{fmtDate(r.endDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    );
+  }
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by animal, owner, breed, or type…"
+        className="mt-4 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      />
+
+      <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
+      <Table title="📋 Expected Today" data={expected} accent="border-l-amber-500" />
+
+      {filtered.length === 0 && (
+        <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No matches.</p>
+      )}
+    </div>
+  );
+}
