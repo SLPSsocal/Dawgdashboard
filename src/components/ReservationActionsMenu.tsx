@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import {
-  checkInReservation,
-  checkOutReservation,
-  deleteReservation,
-  undoCheckIn,
-} from "@/app/reservations/actions";
+import { checkInReservation, deleteReservation, undoCheckIn } from "@/app/reservations/actions";
 
 export default function ReservationActionsMenu({
   reservationId,
@@ -130,7 +125,7 @@ export default function ReservationActionsMenu({
           />
 
           <Divider />
-          <StubItem icon="💲" label="View Estimate" reason="Needs a pricing/line-items model — not built yet" />
+          <LinkItem href={`/reservations/${reservationId}/checkout`} icon="💲" label="View Estimate / Checkout" />
           <LinkItem href={`/reservations/${reservationId}`} icon="📋" label="View Reservation Details" />
           <LinkItem href={`/reservations/${reservationId}/run-card`} icon="🖨️" label="Print Run Card" />
           <StubItem icon="✉️" label="Ready for Pickup Email" reason="Needs an email provider connected — not built yet" />

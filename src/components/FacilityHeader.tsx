@@ -7,6 +7,7 @@ const modules = [
   { name: "Animals", href: "/animals" },
   { name: "Parents", href: "/parents" },
   { name: "Lodging", href: "/lodging" },
+  { name: "Pricing", href: "/pricing" },
 ];
 
 export default function FacilityHeader({ session }: { session: Session }) {

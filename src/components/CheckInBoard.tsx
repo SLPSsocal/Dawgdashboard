@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { checkOutReservation } from "@/app/reservations/actions";
+import { useMemo, useState } from "react";
 import ReservationActionsMenu from "@/components/ReservationActionsMenu";
 
 export type CheckInRow = {
@@ -33,7 +32,6 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -134,12 +132,12 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       {r.status === "checked_in" && (
-                        <button
-                          onClick={() => startTransition(() => checkOutReservation(r.id))}
+                        <a
+                          href={`/reservations/${r.id}/checkout`}
                           className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
                         >
                           Check Out
-                        </button>
+                        </a>
                       )}
                       <ReservationActionsMenu
                         reservationId={r.id}
