@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import CheckInBoard, { type CheckInRow } from "@/components/CheckInBoard";
 import DailySummaryBar from "@/components/DailySummaryBar";
+import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 
 type Row = {
   id: string;
@@ -49,6 +50,13 @@ export default async function ReservationsPage() {
     .gte("checked_out_at", `${todayStr}T00:00:00`)
     .lte("checked_out_at", `${todayStr}T23:59:59`);
 
+  const { data: allTypes } = await supabase
+    .from("reservation_types")
+    .select("name")
+    .eq("facility_id", session!.facilityId)
+    .eq("active", true)
+    .order("name");
+
   const rows = (data as unknown as Row[]) ?? [];
   const boardRows: CheckInRow[] = rows.map((r) => ({
     id: r.id,
@@ -76,6 +84,15 @@ export default async function ReservationsPage() {
     { label: "Total Today", value: expectedTodayCount + checkedInCount + (checkedOutTodayCount ?? 0) },
   ];
 
+  // Breakdown by service type — every active reservation type shows, even at
+  // zero, so staff can see what's not moving today (matches Gingr's dash).
+  const typeCounts = new Map<string, number>();
+  for (const t of allTypes ?? []) typeCounts.set(t.name, 0);
+  for (const r of boardRows) {
+    if (r.typeName) typeCounts.set(r.typeName, (typeCounts.get(r.typeName) ?? 0) + 1);
+  }
+  const breakdown = Array.from(typeCounts.entries()).map(([name, count]) => ({ name, count }));
+
   return (
     <main className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
       <FacilityHeader session={session!} />
@@ -87,6 +104,7 @@ export default async function ReservationsPage() {
         )}
 
         <DailySummaryBar stats={stats} />
+        <ServiceBreakdownTable breakdown={breakdown} />
 
         {rows.length === 0 && !error ? (
           <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">
