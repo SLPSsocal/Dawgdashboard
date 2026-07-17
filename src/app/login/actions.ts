@@ -4,6 +4,29 @@ import { createClient } from "@/lib/supabase/server";
 import { setSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
+// TEMPORARY: PIN entry is paused during build-out so testing isn't gated by
+// staff records. Just pick a facility and go straight in as "Staff".
+// Re-enable loginWithPin below (still intact) before real deployment.
+export async function loginQuick(formData: FormData) {
+  const facilityId = String(formData.get("facilityId") ?? "");
+  const facilitySlug = String(formData.get("facilitySlug") ?? "");
+  const facilityName = String(formData.get("facilityName") ?? "");
+
+  if (!facilityId) {
+    redirect("/login");
+  }
+
+  await setSession({
+    staffId: "",
+    staffName: "Staff",
+    facilityId,
+    facilitySlug,
+    facilityName,
+  });
+
+  redirect("/reservations");
+}
+
 export async function loginWithPin(formData: FormData) {
   const facilityId = String(formData.get("facilityId") ?? "");
   const facilitySlug = String(formData.get("facilitySlug") ?? "");

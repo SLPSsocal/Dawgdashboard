@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import AnimalForm from "@/components/AnimalForm";
+import AnimalPhotoUpload from "@/components/AnimalPhotoUpload";
 import { updateAnimal } from "../actions";
 
 export default async function AnimalDetailPage({
@@ -38,14 +39,18 @@ export default async function AnimalDetailPage({
         <h1 className="mt-2 text-xl font-semibold">{animal.name}</h1>
         {parent && (
           <p className="text-sm text-neutral-400 dark:text-neutral-500">
-            Owner:{" "}
+            Parent:{" "}
             <a href={`/parents/${parent.id}`} className="underline">
               {parent.first_name} {parent.last_name}
             </a>
           </p>
         )}
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+          <AnimalPhotoUpload animalId={id} currentUrl={animal.photo_url ?? null} />
+        </div>
+
+        <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
           <AnimalForm
             action={updateWithId}
             defaults={animal}
