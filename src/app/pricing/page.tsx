@@ -5,7 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import {
   addRate,
   addPricingRule,
-  deletePricingRule,
+  retirePricingRule,
   addGroomingMenuItem,
   deleteGroomingMenuItem,
 } from "./actions";
@@ -24,7 +24,7 @@ export default async function PricingPage() {
       .select("id, reservation_type_id, rate, effective_date")
       .in("reservation_type_id", (await supabase.from("reservation_types").select("id").eq("facility_id", facilityId)).data?.map((t) => t.id) ?? [])
       .order("effective_date", { ascending: false }),
-    supabase.from("pricing_rules").select("id, reservation_type_id, label, rule_type, threshold, method, amount, active").eq("facility_id", facilityId).eq("active", true).order("label"),
+    supabase.from("pricing_rules").select("id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date, active").eq("facility_id", facilityId).eq("active", true).order("label"),
     supabase.from("grooming_menu_items").select("id, name, min_price, max_price").eq("facility_id", facilityId).eq("active", true).order("name"),
   ]);
 
@@ -51,8 +51,9 @@ export default async function PricingPage() {
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold">Pricing — {session!.facilityName}</h1>
         <p className="text-sm text-neutral-400 dark:text-neutral-500">
-          Rates are effective-dated — updating one adds a new entry without erasing the old price. Each
-          facility manages its own rates and rules independently.
+          Rates and rules are effective-dated — updating or retiring one never touches reservations that
+          started before the change. Checkout always uses whatever was in effect on the stay&apos;s start
+          date, not today&apos;s. Each facility manages its own pricing independently.
         </p>
 
         {/* Rates */}
@@ -117,11 +118,11 @@ export default async function PricingPage() {
                   <span className="text-neutral-400 dark:text-neutral-500">
                     · {r.reservation_type_id ? typeNameById.get(r.reservation_type_id) : "All types"} ·{" "}
                     {r.method === "percent" ? `${r.amount}%` : `$${r.amount}`}
-                    {r.threshold != null ? ` (threshold ${r.threshold})` : ""}
+                    {r.threshold != null ? ` (threshold ${r.threshold})` : ""} · effective {r.effective_date}
                   </span>
                 </div>
-                <form action={deletePricingRule.bind(null, r.id)}>
-                  <button className="text-xs text-red-500 hover:underline dark:text-red-400">Remove</button>
+                <form action={retirePricingRule.bind(null, r.id)}>
+                  <button className="text-xs text-red-500 hover:underline dark:text-red-400">Retire</button>
                 </form>
               </div>
             ))}
@@ -167,6 +168,15 @@ export default async function PricingPage() {
             <label className="text-xs">
               <span className="block text-neutral-500 dark:text-neutral-400">Amount</span>
               <input name="amount" type="number" step="0.01" required placeholder="-5 (discount) or 40 (fee)" className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+            </label>
+            <label className="text-xs">
+              <span className="block text-neutral-500 dark:text-neutral-400">Effective</span>
+              <input
+                name="effective_date"
+                type="date"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+              />
             </label>
             <button type="submit" className="col-span-2 rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white sm:col-span-3 sm:w-fit dark:bg-neutral-100 dark:text-neutral-900">
               Add Rule

@@ -34,19 +34,27 @@ export async function addPricingRule(formData: FormData) {
   const threshold = thresholdRaw ? Number(thresholdRaw) : null;
   const method = String(formData.get("method") ?? "dollar");
   const amount = Number(formData.get("amount") ?? 0);
+  const effective_date = String(formData.get("effective_date") ?? "") || new Date().toISOString().slice(0, 10);
 
   if (!facility_id || !label) return;
 
   const { error } = await supabase
     .from("pricing_rules")
-    .insert({ facility_id, reservation_type_id, label, rule_type, threshold, method, amount });
+    .insert({ facility_id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date });
   if (error) throw new Error(error.message);
   refresh();
 }
 
-export async function deletePricingRule(ruleId: string) {
+// Soft-retire, not delete — a reservation that started before this rule was
+// retired should still price the same way when it's checked out later.
+// Hard-deleting would silently change the estimate for those in-flight
+// reservations, which is exactly what we don't want.
+export async function retirePricingRule(ruleId: string) {
   const supabase = createClient();
-  const { error } = await supabase.from("pricing_rules").delete().eq("id", ruleId);
+  const { error } = await supabase
+    .from("pricing_rules")
+    .update({ active: false, retired_date: new Date().toISOString().slice(0, 10) })
+    .eq("id", ruleId);
   if (error) throw new Error(error.message);
   refresh();
 }

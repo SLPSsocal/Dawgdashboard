@@ -33,22 +33,30 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     rate_unit: string;
   } | null;
 
+  // Anchor every price lookup to when the STAY started, not today. A rate
+  // hike or a retired discount rule next month must never change what an
+  // already-in-progress (or even not-yet-checked-out) reservation is billed —
+  // it should always reflect what was actually in effect when the animal
+  // checked in.
+  const stayDateStr = String(reservation.start_date).slice(0, 10);
+
   const [{ data: rateHistory }, { data: rules }, { data: groomingItems }, { data: remembered }] = await Promise.all([
     type
       ? supabase
           .from("reservation_type_rates")
           .select("rate, effective_date")
           .eq("reservation_type_id", type.id)
-          .lte("effective_date", new Date().toISOString().slice(0, 10))
+          .lte("effective_date", stayDateStr)
           .order("effective_date", { ascending: false })
           .limit(1)
       : Promise.resolve({ data: null }),
     supabase
       .from("pricing_rules")
-      .select("id, reservation_type_id, label, rule_type, threshold, method, amount")
+      .select("id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date, retired_date")
       .eq("facility_id", session!.facilityId)
-      .eq("active", true)
-      .or(type ? `reservation_type_id.eq.${type.id},reservation_type_id.is.null` : "reservation_type_id.is.null"),
+      .lte("effective_date", stayDateStr)
+      .or(type ? `reservation_type_id.eq.${type.id},reservation_type_id.is.null` : "reservation_type_id.is.null")
+      .or(`retired_date.is.null,retired_date.gt.${stayDateStr}`),
     supabase.from("grooming_menu_items").select("name, min_price, max_price").eq("facility_id", session!.facilityId).eq("active", true).order("name"),
     animal
       ? supabase.from("grooming_service_prices").select("service_name, price").eq("animal_id", animal.id)
@@ -71,6 +79,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
         <h1 className="mt-2 text-xl font-semibold">Checkout — {animal?.name ?? "Unknown"}</h1>
         <p className="text-sm text-neutral-400 dark:text-neutral-500">
           {type?.name ?? "No reservation type"} · {units} {type?.rate_unit === "per_night" ? "night(s)" : "day(s)"}
+        </p>
+        <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+          Priced using rates/rules in effect on {stayDateStr} (the stay&apos;s start date), not today&apos;s.
         </p>
 
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
