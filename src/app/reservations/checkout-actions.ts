@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
@@ -81,5 +80,8 @@ export async function completeCheckout(
 
   revalidatePath("/reservations");
   revalidatePath("/lodging");
-  redirect("/reservations");
+
+  // No redirect here — the caller (CheckoutCalculator) may still need to
+  // charge a card against this invoice before navigating away.
+  return { invoiceId: invoice.id as string };
 }

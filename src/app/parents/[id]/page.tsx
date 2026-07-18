@@ -5,6 +5,8 @@ import FacilityHeader from "@/components/FacilityHeader";
 import ParentForm from "@/components/ParentForm";
 import { updateParent } from "../actions";
 import { addStoreCredit } from "../billing-actions";
+import { deletePaymentMethod } from "@/app/billing/helcim-actions";
+import HelcimCardModal from "@/components/HelcimCardModal";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -32,7 +34,7 @@ export default async function ParentDetailPage({
     .eq("parent_id", id)
     .order("name");
 
-  const [{ data: invoices }, { data: creditTx }] = await Promise.all([
+  const [{ data: invoices }, { data: creditTx }, { data: cards }] = await Promise.all([
     supabase
       .from("invoices")
       .select(`id, status, total, created_at, paid_at, facilities ( name )`)
@@ -42,7 +44,23 @@ export default async function ParentDetailPage({
       .from("store_credit_transactions")
       .select("amount, facility_id, facilities ( name )")
       .eq("parent_id", id),
+    supabase
+      .from("payment_methods")
+      .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
+      .eq("parent_id", id)
+      .order("created_at", { ascending: false }),
   ]);
+
+  type CardRow = {
+    id: string;
+    facility_id: string;
+    card_brand: string | null;
+    last4: string | null;
+    card_holder_name: string | null;
+    created_at: string;
+    facilities: { name: string } | null;
+  };
+  const cardRows = (cards as unknown as CardRow[]) ?? [];
 
   type InvoiceRow = {
     id: string;
@@ -236,6 +254,48 @@ export default async function ParentDetailPage({
                       <span className="font-medium">{money(Number(inv.total))}</span>
                     </span>
                   </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                Payment Methods
+              </h3>
+              <HelcimCardModal
+                facilityId={session!.facilityId}
+                parentId={id}
+                purpose="save_card"
+                amount={0}
+                buttonLabel="+ Add Card on File"
+                className="text-xs font-medium text-indigo-600 underline hover:text-indigo-700"
+              />
+            </div>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              Cards are saved securely with Helcim — we only ever store a token, never the card number. A card can
+              only be charged through the facility it was added at.
+            </p>
+            {cardRows.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">No cards on file.</p>
+            ) : (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {cardRows.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
+                  >
+                    <span>
+                      💳 {c.card_brand ?? "Card"} •••• {c.last4 ?? "----"}
+                      <span className="ml-2 text-slate-400 dark:text-slate-500">{c.facilities?.name ?? "—"}</span>
+                    </span>
+                    <form action={deletePaymentMethod.bind(null, c.id)}>
+                      <button type="submit" className="text-xs text-slate-400 underline hover:text-red-500">
+                        Remove
+                      </button>
+                    </form>
+                  </div>
                 ))}
               </div>
             )}

@@ -40,28 +40,37 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   // checked in.
   const stayDateStr = String(reservation.start_date).slice(0, 10);
 
-  const [{ data: rateHistory }, { data: rules }, { data: groomingItems }, { data: remembered }] = await Promise.all([
-    type
-      ? supabase
-          .from("reservation_type_rates")
-          .select("rate, effective_date")
-          .eq("reservation_type_id", type.id)
-          .lte("effective_date", stayDateStr)
-          .order("effective_date", { ascending: false })
-          .limit(1)
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("pricing_rules")
-      .select("id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date, retired_date")
-      .eq("facility_id", session!.facilityId)
-      .lte("effective_date", stayDateStr)
-      .or(type ? `reservation_type_id.eq.${type.id},reservation_type_id.is.null` : "reservation_type_id.is.null")
-      .or(`retired_date.is.null,retired_date.gt.${stayDateStr}`),
-    supabase.from("grooming_menu_items").select("name, min_price, max_price").eq("facility_id", session!.facilityId).eq("active", true).order("name"),
-    animal
-      ? supabase.from("grooming_service_prices").select("service_name, price").eq("animal_id", animal.id)
-      : Promise.resolve({ data: null }),
-  ]);
+  const [{ data: rateHistory }, { data: rules }, { data: groomingItems }, { data: remembered }, { data: savedCardRows }] =
+    await Promise.all([
+      type
+        ? supabase
+            .from("reservation_type_rates")
+            .select("rate, effective_date")
+            .eq("reservation_type_id", type.id)
+            .lte("effective_date", stayDateStr)
+            .order("effective_date", { ascending: false })
+            .limit(1)
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("pricing_rules")
+        .select("id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date, retired_date")
+        .eq("facility_id", session!.facilityId)
+        .lte("effective_date", stayDateStr)
+        .or(type ? `reservation_type_id.eq.${type.id},reservation_type_id.is.null` : "reservation_type_id.is.null")
+        .or(`retired_date.is.null,retired_date.gt.${stayDateStr}`),
+      supabase.from("grooming_menu_items").select("name, min_price, max_price").eq("facility_id", session!.facilityId).eq("active", true).order("name"),
+      animal
+        ? supabase.from("grooming_service_prices").select("service_name, price").eq("animal_id", animal.id)
+        : Promise.resolve({ data: null }),
+      animal?.parents
+        ? supabase
+            .from("payment_methods")
+            .select("id, card_brand, last4")
+            .eq("parent_id", animal.parents.id)
+            .eq("facility_id", session!.facilityId)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: null }),
+    ]);
 
   const currentRate = rateHistory && rateHistory.length > 0 ? Number(rateHistory[0].rate) : Number(type?.base_rate ?? 0);
 
@@ -83,6 +92,15 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           Priced using rates/rules in effect on {stayDateStr} (the stay&apos;s start date), not today&apos;s.
         </p>
+        {animal?.parents && (!savedCardRows || savedCardRows.length === 0) && (
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            No card on file for {animal.parents.first_name} —{" "}
+            <a href={`/parents/${animal.parents.id}`} className="underline">
+              add one on their profile
+            </a>{" "}
+            to charge here next time.
+          </p>
+        )}
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <CheckoutCalculator
@@ -97,6 +115,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             rules={(rules ?? []) as unknown as Parameters<typeof CheckoutCalculator>[0]["rules"]}
             groomingItems={groomingItems ?? []}
             rememberedPrices={remembered ?? []}
+            savedCards={savedCardRows ?? []}
           />
         </div>
       </div>

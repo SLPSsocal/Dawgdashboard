@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { completeCheckout, type CheckoutLineItem } from "@/app/reservations/checkout-actions";
+import { chargeSavedCard } from "@/app/billing/helcim-actions";
+
+type SavedCard = { id: string; card_brand: string | null; last4: string | null };
 
 type PricingRule = {
   id: string;
@@ -28,6 +32,7 @@ export default function CheckoutCalculator({
   rules,
   groomingItems,
   rememberedPrices,
+  savedCards,
 }: {
   reservationId: string;
   facilityId: string;
@@ -40,13 +45,16 @@ export default function CheckoutCalculator({
   rules: PricingRule[];
   groomingItems: GroomingItem[];
   rememberedPrices: RememberedPrice[];
+  savedCards: SavedCard[];
 }) {
   const [numDogs, setNumDogs] = useState(1);
   const [checkedFees, setCheckedFees] = useState<Set<string>>(new Set());
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
   const [markPaid, setMarkPaid] = useState(false);
+  const [cardId, setCardId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const multiDayRules = rules.filter((r) => r.rule_type === "multi_day_discount");
   const additionalDogRules = rules
@@ -123,14 +131,25 @@ export default function CheckoutCalculator({
 
   function submit() {
     setError(null);
-    startTransition(() => {
-      completeCheckout(reservationId, {
-        facilityId,
-        parentId,
-        animalId,
-        lineItems,
-        markPaid,
-      }).catch((e) => setError(e instanceof Error ? e.message : "Checkout failed"));
+    startTransition(async () => {
+      try {
+        const { invoiceId } = await completeCheckout(reservationId, {
+          facilityId,
+          parentId,
+          animalId,
+          lineItems,
+          markPaid,
+        });
+        if (cardId) {
+          // Invoice starts "open" — this flips it to "paid" only once Helcim
+          // actually approves the charge. A decline leaves the invoice open
+          // and surfaces the error here instead of silently marking it paid.
+          await chargeSavedCard(cardId, invoiceId, total);
+        }
+        router.push("/reservations");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Checkout failed");
+      }
     });
   }
 
@@ -240,9 +259,35 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
+      {savedCards.length > 0 && (
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Charge Card on File</span>
+          <select
+            value={cardId}
+            onChange={(e) => setCardId(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="">Don&apos;t charge a saved card</option>
+            {savedCards.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.card_brand ?? "Card"} •••• {c.last4 ?? "----"}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Charges ${total.toFixed(2)} on Complete Checkout and marks the invoice paid automatically.
+          </p>
+        </label>
+      )}
+
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={markPaid} onChange={(e) => setMarkPaid(e.target.checked)} />
-        Payment collected now
+        <input
+          type="checkbox"
+          checked={markPaid}
+          disabled={Boolean(cardId)}
+          onChange={(e) => setMarkPaid(e.target.checked)}
+        />
+        Payment collected now (cash / external)
       </label>
 
       {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</div>}
