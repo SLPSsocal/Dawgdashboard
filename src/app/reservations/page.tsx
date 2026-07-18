@@ -103,8 +103,35 @@ export default async function ReservationsPage() {
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        <DailySummaryBar stats={stats} />
-        <ServiceBreakdownTable breakdown={breakdown} />
+        <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 text-sm sm:mx-0 sm:px-0">
+          <a
+            href="/lodging/calendar"
+            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500"
+          >
+            📅 Lodging Calendar
+          </a>
+          <a
+            href="/facility-calendar"
+            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500"
+          >
+            🗓️ Facility Calendar
+          </a>
+          <a
+            href="/lodging"
+            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500"
+          >
+            🛏️ Lodging Board
+          </a>
+        </div>
+
+        <div className="lg:flex lg:items-start lg:gap-4">
+          <div className="lg:flex-1">
+            <DailySummaryBar stats={stats} />
+          </div>
+          <div className="lg:w-80 lg:shrink-0">
+            <ServiceBreakdownTable breakdown={breakdown} />
+          </div>
+        </div>
 
         {rows.length === 0 && !error ? (
           <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">

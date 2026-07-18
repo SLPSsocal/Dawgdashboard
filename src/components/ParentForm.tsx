@@ -56,15 +56,19 @@ export default function ParentForm({
     <form action={action} className="flex flex-col gap-4">
       {error && (
         <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
-          {error === "missing_name" ? "First and last name are required." : error}
+          {error === "missing_required"
+            ? "First name, last name, phone, email, and referral source are required."
+            : error === "missing_name"
+              ? "First and last name are required."
+              : error}
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First Name" name="first_name" defaultValue={defaults?.first_name} required />
         <Field label="Last Name" name="last_name" defaultValue={defaults?.last_name} required />
-        <Field label="Phone" name="phone" defaultValue={defaults?.phone} type="tel" />
-        <Field label="Email" name="email" defaultValue={defaults?.email} type="email" />
+        <Field label="Phone" name="phone" defaultValue={defaults?.phone} type="tel" required />
+        <Field label="Email" name="email" defaultValue={defaults?.email} type="email" required />
       </div>
 
       <Field label="Address" name="address" defaultValue={defaults?.address} />
@@ -81,7 +85,12 @@ export default function ParentForm({
           defaultValue={defaults?.emergency_contact_phone}
           type="tel"
         />
-        <Field label="Referral Source" name="referral_source" defaultValue={defaults?.referral_source} />
+        <Field
+          label="Referral Source"
+          name="referral_source"
+          defaultValue={defaults?.referral_source}
+          required
+        />
         <Field
           label="Social Media Handle"
           name="social_media_handle"

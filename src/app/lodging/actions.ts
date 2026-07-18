@@ -38,5 +38,6 @@ export async function assignLodging(reservationId: string, lodgingAreaId: string
   }
 
   revalidatePath("/lodging");
+  revalidatePath("/lodging/calendar");
   revalidatePath("/reservations");
 }

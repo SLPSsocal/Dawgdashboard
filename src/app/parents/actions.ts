@@ -15,8 +15,11 @@ export async function createParent(formData: FormData) {
 
   const first_name = str(formData, "first_name");
   const last_name = str(formData, "last_name");
-  if (!first_name || !last_name) {
-    redirect("/parents/new?error=missing_name");
+  const email = str(formData, "email");
+  const phone = str(formData, "phone");
+  const referral_source = str(formData, "referral_source");
+  if (!first_name || !last_name || !email || !phone || !referral_source) {
+    redirect("/parents/new?error=missing_required");
   }
 
   const { data, error } = await supabase
@@ -24,12 +27,12 @@ export async function createParent(formData: FormData) {
     .insert({
       first_name,
       last_name,
-      email: str(formData, "email"),
-      phone: str(formData, "phone"),
+      email,
+      phone,
       address: str(formData, "address"),
       emergency_contact_name: str(formData, "emergency_contact_name"),
       emergency_contact_phone: str(formData, "emergency_contact_phone"),
-      referral_source: str(formData, "referral_source"),
+      referral_source,
       social_media_handle: str(formData, "social_media_handle"),
       notes: str(formData, "notes"),
     })
@@ -49,8 +52,11 @@ export async function updateParent(parentId: string, formData: FormData) {
 
   const first_name = str(formData, "first_name");
   const last_name = str(formData, "last_name");
-  if (!first_name || !last_name) {
-    redirect(`/parents/${parentId}?error=missing_name`);
+  const email = str(formData, "email");
+  const phone = str(formData, "phone");
+  const referral_source = str(formData, "referral_source");
+  if (!first_name || !last_name || !email || !phone || !referral_source) {
+    redirect(`/parents/${parentId}?error=missing_required`);
   }
 
   const { error } = await supabase
@@ -58,12 +64,12 @@ export async function updateParent(parentId: string, formData: FormData) {
     .update({
       first_name,
       last_name,
-      email: str(formData, "email"),
-      phone: str(formData, "phone"),
+      email,
+      phone,
       address: str(formData, "address"),
       emergency_contact_name: str(formData, "emergency_contact_name"),
       emergency_contact_phone: str(formData, "emergency_contact_phone"),
-      referral_source: str(formData, "referral_source"),
+      referral_source,
       social_media_handle: str(formData, "social_media_handle"),
       notes: str(formData, "notes"),
     })

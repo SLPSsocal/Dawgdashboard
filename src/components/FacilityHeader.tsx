@@ -7,6 +7,8 @@ const modules = [
   { name: "Animals", href: "/animals" },
   { name: "Parents", href: "/parents" },
   { name: "Lodging", href: "/lodging" },
+  { name: "Lodging Calendar", href: "/lodging/calendar" },
+  { name: "Facility Calendar", href: "/facility-calendar" },
   { name: "Pricing", href: "/pricing" },
 ];
 
