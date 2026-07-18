@@ -1,21 +1,44 @@
 import { logout } from "@/app/logout/actions";
 import type { Session } from "@/lib/session";
+import { createClient } from "@/lib/supabase/server";
 import ThemeToggle from "@/components/ThemeToggle";
+import QuickActionBar, { type CheckInCandidate } from "@/components/QuickActionBar";
 
-const modules = [
-  { name: "Check-in", href: "/reservations" },
-  { name: "Animals", href: "/animals" },
-  { name: "Parents", href: "/parents" },
-  { name: "Lodging", href: "/lodging" },
-  { name: "Lodging Calendar", href: "/lodging/calendar" },
-  { name: "Facility Calendar", href: "/facility-calendar" },
-  { name: "Pricing", href: "/pricing" },
-];
+type CandidateRow = {
+  id: string;
+  start_date: string;
+  animals: { name: string; parents: { first_name: string; last_name: string } | null } | null;
+  reservation_types: { name: string } | null;
+};
 
-export default function FacilityHeader({ session }: { session: Session }) {
+export default async function FacilityHeader({ session }: { session: Session }) {
+  // Fetched here (not in QuickActionBar, a client component) so the popup's
+  // typeahead has data instantly on open with no extra round-trip.
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("reservations")
+    .select(
+      `id, start_date,
+       animals ( name, parents ( first_name, last_name ) ),
+       reservation_types ( name )`
+    )
+    .eq("facility_id", session.facilityId)
+    .eq("status", "booked")
+    .order("start_date", { ascending: true })
+    .limit(150);
+
+  const rows = (data as unknown as CandidateRow[]) ?? [];
+  const candidates: CheckInCandidate[] = rows.map((r) => ({
+    id: r.id,
+    animalName: r.animals?.name ?? "Unknown",
+    parentName: r.animals?.parents ? `${r.animals.parents.first_name} ${r.animals.parents.last_name}` : null,
+    typeName: r.reservation_types?.name ?? null,
+    startDate: r.start_date,
+  }));
+
   return (
     <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4">
+      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-2 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
             {session.facilityName}
@@ -28,17 +51,7 @@ export default function FacilityHeader({ session }: { session: Session }) {
             </form>
           </div>
         </div>
-        <nav className="-mx-1 flex gap-1 overflow-x-auto text-sm">
-          {modules.map((m) => (
-            <a
-              key={m.href}
-              href={m.href}
-              className="shrink-0 rounded-md px-2 py-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-            >
-              {m.name}
-            </a>
-          ))}
-        </nav>
+        <QuickActionBar candidates={candidates} />
       </div>
     </header>
   );

@@ -110,6 +110,11 @@ export default async function PricingPage() {
         {/* Rules */}
         <div className="mt-4 rounded-xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-700 dark:bg-slate-900">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Discount & Fee Rules</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            <span className="font-medium text-slate-500 dark:text-slate-400">Retire</span> turns a rule off for
+            new checkouts starting today — it does not delete it. Any stay that already started while the rule
+            was active keeps being priced with it, so past and in-progress checkouts are never affected.
+          </p>
           <div className="mt-3 flex flex-col gap-2">
             {(rules ?? []).map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -122,7 +127,12 @@ export default async function PricingPage() {
                   </span>
                 </div>
                 <form action={retirePricingRule.bind(null, r.id)}>
-                  <button className="text-xs text-red-500 hover:underline dark:text-red-400">Retire</button>
+                  <button
+                    title="Stops this rule from applying to new checkouts. Stays in effect for any reservation whose stay already started — it's never deleted."
+                    className="text-xs text-red-500 hover:underline dark:text-red-400"
+                  >
+                    Retire
+                  </button>
                 </form>
               </div>
             ))}

@@ -20,12 +20,13 @@ export default function ServiceBreakdownTable({
   if (breakdown.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Breakdown by Service Type</h2>
+    <div className="flex max-h-72 flex-col rounded-xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-200">Breakdown by Service Type</h2>
 
-      <div className="mt-3 overflow-x-auto">
+      {/* Only this list scrolls — it never grows the stat-pill row beside it. */}
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-auto">
         <table className="w-full min-w-[280px] border-collapse text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-white dark:bg-slate-900">
             <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:text-slate-500">
               <th className="py-2">Service</th>
               <th className="py-2 text-right">Count</th>
@@ -41,7 +42,7 @@ export default function ServiceBreakdownTable({
                 <td className="py-2 text-right font-medium">{b.count || "—"}</td>
               </tr>
             ))}
-            <tr className="bg-slate-50 dark:bg-slate-800/50">
+            <tr className="sticky bottom-0 bg-slate-50 dark:bg-slate-800/50">
               <td className="py-2 font-semibold">Total</td>
               <td className="py-2 text-right font-semibold">{total}</td>
             </tr>

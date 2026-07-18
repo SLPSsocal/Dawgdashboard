@@ -103,28 +103,10 @@ export default async function ReservationsPage() {
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 text-sm sm:mx-0 sm:px-0">
-          <a
-            href="/lodging/calendar"
-            className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
-          >
-            📅 Lodging Calendar
-          </a>
-          <a
-            href="/facility-calendar"
-            className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
-          >
-            🗓️ Facility Calendar
-          </a>
-          <a
-            href="/lodging"
-            className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium shadow-sm hover:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
-          >
-            🛏️ Lodging Board
-          </a>
-        </div>
+        {/* Quick-action bubbles (Check-in, Lodging Calendar, Facility Calendar, etc.)
+            now live in FacilityHeader on every page — no need to duplicate them here. */}
 
-        <div className="lg:flex lg:items-start lg:gap-4">
+        <div className="mt-4 lg:flex lg:items-start lg:gap-4">
           <div className="lg:flex-1">
             <DailySummaryBar stats={stats} />
           </div>

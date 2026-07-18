@@ -61,8 +61,19 @@ export default async function LodgingPage() {
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Lodging — {session!.facilityName}</h1>
+          <h1 className="text-xl font-semibold">Lodging Board — {session!.facilityName}</h1>
+          <a href="/lodging/calendar" className="text-sm text-slate-400 underline dark:text-slate-500">
+            Week view →
+          </a>
         </div>
+        <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
+          Today only — drag an arriving dog straight into an open kennel or suite. To assign lodging across
+          several days at once (or see who&apos;s in a suite later this week), use the{" "}
+          <a href="/lodging/calendar" className="underline">
+            Lodging Calendar
+          </a>{" "}
+          week view instead.
+        </p>
 
         <details className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
