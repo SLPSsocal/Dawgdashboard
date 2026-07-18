@@ -18,6 +18,10 @@ type AnimalDefaults = {
   behavioral_notes?: string | null;
   feeding_instructions?: string | null;
   medications?: string | null;
+  grooming_notes?: string | null;
+  alert_note?: string | null;
+  poop_eater?: boolean | null;
+  pee_drinker?: boolean | null;
   active?: boolean | null;
 };
 
@@ -178,12 +182,44 @@ export default function AnimalForm({
 
       <TextArea label="Medical Notes / Allergies" name="medical_notes" defaultValue={defaults?.medical_notes} />
       <TextArea label="Medications" name="medications" defaultValue={defaults?.medications} />
-      <TextArea label="Behavioral Notes" name="behavioral_notes" defaultValue={defaults?.behavioral_notes} />
+      <TextArea
+        label="Behavioral / Groupable Notes"
+        name="behavioral_notes"
+        defaultValue={defaults?.behavioral_notes}
+      />
       <TextArea
         label="Feeding Instructions"
         name="feeding_instructions"
         defaultValue={defaults?.feeding_instructions}
       />
+
+      <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Run Card Details
+        </div>
+        <div className="mt-3 flex flex-col gap-3">
+          <TextArea
+            label="Grooming Instructions"
+            name="grooming_notes"
+            defaultValue={defaults?.grooming_notes}
+          />
+          <TextArea
+            label="Alert / Read Pop-up (important, staff-facing)"
+            name="alert_note"
+            defaultValue={defaults?.alert_note}
+          />
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="poop_eater" defaultChecked={defaults?.poop_eater ?? false} />
+              Poop Eater
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="pee_drinker" defaultChecked={defaults?.pee_drinker ?? false} />
+              Pee Drinker
+            </label>
+          </div>
+        </div>
+      </div>
 
       {showActiveToggle && (
         <label className="flex items-center gap-2 text-sm">

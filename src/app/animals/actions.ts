@@ -53,6 +53,10 @@ export async function createAnimal(formData: FormData) {
       behavioral_notes: str(formData, "behavioral_notes"),
       feeding_instructions: str(formData, "feeding_instructions"),
       medications: str(formData, "medications"),
+      grooming_notes: str(formData, "grooming_notes"),
+      alert_note: str(formData, "alert_note"),
+      poop_eater: bool(formData, "poop_eater"),
+      pee_drinker: bool(formData, "pee_drinker"),
     })
     .select("id")
     .single();
@@ -100,6 +104,10 @@ export async function updateAnimal(animalId: string, formData: FormData) {
       behavioral_notes: str(formData, "behavioral_notes"),
       feeding_instructions: str(formData, "feeding_instructions"),
       medications: str(formData, "medications"),
+      grooming_notes: str(formData, "grooming_notes"),
+      alert_note: str(formData, "alert_note"),
+      poop_eater: bool(formData, "poop_eater"),
+      pee_drinker: bool(formData, "pee_drinker"),
       active: bool(formData, "active"),
     })
     .eq("id", animalId);
