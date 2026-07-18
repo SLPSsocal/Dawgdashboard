@@ -16,24 +16,24 @@ export default async function ParentsPage() {
     .order("last_name");
 
   return (
-    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold">Parents</h1>
-            <p className="text-sm text-neutral-400 dark:text-neutral-500">Shared across all facilities</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">Shared across all facilities</p>
           </div>
           <a
             href="/parents/new"
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+            className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
           >
             + New Parent
           </a>
         </div>
 
         {!parents || parents.length === 0 ? (
-          <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No parents yet.</p>
+          <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No parents yet.</p>
         ) : (
           <SearchableParentsList parents={parents} />
         )}

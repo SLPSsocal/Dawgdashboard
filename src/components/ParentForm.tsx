@@ -26,7 +26,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
@@ -35,7 +35,7 @@ function Field({
         type={type}
         defaultValue={defaultValue ?? ""}
         required={required}
-        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
   );
@@ -99,18 +99,18 @@ export default function ParentForm({
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Notes</span>
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
         <textarea
           name="notes"
           defaultValue={defaults?.notes ?? ""}
           rows={3}
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       </label>
 
       <button
         type="submit"
-        className="mt-2 w-full rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+        className="mt-2 w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
       >
         {submitLabel}
       </button>

@@ -67,7 +67,7 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
     return (
       <th
         onClick={() => toggleSort(sortField)}
-        className="cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+        className="cursor-pointer select-none whitespace-nowrap px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
       >
         {label} {active ? (sortDir === "asc" ? "▲" : "▼") : ""}
       </th>
@@ -79,27 +79,27 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
     return (
       <details
         open
-        className="group mt-4 rounded-xl border border-neutral-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900"
+        className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             {title} ({data.length})
           </h2>
-          <span className="text-neutral-400 transition-transform group-open:rotate-180 dark:text-neutral-500">
+          <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
             ▾
           </span>
         </summary>
-        <div className="overflow-x-auto border-t border-neutral-100 dark:border-neutral-800">
+        <div className="overflow-x-auto border-t border-slate-100 dark:border-slate-800">
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 dark:border-neutral-800">
+              <tr className="border-b border-slate-200 dark:border-slate-800">
                 <SortHeader label="Animal" sortField="animalName" />
                 <SortHeader label="Parent" sortField="parentName" />
                 <SortHeader label="Type" sortField="typeName" />
                 <SortHeader label="Lodging" sortField="lodgingName" />
                 <SortHeader label="Arrival" sortField="startDate" />
                 <SortHeader label="Departure" sortField="endDate" />
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Actions
                 </th>
               </tr>
@@ -108,33 +108,33 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
               {data.map((r) => (
                 <tr
                   key={r.id}
-                  className={`border-b border-l-4 border-neutral-100 last:border-b-0 dark:border-neutral-800 ${accent}`}
+                  className={`border-b border-l-4 border-slate-100 last:border-b-0 dark:border-slate-800 ${accent}`}
                 >
                   <td className="px-3 py-2">
-                    <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-neutral-300 hover:decoration-neutral-600 dark:decoration-neutral-600">
+                    <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                       {r.animalName}
                     </a>
-                    <div className="text-xs text-neutral-400 dark:text-neutral-500">{r.breed ?? "—"}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">{r.breed ?? "—"}</div>
                   </td>
-                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                     {r.parentId ? (
-                      <a href={`/parents/${r.parentId}`} className="underline decoration-neutral-300 hover:decoration-neutral-600 dark:decoration-neutral-600">
+                      <a href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                         {r.parentName ?? "—"}
                       </a>
                     ) : (
                       r.parentName ?? "—"
                     )}
                   </td>
-                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{r.typeName ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">{r.lodgingName ?? "—"}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{fmtDate(r.startDate)}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{fmtDate(r.endDate)}</td>
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.typeName ?? "—"}</td>
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.lodgingName ?? "—"}</td>
+                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{fmtDate(r.startDate)}</td>
+                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       {r.status === "checked_in" && (
                         <a
                           href={`/reservations/${r.id}/checkout`}
-                          className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+                          className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2 py-1 text-xs font-medium text-white dark:bg-slate-100 dark:text-slate-900"
                         >
                           Check Out
                         </a>
@@ -163,14 +163,14 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by animal, parent, breed, or type…"
-        className="mt-4 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
 
       <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
       <Table title="📋 Expected Today" data={expected} accent="border-l-amber-500" />
 
       {filtered.length === 0 && (
-        <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">No matches.</p>
+        <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No matches.</p>
       )}
     </div>
   );

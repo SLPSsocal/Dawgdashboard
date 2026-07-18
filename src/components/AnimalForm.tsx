@@ -36,7 +36,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
@@ -45,7 +45,7 @@ function Field({
         type={type}
         defaultValue={defaultValue ?? ""}
         required={required}
-        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
   );
@@ -62,12 +62,12 @@ function TextArea({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{label}</span>
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
       <textarea
         name={name}
         defaultValue={defaultValue ?? ""}
         rows={2}
-        className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
   );
@@ -102,14 +102,14 @@ export default function AnimalForm({
 
       {showParentPicker && (
         <label className="block">
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Parent<span className="text-red-500"> *</span>
           </span>
           <select
             name="parent_id"
             defaultValue={selectedParentId ?? ""}
             required
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="" disabled>
               Select a parent…
@@ -129,11 +129,11 @@ export default function AnimalForm({
         <Field label="Breed" name="breed" defaultValue={defaults?.breed} />
         <Field label="Color / Markings" name="color_markings" defaultValue={defaults?.color_markings} />
         <label className="block">
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Size</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Size</span>
           <select
             name="size"
             defaultValue={defaults?.size ?? ""}
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">—</option>
             <option value="small">Small</option>
@@ -144,11 +144,11 @@ export default function AnimalForm({
         </label>
         <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" />
         <label className="block">
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Sex</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sex</span>
           <select
             name="sex"
             defaultValue={defaults?.sex ?? ""}
-            className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="">—</option>
             <option value="male">Male</option>
@@ -194,7 +194,7 @@ export default function AnimalForm({
 
       <button
         type="submit"
-        className="mt-2 w-full rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+        className="mt-2 w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
       >
         {submitLabel}
       </button>

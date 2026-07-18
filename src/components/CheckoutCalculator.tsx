@@ -138,7 +138,7 @@ export default function CheckoutCalculator({
     <div className="flex flex-col gap-4">
       {additionalDogRules.length > 0 && (
         <label className="block">
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Total dogs in this booking (same household)
           </span>
           <input
@@ -146,14 +146,14 @@ export default function CheckoutCalculator({
             min={1}
             value={numDogs}
             onChange={(e) => setNumDogs(Math.max(1, Number(e.target.value)))}
-            className="mt-1 w-24 rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+            className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </label>
       )}
 
       {flatFeeRules.length > 0 && (
         <div>
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Fees</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fees</span>
           <div className="mt-1 flex flex-col gap-1">
             {flatFeeRules.map((rule) => (
               <label key={rule.id} className="flex items-center gap-2 text-sm">
@@ -178,11 +178,11 @@ export default function CheckoutCalculator({
 
       <div>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Grooming Add-ons</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Grooming Add-ons</span>
           <button
             type="button"
             onClick={addGroomingRow}
-            className="text-xs font-medium text-neutral-500 underline dark:text-neutral-400"
+            className="text-xs font-medium text-slate-500 underline dark:text-slate-400"
           >
             + Add Service
           </button>
@@ -196,7 +196,7 @@ export default function CheckoutCalculator({
                   const service = e.target.value;
                   updateGroomingRow(i, { service, price: serviceDefaultPrice(service) });
                 }}
-                className="flex-1 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="">Select service…</option>
                 {groomingItems.map((g) => (
@@ -211,7 +211,7 @@ export default function CheckoutCalculator({
                 step="0.01"
                 value={row.price}
                 onChange={(e) => updateGroomingRow(i, { price: Number(e.target.value) })}
-                className="w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
               <button
                 type="button"
@@ -225,16 +225,16 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
-      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-950/40">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
         {lineItems.map((li, i) => (
           <div key={i} className="flex justify-between py-0.5">
-            <span className="text-neutral-500 dark:text-neutral-400">{li.description}</span>
+            <span className="text-slate-500 dark:text-slate-400">{li.description}</span>
             <span className={li.lineTotal < 0 ? "text-green-600 dark:text-green-400" : ""}>
               {li.lineTotal < 0 ? "-" : ""}${Math.abs(li.lineTotal).toFixed(2)}
             </span>
           </div>
         ))}
-        <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 font-semibold dark:border-neutral-800">
+        <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
           <span>Total</span>
           <span>${total.toFixed(2)}</span>
         </div>
@@ -250,7 +250,7 @@ export default function CheckoutCalculator({
       <button
         onClick={submit}
         disabled={isPending}
-        className="w-full rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+        className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:w-fit dark:bg-slate-100 dark:text-slate-900"
       >
         {isPending ? "Checking Out…" : "Complete Checkout"}
       </button>

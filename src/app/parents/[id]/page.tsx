@@ -69,45 +69,45 @@ export default async function ParentDetailPage({
   const updateWithId = updateParent.bind(null, id);
 
   return (
-    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/parents" className="text-sm text-neutral-400 underline dark:text-neutral-500">
+        <a href="/parents" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Parents
         </a>
         <h1 className="mt-2 text-xl font-semibold">
           {parent.first_name} {parent.last_name}
         </h1>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Animals</h2>
+            <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Animals</h2>
             <a
               href={`/animals/new?parent_id=${id}`}
-              className="text-sm font-medium text-neutral-900 underline dark:text-neutral-100"
+              className="text-sm font-medium text-slate-900 underline dark:text-slate-100"
             >
               + Add Animal
             </a>
           </div>
           {(!animals || animals.length === 0) && (
-            <p className="mt-2 text-sm text-neutral-400 dark:text-neutral-500">No animals linked yet.</p>
+            <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">No animals linked yet.</p>
           )}
           <div className="mt-3 flex flex-col gap-2">
             {(animals ?? []).map((a) => (
               <a
                 key={a.id}
                 href={`/animals/${a.id}`}
-                className="rounded-md border border-neutral-200 px-3 py-2 text-sm hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
               >
                 <span className="font-medium">{a.name}</span>{" "}
-                <span className="text-neutral-400 dark:text-neutral-500">{a.breed ?? ""}</span>
+                <span className="text-slate-400 dark:text-slate-500">{a.breed ?? ""}</span>
               </a>
             ))}
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
-          <h2 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Billing</h2>
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Billing</h2>
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-green-200 bg-green-50/60 px-4 py-3 dark:border-green-900 dark:bg-green-950/20">
@@ -127,12 +127,12 @@ export default async function ParentDetailPage({
               className={`rounded-lg border px-4 py-3 ${
                 openBalance > 0
                   ? "border-red-200 bg-red-50/60 dark:border-red-900 dark:bg-red-950/20"
-                  : "border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900/40"
+                  : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40"
               }`}
             >
               <div
                 className={`text-xs uppercase tracking-wide ${
-                  openBalance > 0 ? "text-red-700 dark:text-red-400" : "text-neutral-500 dark:text-neutral-400"
+                  openBalance > 0 ? "text-red-700 dark:text-red-400" : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 Open Balance
@@ -147,58 +147,58 @@ export default async function ParentDetailPage({
             </div>
           </div>
 
-          <details className="group mt-4 rounded-lg border border-neutral-200 dark:border-neutral-800">
+          <details className="group mt-4 rounded-lg border border-slate-200 dark:border-slate-800">
             <summary className="flex cursor-pointer select-none list-none items-center justify-between px-3 py-2 text-sm font-medium">
               + Add / Adjust Store Credit
-              <span className="text-neutral-400 transition-transform group-open:rotate-180 dark:text-neutral-500">
+              <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
                 ▾
               </span>
             </summary>
             <form
               action={addStoreCredit}
-              className="flex flex-col gap-3 border-t border-neutral-100 p-3 dark:border-neutral-800"
+              className="flex flex-col gap-3 border-t border-slate-100 p-3 dark:border-slate-800"
             >
               <input type="hidden" name="parent_id" value={id} />
               <input type="hidden" name="facility_id" value={session!.facilityId} />
               <input type="hidden" name="staff_name" value={session!.staffName} />
-              <p className="text-xs text-neutral-400 dark:text-neutral-500">
+              <p className="text-xs text-slate-400 dark:text-slate-500">
                 Applies to {session!.facilityName}&apos;s balance.
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <label>
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Amount</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Amount</span>
                   <input
                     name="amount"
                     type="number"
                     step="0.01"
                     min="0.01"
                     required
-                    className="mt-1 w-28 rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    className="mt-1 w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </label>
                 <label>
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Direction</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Direction</span>
                   <select
                     name="direction"
                     defaultValue="add"
-                    className="mt-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   >
                     <option value="add">Add credit</option>
                     <option value="redeem">Redeem credit</option>
                   </select>
                 </label>
                 <label className="flex-1">
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Reason</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Reason</span>
                   <input
                     name="reason"
                     placeholder="e.g. Bought $50 grooming package"
-                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </label>
               </div>
               <button
                 type="submit"
-                className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+                className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
               >
                 Save
               </button>
@@ -206,22 +206,22 @@ export default async function ParentDetailPage({
           </details>
 
           <div className="mt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
               Invoices
             </h3>
             {invoiceRows.length === 0 ? (
-              <p className="mt-2 text-sm text-neutral-400 dark:text-neutral-500">No invoices yet.</p>
+              <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">No invoices yet.</p>
             ) : (
               <div className="mt-2 flex flex-col gap-1.5">
                 {invoiceRows.map((inv) => (
                   <a
                     key={inv.id}
                     href={`/invoices/${inv.id}`}
-                    className="flex items-center justify-between rounded-md border border-neutral-200 px-3 py-2 text-sm hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600"
+                    className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
                   >
                     <span>
                       {new Date(inv.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
-                      <span className="ml-2 text-neutral-400 dark:text-neutral-500">{inv.facilities?.name ?? "—"}</span>
+                      <span className="ml-2 text-slate-400 dark:text-slate-500">{inv.facilities?.name ?? "—"}</span>
                     </span>
                     <span className="flex items-center gap-2">
                       <span
@@ -242,7 +242,7 @@ export default async function ParentDetailPage({
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <ParentForm action={updateWithId} defaults={parent} submitLabel="Save Changes" error={error} />
         </div>
       </div>

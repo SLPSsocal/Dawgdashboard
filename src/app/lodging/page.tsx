@@ -57,42 +57,42 @@ export default async function LodgingPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
+    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Lodging — {session!.facilityName}</h1>
         </div>
 
-        <details className="group mt-4 rounded-xl border border-neutral-300 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <details className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
-            <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               + Add Lodging Area
             </h2>
-            <span className="text-neutral-400 transition-transform group-open:rotate-180 dark:text-neutral-500">
+            <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
               ▾
             </span>
           </summary>
           <form
             action={createLodgingArea}
-            className="flex flex-col gap-3 border-t border-neutral-100 p-4 sm:flex-row sm:items-end dark:border-neutral-800"
+            className="flex flex-col gap-3 border-t border-slate-100 p-4 sm:flex-row sm:items-end dark:border-slate-800"
           >
             <input type="hidden" name="facility_id" value={session!.facilityId} />
             <label className="flex-1">
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Name</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</span>
               <input
                 name="name"
                 required
                 placeholder="Suite 8"
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
             <label>
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Type</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</span>
               <select
                 name="area_type"
                 defaultValue="kennel"
-                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="kennel">Kennel</option>
                 <option value="suite">Suite</option>
@@ -101,18 +101,18 @@ export default async function LodgingPage() {
               </select>
             </label>
             <label>
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Capacity</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Capacity</span>
               <input
                 name="capacity"
                 type="number"
                 min={1}
                 defaultValue={1}
-                className="mt-1 w-24 rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
             <button
               type="submit"
-              className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+              className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
             >
               Add
             </button>
@@ -120,7 +120,7 @@ export default async function LodgingPage() {
         </details>
 
         {(!areas || areas.length === 0) ? (
-          <p className="mt-8 text-sm text-neutral-400 dark:text-neutral-500">
+          <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">
             No lodging areas set up yet for {session!.facilityName}. Add one above to get started.
           </p>
         ) : (

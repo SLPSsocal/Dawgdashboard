@@ -28,15 +28,15 @@ export default async function NewReportCardPage({
   const submitWithId = createReportCard.bind(null, id);
 
   return (
-    <main className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-lg px-4 py-6 sm:px-6 sm:py-8">
-        <a href={`/reservations/${id}`} className="text-sm text-neutral-400 underline dark:text-neutral-500">
+        <a href={`/reservations/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Back
         </a>
         <h1 className="mt-2 text-xl font-semibold">New Report Card — {animal?.name ?? "Animal"}</h1>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           {error && (
             <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
               {error}
@@ -47,11 +47,11 @@ export default async function NewReportCardPage({
             <input type="hidden" name="facility_id" value={session!.facilityId} />
 
             <label className="block">
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">How was the day?</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">How was the day?</span>
               <select
                 name="rating"
                 defaultValue="great"
-                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="great">🌟 Great</option>
                 <option value="good">🙂 Good</option>
@@ -61,28 +61,28 @@ export default async function NewReportCardPage({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Activities <span className="text-neutral-400">(comma separated)</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Activities <span className="text-slate-400">(comma separated)</span>
               </span>
               <input
                 name="activities"
                 placeholder="Fetch, pool time, group play"
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Notes</span>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
               <textarea
                 name="notes"
                 rows={4}
-                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-neutral-100 dark:text-neutral-900"
+              className="mt-2 w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
             >
               Save Report Card
             </button>
