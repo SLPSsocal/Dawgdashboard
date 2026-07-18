@@ -27,7 +27,7 @@ body {
 
 /* Safety net: any input/select/textarea that doesn't set its own
    background/text utility classes still renders readable in both themes.
-   Elements with explicit dark:bg-*/dark:text-* (or bg-white) utilities
+   Elements with explicit dark:bg-, dark:text- (or bg-white) utilities
    still win — class selectors outrank these element selectors. */
 input,
 select,
