@@ -20,7 +20,7 @@ export async function createLodgingArea(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/lodging");
+  revalidatePath("/lodging/calendar");
 }
 
 // Moves a reservation to a different (or no) lodging area — e.g. "Suite 8"

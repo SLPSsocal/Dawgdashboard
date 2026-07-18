@@ -14,7 +14,6 @@ export type CheckInCandidate = {
 const LINKS = [
   { name: "Lodging Calendar", href: "/lodging/calendar", icon: "📅" },
   { name: "Facility Calendar", href: "/facility-calendar", icon: "🗓️" },
-  { name: "Lodging Board", href: "/lodging", icon: "🛏️" },
   { name: "Parents", href: "/parents", icon: "👪" },
   { name: "Animals", href: "/animals", icon: "🐶" },
   { name: "Pricing", href: "/pricing", icon: "💲" },

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import LodgingCalendar, { type CalArea, type CalReservation } from "@/components/LodgingCalendar";
+import { createLodgingArea } from "@/app/lodging/actions";
 
 function fmt(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -114,10 +115,58 @@ export default async function LodgingCalendarPage({
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Lodging Calendar — {session!.facilityName}</h1>
-          <a href="/lodging" className="text-sm text-slate-400 underline dark:text-slate-500">
-            Same-day board →
-          </a>
         </div>
+
+        <details className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">+ Add Lodging Area</h2>
+            <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
+          </summary>
+          <form
+            action={createLodgingArea}
+            className="flex flex-col gap-3 border-t border-slate-100 p-4 sm:flex-row sm:items-end dark:border-slate-800"
+          >
+            <input type="hidden" name="facility_id" value={session!.facilityId} />
+            <label className="flex-1">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</span>
+              <input
+                name="name"
+                required
+                placeholder="Suite 8"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</span>
+              <select
+                name="area_type"
+                defaultValue="kennel"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="kennel">Kennel</option>
+                <option value="suite">Suite</option>
+                <option value="run">Run</option>
+                <option value="daycare_pen">Daycare Pen</option>
+              </select>
+            </label>
+            <label>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Capacity</span>
+              <input
+                name="capacity"
+                type="number"
+                min={1}
+                defaultValue={1}
+                className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
+            >
+              Add
+            </button>
+          </form>
+        </details>
 
         <div className="mt-3 flex items-center gap-2 text-sm">
           <a

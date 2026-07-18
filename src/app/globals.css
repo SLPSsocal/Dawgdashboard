@@ -7,12 +7,40 @@ body {
   height: 100%;
 }
 
+/* Tied to the actual app theme (the .dark class Tailwind toggles), not raw
+   OS preference. Previously this was "light dark" unconditionally, which
+   made browsers apply native dark styling to unstyled form controls
+   (inputs/selects) whenever the OS was in dark mode — even while the page
+   itself was rendering in light mode — producing unreadable dark-on-dark
+   fields. */
 html {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Safety net: any input/select/textarea that doesn't set its own
+   background/text utility classes still renders readable in both themes.
+   Elements with explicit dark:bg-*/dark:text-* (or bg-white) utilities
+   still win — class selectors outrank these element selectors. */
+input,
+select,
+textarea {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a;
+  color: #f1f5f9;
 }
 
 summary::-webkit-details-marker {

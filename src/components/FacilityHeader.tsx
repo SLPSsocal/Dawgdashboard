@@ -39,11 +39,15 @@ export default async function FacilityHeader({ session }: { session: Session }) 
   return (
     <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-2 sm:px-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <div className="grid grid-cols-3 items-center gap-3">
+          <div />
+          <a
+            href="/"
+            className="justify-self-center text-sm font-semibold uppercase tracking-wide text-slate-700 hover:text-indigo-600 dark:text-slate-200 dark:hover:text-indigo-400"
+          >
             {session.facilityName}
-          </div>
-          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+          </a>
+          <div className="flex items-center justify-self-end gap-3 text-sm text-slate-500 dark:text-slate-400">
             <span className="hidden sm:inline">{session.staffName}</span>
             <ThemeToggle />
             <form action={logout}>
