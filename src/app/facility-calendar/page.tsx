@@ -71,7 +71,7 @@ export default async function FacilityCalendarPage({
   return (
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Facility Calendar — {session!.facilityName}</h1>
         </div>

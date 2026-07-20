@@ -42,7 +42,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         {parent && (
           <a href={`/parents/${parent.id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
             ← {parent.first_name} {parent.last_name}

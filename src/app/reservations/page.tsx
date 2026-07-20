@@ -108,15 +108,11 @@ export default async function ReservationsPage() {
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
 
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold">Check-in Board</h1>
         {error && (
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
-
-        <div className="mt-3">
-          <PageQuickActions session={session!} />
-        </div>
 
         <div className="mt-4 lg:flex lg:items-start lg:gap-4">
           <div className="lg:flex-1">
@@ -125,6 +121,10 @@ export default async function ReservationsPage() {
           <div className="lg:w-80 lg:shrink-0">
             <ServiceBreakdownTable breakdown={breakdown} />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <PageQuickActions session={session!} />
         </div>
 
         {rows.length === 0 && !error ? (

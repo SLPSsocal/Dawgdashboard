@@ -70,7 +70,7 @@ export default async function ReservationDetailPage({
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
         </a>
