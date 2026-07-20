@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import ParentForm from "@/components/ParentForm";
 import { updateParent } from "../actions";
 import { addStoreCredit } from "../billing-actions";
@@ -96,6 +97,10 @@ export default async function ParentDetailPage({
         <h1 className="mt-2 text-xl font-semibold">
           {parent.first_name} {parent.last_name}
         </h1>
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
+        </div>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-2">

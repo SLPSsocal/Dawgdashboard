@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import CheckInBoard, { type CheckInRow } from "@/components/CheckInBoard";
 import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
@@ -22,43 +23,8 @@ type Row = {
   reservation_types: { name: string } | null;
 };
 
-export default async function ReservationsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
-  // Facility isolation happens right here: every query in this app is filtered
-  // by session.facilityId, which came from the PIN login for this facility only.
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("reservations")
-    .select(
-      `id, status, start_date, end_date,
-       animals ( id, name, breed, photo_url, parents ( id, first_name, last_name, phone ) ),
-       lodging_areas ( name ),
-       reservation_types ( name )`
-    )
-    .eq("facility_id", session!.facilityId)
-    .in("status", ["booked", "checked_in"])
-    .order("start_date", { ascending: true });
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const { count: checkedOutTodayCount } = await supabase
-    .from("reservations")
-    .select("id", { count: "exact", head: true })
-    .eq("facility_id", session!.facilityId)
-    .eq("status", "checked_out")
-    .gte("checked_out_at", `${todayStr}T00:00:00`)
-    .lte("checked_out_at", `${todayStr}T23:59:59`);
-
-  const { data: allTypes } = await supabase
-    .from("reservation_types")
-    .select("name")
-    .eq("facility_id", session!.facilityId)
-    .eq("active", true)
-    .order("name");
-
-  const rows = (data as unknown as Row[]) ?? [];
-  const boardRows: CheckInRow[] = rows.map((r) => ({
+function toRow(r: Row): CheckInRow {
+  return {
     id: r.id,
     status: r.status,
     animalId: r.animals?.id ?? "",
@@ -70,18 +36,63 @@ export default async function ReservationsPage() {
     lodgingName: r.lodging_areas?.name ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
-  }));
+  };
+}
+
+export default async function ReservationsPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  // Facility isolation happens right here: every query in this app is filtered
+  // by session.facilityId, which came from the PIN login for this facility only.
+  const supabase = createClient();
+  const selectCols = `id, status, start_date, end_date,
+       animals ( id, name, breed, photo_url, parents ( id, first_name, last_name, phone ) ),
+       lodging_areas ( name ),
+       reservation_types ( name )`;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const [{ data, error }, { data: checkedOutData }, { data: allTypes }] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select(selectCols)
+      .eq("facility_id", session!.facilityId)
+      .in("status", ["booked", "checked_in"])
+      .order("start_date", { ascending: true }),
+    // Fetched in full (not just a count) so "Undo Check Out" is reachable
+    // right here if staff need to reverse an accidental checkout.
+    supabase
+      .from("reservations")
+      .select(selectCols)
+      .eq("facility_id", session!.facilityId)
+      .eq("status", "checked_out")
+      .gte("checked_out_at", `${todayStr}T00:00:00`)
+      .lte("checked_out_at", `${todayStr}T23:59:59`)
+      .order("checked_out_at", { ascending: false }),
+    supabase
+      .from("reservation_types")
+      .select("name")
+      .eq("facility_id", session!.facilityId)
+      .eq("active", true)
+      .order("name"),
+  ]);
+
+  const rows = (data as unknown as Row[]) ?? [];
+  const boardRows: CheckInRow[] = rows.map(toRow);
+  const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
 
   const expectedTodayCount = boardRows.filter((r) => r.status === "booked" && r.startDate.slice(0, 10) === todayStr).length;
   const checkedInCount = boardRows.filter((r) => r.status === "checked_in").length;
   const overnightCount = boardRows.filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr).length;
+  const checkedOutTodayCount = checkedOutRows.length;
 
   const stats = [
     { label: "Expected Today", value: expectedTodayCount },
     { label: "Checked In", value: checkedInCount, accent: "border-l-4 border-l-green-500" },
-    { label: "Checked Out Today", value: checkedOutTodayCount ?? 0 },
+    { label: "Checked Out Today", value: checkedOutTodayCount },
     { label: "Overnight", value: overnightCount },
-    { label: "Total Today", value: expectedTodayCount + checkedInCount + (checkedOutTodayCount ?? 0) },
+    { label: "Total Today", value: expectedTodayCount + checkedInCount + checkedOutTodayCount },
   ];
 
   // Breakdown by service type — every active reservation type shows, even at
@@ -103,8 +114,9 @@ export default async function ReservationsPage() {
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        {/* Quick-action bubbles (Check-in, Lodging Calendar, Facility Calendar, etc.)
-            now live in FacilityHeader on every page — no need to duplicate them here. */}
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
+        </div>
 
         <div className="mt-4 lg:flex lg:items-start lg:gap-4">
           <div className="lg:flex-1">
@@ -121,7 +133,7 @@ export default async function ReservationsPage() {
             areas are set up, bookings will show here.
           </p>
         ) : (
-          <CheckInBoard rows={boardRows} />
+          <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} />
         )}
       </div>
     </main>

@@ -94,11 +94,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
         </p>
         {animal?.parents && (!savedCardRows || savedCardRows.length === 0) && (
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            No card on file for {animal.parents.first_name} —{" "}
+            No card on file for {animal.parents.first_name} yet — use &quot;+ Add a new card…&quot; in the Card
+            Payment field below, or{" "}
             <a href={`/parents/${animal.parents.id}`} className="underline">
               add one on their profile
             </a>{" "}
-            to charge here next time.
+            anytime.
           </p>
         )}
 

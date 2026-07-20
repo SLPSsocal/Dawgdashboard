@@ -2,7 +2,7 @@ type Stat = { label: string; value: number; accent?: string };
 
 export default function DailySummaryBar({ stats }: { stats: Stat[] }) {
   return (
-    <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+    <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
       {stats.map((s) => (
         <div
           key={s.label}

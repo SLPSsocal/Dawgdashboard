@@ -28,16 +28,18 @@ function fmtDate(iso: string) {
   });
 }
 
-export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
+export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: CheckInRow[]; checkedOutToday?: CheckInRow[] }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
+  const allRows = useMemo(() => [...rows, ...checkedOutToday], [rows, checkedOutToday]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matched = !q
-      ? rows
-      : rows.filter((r) =>
+      ? allRows
+      : allRows.filter((r) =>
           [r.animalName, r.parentName, r.breed, r.typeName, r.lodgingName]
             .filter((v): v is string => Boolean(v))
             .some((v) => v.toLowerCase().includes(q))
@@ -48,10 +50,11 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
       const cmp = av.localeCompare(bv);
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [rows, query, sortKey, sortDir]);
+  }, [allRows, query, sortKey, sortDir]);
 
   const checkedIn = filtered.filter((r) => r.status === "checked_in");
   const expected = filtered.filter((r) => r.status === "booked");
+  const checkedOut = filtered.filter((r) => r.status === "checked_out");
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -74,11 +77,21 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
     );
   }
 
-  function Table({ title, data, accent }: { title: string; data: CheckInRow[]; accent: string }) {
+  function Table({
+    title,
+    data,
+    accent,
+    defaultOpen = true,
+  }: {
+    title: string;
+    data: CheckInRow[];
+    accent: string;
+    defaultOpen?: boolean;
+  }) {
     if (data.length === 0) return null;
     return (
       <details
-        open
+        open={defaultOpen}
         className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
@@ -142,7 +155,9 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
                       <ReservationActionsMenu
                         reservationId={r.id}
                         animalId={r.animalId}
+                        animalName={r.animalName}
                         parentId={r.parentId}
+                        parentName={r.parentName}
                         status={r.status}
                       />
                     </div>
@@ -168,6 +183,7 @@ export default function CheckInBoard({ rows }: { rows: CheckInRow[] }) {
 
       <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
       <Table title="📋 Expected Today" data={expected} accent="border-l-amber-500" />
+      <Table title="✅ Checked Out Today" data={checkedOut} accent="border-l-slate-400" defaultOpen={false} />
 
       {filtered.length === 0 && (
         <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No matches.</p>

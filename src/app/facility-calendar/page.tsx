@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import FacilityCalendarBoard, { type ApptCard, type Specialist } from "@/components/FacilityCalendarBoard";
 
 function fmt(d: Date) {
@@ -73,6 +74,10 @@ export default async function FacilityCalendarPage({
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Facility Calendar — {session!.facilityName}</h1>
+        </div>
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
         </div>
 
         <div className="mt-3 flex items-center gap-2 text-sm">

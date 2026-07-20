@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import {
   addRate,
   addPricingRule,
@@ -50,7 +51,12 @@ export default async function PricingPage() {
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold">Pricing — {session!.facilityName}</h1>
-        <p className="text-sm text-slate-400 dark:text-slate-500">
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
+        </div>
+
+        <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">
           Rates and rules are effective-dated — updating or retiring one never touches reservations that
           started before the change. Checkout always uses whatever was in effect on the stay&apos;s start
           date, not today&apos;s. Each facility manages its own pricing independently.

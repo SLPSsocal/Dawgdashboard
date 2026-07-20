@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import SearchableAnimalsList from "@/components/SearchableAnimalsList";
 
 type Animal = {
@@ -44,6 +45,10 @@ export default async function AnimalsPage() {
           >
             + New Animal
           </a>
+        </div>
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
         </div>
 
         {animals.length === 0 ? (

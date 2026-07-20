@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import AnimalForm from "@/components/AnimalForm";
 import AnimalPhotoUpload from "@/components/AnimalPhotoUpload";
 import { updateAnimal } from "../actions";
@@ -45,6 +46,10 @@ export default async function AnimalDetailPage({
             </a>
           </p>
         )}
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
+        </div>
 
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <AnimalPhotoUpload animalId={id} currentUrl={animal.photo_url ?? null} />

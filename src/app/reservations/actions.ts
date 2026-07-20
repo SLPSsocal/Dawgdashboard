@@ -29,6 +29,19 @@ export async function undoCheckIn(reservationId: string) {
   refresh();
 }
 
+// Reverses an accidental checkout — puts the reservation back to
+// checked_in. Does not touch any invoice already created by that checkout;
+// staff should void/adjust the invoice separately if one was generated.
+export async function undoCheckOut(reservationId: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({ status: "checked_in", checked_out_at: null })
+    .eq("id", reservationId);
+  if (error) throw new Error(error.message);
+  refresh();
+}
+
 export async function checkInReservation(reservationId: string) {
   const supabase = createClient();
   const { error } = await supabase

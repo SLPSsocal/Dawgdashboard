@@ -1,22 +1,29 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { checkInReservation, deleteReservation, undoCheckIn } from "@/app/reservations/actions";
+import { checkInReservation, deleteReservation, undoCheckIn, undoCheckOut } from "@/app/reservations/actions";
+import { useCart } from "@/lib/cart";
 
 export default function ReservationActionsMenu({
   reservationId,
   animalId,
+  animalName,
   parentId,
+  parentName,
   status,
 }: {
   reservationId: string;
   animalId: string;
+  animalName?: string;
   parentId: string | null;
+  parentName?: string | null;
   status: string;
 }) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
+  const cart = useCart();
+  const inCart = cart.has(reservationId);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -108,7 +115,29 @@ export default function ReservationActionsMenu({
           <LinkItem href={`/reservations/${reservationId}/report-card/new`} icon="❤️" label="New Report Card" />
 
           <Divider />
-          {status === "checked_in" ? (
+          {status !== "checked_out" && (
+            <ActionItem
+              icon={inCart ? "🛒" : "🛒"}
+              label={inCart ? "Remove from Cart" : "Add to Cart"}
+              onClick={() => {
+                setOpen(false);
+                if (inCart) {
+                  cart.remove(reservationId);
+                } else {
+                  cart.add({
+                    reservationId,
+                    animalId,
+                    animalName: animalName ?? "Unknown",
+                    parentId,
+                    parentName: parentName ?? null,
+                  });
+                }
+              }}
+            />
+          )}
+          {status === "checked_out" ? (
+            <ActionItem icon="↩️" label="Undo Check Out" onClick={() => run(() => undoCheckOut(reservationId))} />
+          ) : status === "checked_in" ? (
             <ActionItem icon="↩️" label="Undo Check In" onClick={() => run(() => undoCheckIn(reservationId))} />
           ) : (
             <ActionItem icon="✅" label="Check In" onClick={() => run(() => checkInReservation(reservationId))} />

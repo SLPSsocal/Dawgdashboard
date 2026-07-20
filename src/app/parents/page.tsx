@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import SearchableParentsList from "@/components/SearchableParentsList";
 
 export default async function ParentsPage() {
@@ -30,6 +31,10 @@ export default async function ParentsPage() {
           >
             + New Parent
           </a>
+        </div>
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
         </div>
 
         {!parents || parents.length === 0 ? (

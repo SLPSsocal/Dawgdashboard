@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import PageQuickActions from "@/components/PageQuickActions";
 import LodgingCalendar, { type CalArea, type CalReservation } from "@/components/LodgingCalendar";
 import { createLodgingArea } from "@/app/lodging/actions";
 
@@ -115,6 +116,10 @@ export default async function LodgingCalendarPage({
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold">Lodging Calendar — {session!.facilityName}</h1>
+        </div>
+
+        <div className="mt-3">
+          <PageQuickActions session={session!} />
         </div>
 
         <details className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
