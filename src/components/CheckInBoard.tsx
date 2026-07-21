@@ -95,13 +95,19 @@ export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: Che
     data,
     accent,
     defaultOpen = true,
+    alwaysShow = false,
   }: {
     title: string;
     data: CheckInRow[];
     accent: string;
     defaultOpen?: boolean;
+    // Keep the container visible (showing "(0)" and just the header row)
+    // even when empty — used for Expected Today/Tomorrow so staff always
+    // see those sections are present rather than wondering if the board
+    // is broken.
+    alwaysShow?: boolean;
   }) {
-    if (data.length === 0) return null;
+    if (data.length === 0 && !alwaysShow) return null;
     return (
       <details
         open={defaultOpen}
@@ -195,8 +201,8 @@ export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: Che
       />
 
       <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
-      <Table title="📋 Expected Today" data={expectedToday} accent="border-l-amber-500" />
-      <Table title="📅 Expected Tomorrow" data={expectedTomorrow} accent="border-l-sky-500" />
+      <Table title="📋 Expected Today" data={expectedToday} accent="border-l-amber-500" alwaysShow />
+      <Table title="📅 Expected Tomorrow" data={expectedTomorrow} accent="border-l-sky-500" alwaysShow />
       <Table title="🗓️ Expected in the Future" data={expectedFuture} accent="border-l-violet-500" />
       <Table title="✅ Checked Out Today" data={checkedOut} accent="border-l-slate-400" defaultOpen={false} />
 
