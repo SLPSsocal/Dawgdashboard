@@ -17,6 +17,8 @@ const LINKS = [
   { name: "Parents", href: "/parents", icon: "👪" },
   { name: "Animals", href: "/animals", icon: "🐶" },
   { name: "Pricing", href: "/pricing", icon: "💲" },
+  { name: "Items for Sale", href: "/retail", icon: "🛍️" },
+  { name: "Waivers", href: "/waivers", icon: "✍️" },
 ];
 
 function pillClass() {

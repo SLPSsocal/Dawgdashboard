@@ -8,6 +8,7 @@ import { updateParent } from "../actions";
 import { addStoreCredit } from "../billing-actions";
 import { deletePaymentMethod } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
+import SendWaiverLink from "@/components/SendWaiverLink";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -35,7 +36,7 @@ export default async function ParentDetailPage({
     .eq("parent_id", id)
     .order("name");
 
-  const [{ data: invoices }, { data: creditTx }, { data: cards }] = await Promise.all([
+  const [{ data: invoices }, { data: creditTx }, { data: cards }, { data: activeWaiver }, { data: signatures }] = await Promise.all([
     supabase
       .from("invoices")
       .select(`id, status, total, created_at, paid_at, facilities ( name )`)
@@ -49,6 +50,20 @@ export default async function ParentDetailPage({
       .from("payment_methods")
       .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
       .eq("parent_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("waivers")
+      .select("id, title")
+      .eq("facility_id", session!.facilityId)
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("waiver_signatures")
+      .select("id, status, signer_name, sent_at, signed_at, token, waivers ( title )")
+      .eq("parent_id", id)
+      .eq("facility_id", session!.facilityId)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -127,6 +142,57 @@ export default async function ParentDetailPage({
               </a>
             ))}
           </div>
+        </div>
+
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Waivers</h2>
+          {activeWaiver ? (
+            <div className="mt-2 flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+              <span>{activeWaiver.title}</span>
+              <SendWaiverLink
+                waiverId={activeWaiver.id}
+                facilityId={session!.facilityId}
+                parentId={id}
+                signerName={`${parent.first_name} ${parent.last_name}`}
+                phone={parent.phone}
+              />
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
+              No active waiver set up for {session!.facilityName} yet —{" "}
+              <a href="/waivers" className="underline">
+                add one
+              </a>
+              .
+            </p>
+          )}
+          {(signatures ?? []).length > 0 && (
+            <div className="mt-3 flex flex-col gap-1.5">
+              {(signatures ?? []).map((s) => {
+                const w = s.waivers as unknown as { title: string } | null;
+                return (
+                  <div key={s.id} className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>{w?.title ?? "Waiver"}</span>
+                    <span
+                      className={
+                        s.status === "signed"
+                          ? "font-medium text-green-600 dark:text-green-400"
+                          : s.status === "sent"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-400 dark:text-slate-500"
+                      }
+                    >
+                      {s.status === "signed"
+                        ? `Signed ${s.signed_at ? new Date(s.signed_at).toLocaleDateString() : ""}`
+                        : s.status === "sent"
+                          ? `Sent ${s.sent_at ? new Date(s.sent_at).toLocaleDateString() : ""}`
+                          : "Link created, not sent"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">

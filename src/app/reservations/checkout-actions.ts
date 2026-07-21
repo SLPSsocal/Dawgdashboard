@@ -9,6 +9,8 @@ export type CheckoutLineItem = {
   unitPrice: number;
   lineTotal: number;
   groomingServiceName?: string;
+  retailItemId?: string;
+  taxable?: boolean;
 };
 
 export async function completeCheckout(
@@ -19,10 +21,12 @@ export async function completeCheckout(
     animalId: string;
     lineItems: CheckoutLineItem[];
     markPaid: boolean;
+    taxAmount?: number;
   }
 ) {
   const supabase = createClient();
   const subtotal = payload.lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
+  const tax = payload.taxAmount ?? 0;
 
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
@@ -32,8 +36,8 @@ export async function completeCheckout(
       reservation_id: reservationId,
       status: payload.markPaid ? "paid" : "open",
       subtotal,
-      tax: 0,
-      total: subtotal,
+      tax,
+      total: subtotal + tax,
       paid_at: payload.markPaid ? new Date().toISOString() : null,
     })
     .select("id")
@@ -51,6 +55,7 @@ export async function completeCheckout(
         quantity: li.quantity,
         unit_price: li.unitPrice,
         line_total: li.lineTotal,
+        retail_item_id: li.retailItemId ?? null,
       }))
     );
     if (lineError) throw new Error(lineError.message);

@@ -84,6 +84,15 @@ export default function CartButton() {
               </p>
             </>
           )}
+
+          <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 dark:border-slate-800">
+            <a href="/sale/new" className="text-xs font-medium text-indigo-600 underline dark:text-indigo-400">
+              🛍️ Walk-in Sale
+            </a>
+            <a href="/retail" className="text-xs font-medium text-slate-400 underline hover:text-slate-600 dark:hover:text-slate-200">
+              Manage Items
+            </a>
+          </div>
         </div>
       )}
     </div>

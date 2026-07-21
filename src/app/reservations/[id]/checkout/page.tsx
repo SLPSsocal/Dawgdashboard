@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import CheckoutCalculator from "@/components/CheckoutCalculator";
+import { getRetailCatalogForFacility } from "@/lib/retailPricing";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -40,7 +41,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   // checked in.
   const stayDateStr = String(reservation.start_date).slice(0, 10);
 
-  const [{ data: rateHistory }, { data: rules }, { data: groomingItems }, { data: remembered }, { data: savedCardRows }] =
+  const [{ data: rateHistory }, { data: rules }, { data: groomingItems }, { data: remembered }, { data: savedCardRows }, retailCatalog, { data: facilityRow }] =
     await Promise.all([
       type
         ? supabase
@@ -70,9 +71,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             .eq("facility_id", session!.facilityId)
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: null }),
+      getRetailCatalogForFacility(session!.facilityId),
+      supabase.from("facilities").select("tax_rate").eq("id", session!.facilityId).maybeSingle(),
     ]);
 
   const currentRate = rateHistory && rateHistory.length > 0 ? Number(rateHistory[0].rate) : Number(type?.base_rate ?? 0);
+  const taxRate = Number(facilityRow?.tax_rate ?? 0);
 
   const start = new Date(reservation.start_date);
   const end = new Date(reservation.end_date);
@@ -117,6 +121,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             groomingItems={groomingItems ?? []}
             rememberedPrices={remembered ?? []}
             savedCards={savedCardRows ?? []}
+            retailItems={retailCatalog.map((r) => ({ id: r.id, name: r.name, price: r.price, taxable: r.taxable }))}
+            taxRate={taxRate}
           />
         </div>
       </div>

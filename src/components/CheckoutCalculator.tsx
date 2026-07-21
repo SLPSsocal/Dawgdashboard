@@ -20,6 +20,7 @@ type PricingRule = {
 
 type GroomingItem = { name: string; min_price: number | null; max_price: number | null };
 type RememberedPrice = { service_name: string; price: number };
+type RetailItem = { id: string; name: string; price: number; taxable: boolean };
 
 const NEW_CARD_VALUE = "__new__";
 
@@ -36,6 +37,8 @@ export default function CheckoutCalculator({
   groomingItems,
   rememberedPrices,
   savedCards,
+  retailItems,
+  taxRate,
 }: {
   reservationId: string;
   facilityId: string;
@@ -49,10 +52,13 @@ export default function CheckoutCalculator({
   groomingItems: GroomingItem[];
   rememberedPrices: RememberedPrice[];
   savedCards: SavedCard[];
+  retailItems: RetailItem[];
+  taxRate: number;
 }) {
   const [numDogs, setNumDogs] = useState(1);
   const [checkedFees, setCheckedFees] = useState<Set<string>>(new Set());
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
+  const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>([]);
   const [markPaid, setMarkPaid] = useState(false);
   const [cardId, setCardId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
@@ -116,11 +122,37 @@ export default function CheckoutCalculator({
       }
     }
 
-    return lines;
-  }, [baseRate, units, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows]);
+    for (const row of retailRows) {
+      const item = retailItems.find((r) => r.id === row.itemId);
+      if (item && row.qty > 0) {
+        lines.push({
+          description: `${item.name} × ${row.qty}`,
+          quantity: row.qty,
+          unitPrice: item.price,
+          lineTotal: item.price * row.qty,
+          retailItemId: item.id,
+          taxable: item.taxable,
+        });
+      }
+    }
 
-  const total = lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
+    return lines;
+  }, [baseRate, units, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems]);
+
+  const subtotal = lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
+  const taxableSubtotal = lineItems.filter((li) => li.taxable).reduce((sum, li) => sum + li.lineTotal, 0);
+  const taxAmount = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
+  const total = subtotal + taxAmount;
   const usingNewCard = cardId === NEW_CARD_VALUE;
+
+  function addRetailRow() {
+    if (retailItems.length === 0) return;
+    setRetailRows((rows) => [...rows, { itemId: retailItems[0].id, qty: 1 }]);
+  }
+
+  function updateRetailRow(idx: number, patch: Partial<{ itemId: string; qty: number }>) {
+    setRetailRows((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
 
   function addGroomingRow() {
     setGroomingRows((rows) => [...rows, { service: "", price: 0 }]);
@@ -146,6 +178,7 @@ export default function CheckoutCalculator({
           parentId,
           animalId,
           lineItems,
+          taxAmount,
           // Never mark paid up front for a card path — only a real Helcim
           // approval (below, or via chargeSavedCard) should do that.
           markPaid: usingNewCard ? false : markPaid,
@@ -295,6 +328,54 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
+      {retailItems.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Items for Sale</span>
+            <button type="button" onClick={addRetailRow} className="text-xs font-medium text-slate-500 underline dark:text-slate-400">
+              + Add Item
+            </button>
+          </div>
+          <div className="mt-2 flex flex-col gap-2">
+            {retailRows.map((row, i) => {
+              const item = retailItems.find((r) => r.id === row.itemId);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={row.itemId}
+                    onChange={(e) => updateRetailRow(i, { itemId: e.target.value })}
+                    className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    {retailItems.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} — ${r.price.toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    value={row.qty}
+                    onChange={(e) => updateRetailRow(i, { qty: Math.max(1, Number(e.target.value)) })}
+                    className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                  <span className="w-16 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500">
+                    ${item ? (item.price * row.qty).toFixed(2) : "0.00"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRetailRows((rows) => rows.filter((_, idx) => idx !== i))}
+                    className="text-xs text-red-500 dark:text-red-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
         {lineItems.map((li, i) => (
           <div key={i} className="flex justify-between py-0.5">
@@ -304,6 +385,12 @@ export default function CheckoutCalculator({
             </span>
           </div>
         ))}
+        {taxAmount > 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-slate-500 dark:text-slate-400">Sales Tax ({taxRate}%)</span>
+            <span>${taxAmount.toFixed(2)}</span>
+          </div>
+        )}
         <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
           <span>Total</span>
           <span>${total.toFixed(2)}</span>
