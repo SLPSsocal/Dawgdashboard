@@ -52,8 +52,21 @@ export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: Che
     });
   }, [allRows, query, sortKey, sortDir]);
 
+  // Same date-slicing convention used everywhere else in this app (e.g. the
+  // Expected Today stat count on the page above) — compares the ISO date
+  // portion directly rather than converting to local time.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
   const checkedIn = filtered.filter((r) => r.status === "checked_in");
   const expected = filtered.filter((r) => r.status === "booked");
+  // "Today" also catches anything overdue (booked for a past date that
+  // never got checked in) instead of silently hiding it.
+  const expectedToday = expected.filter((r) => r.startDate.slice(0, 10) <= todayStr);
+  const expectedTomorrow = expected.filter((r) => r.startDate.slice(0, 10) === tomorrowStr);
+  const expectedFuture = expected.filter((r) => r.startDate.slice(0, 10) > tomorrowStr);
   const checkedOut = filtered.filter((r) => r.status === "checked_out");
 
   function toggleSort(key: SortKey) {
@@ -182,7 +195,9 @@ export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: Che
       />
 
       <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
-      <Table title="📋 Expected Today" data={expected} accent="border-l-amber-500" />
+      <Table title="📋 Expected Today" data={expectedToday} accent="border-l-amber-500" />
+      <Table title="📅 Expected Tomorrow" data={expectedTomorrow} accent="border-l-sky-500" />
+      <Table title="🗓️ Expected in the Future" data={expectedFuture} accent="border-l-violet-500" />
       <Table title="✅ Checked Out Today" data={checkedOut} accent="border-l-slate-400" defaultOpen={false} />
 
       {filtered.length === 0 && (

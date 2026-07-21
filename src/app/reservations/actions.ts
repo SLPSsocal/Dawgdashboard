@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { zonedTimeToUtc } from "@/lib/timezone";
 
 function refresh() {
   revalidatePath("/reservations");
@@ -81,9 +82,18 @@ export async function createReservation(payload: {
     throw new Error("A dog and start date are required.");
   }
 
-  const start = payload.startTime
-    ? new Date(`${payload.startDate}T${payload.startTime}:00`)
-    : new Date(`${payload.startDate}T00:00:00`);
+  let start: Date;
+  if (payload.startTime) {
+    // A specific time-of-day is a wall-clock time at THIS facility, not
+    // wherever the server happens to run — has to be converted using the
+    // facility's own timezone or it ends up hours off (this is what caused
+    // an 8:00 AM Pacific appointment to get stored — and displayed — as
+    // 1:00 AM).
+    const { data: facility } = await supabase.from("facilities").select("timezone").eq("id", payload.facilityId).maybeSingle();
+    start = zonedTimeToUtc(payload.startDate, payload.startTime, facility?.timezone ?? "America/New_York");
+  } else {
+    start = new Date(`${payload.startDate}T00:00:00`);
+  }
 
   const end =
     payload.durationMinutes != null
