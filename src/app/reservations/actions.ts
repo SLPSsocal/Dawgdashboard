@@ -52,6 +52,45 @@ export async function checkInReservation(reservationId: string) {
   refresh();
 }
 
+// Creates a brand-new booking (status defaults to "booked" in the DB).
+// This is the only place reservations get created in-app — everything
+// else in the reservations table so far came from the Gingr import, which
+// is why Quick Check-in was empty: nothing was ever left in "booked".
+export async function createReservation(facilityId: string, formData: FormData) {
+  const supabase = createClient();
+
+  const animal_id = String(formData.get("animal_id") ?? "");
+  const reservation_type_id = String(formData.get("reservation_type_id") ?? "") || null;
+  const lodging_area_id = String(formData.get("lodging_area_id") ?? "") || null;
+  const start_date = String(formData.get("start_date") ?? "");
+  const end_date = String(formData.get("end_date") ?? "") || start_date;
+  const belongings = String(formData.get("belongings") ?? "") || null;
+  const notes = String(formData.get("notes") ?? "") || null;
+
+  if (!animal_id || !start_date) {
+    redirect(`/reservations/new?error=missing`);
+  }
+
+  const { error } = await supabase.from("reservations").insert({
+    facility_id: facilityId,
+    animal_id,
+    reservation_type_id,
+    lodging_area_id,
+    start_date: new Date(start_date).toISOString(),
+    end_date: new Date(end_date).toISOString(),
+    status: "booked",
+    belongings,
+    notes,
+  });
+
+  if (error) {
+    redirect(`/reservations/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  refresh();
+  redirect("/reservations");
+}
+
 export async function deleteReservation(reservationId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("reservations").delete().eq("id", reservationId);

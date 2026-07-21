@@ -145,6 +145,12 @@ export default function QuickActionBar({ candidates }: { candidates: CheckInCand
         >
           🐾 Check-in
         </button>
+        <a
+          href="/reservations/new"
+          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-emerald-700"
+        >
+          ➕ New Booking
+        </a>
         {LINKS.map((l) => (
           <a key={l.href} href={l.href} className={pillClass()}>
             {l.icon} {l.name}
@@ -186,6 +192,13 @@ export default function QuickActionBar({ candidates }: { candidates: CheckInCand
             >
               🐾 Check-in
             </button>
+            <a
+              href="/reservations/new"
+              onClick={() => setDrawerOpen(false)}
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-left text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              ➕ New Booking
+            </a>
             {LINKS.map((l) => (
               <a
                 key={l.href}
