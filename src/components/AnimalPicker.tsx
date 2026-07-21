@@ -12,10 +12,21 @@ export type AnimalOption = {
 // Typeahead picker for the New Booking form. Keeps the same "type to
 // filter, click to pick" pattern as the Quick Check-in popup so front
 // desk staff find dogs fast even with a long shared animal list.
-export default function AnimalPicker({ animals }: { animals: AnimalOption[] }) {
+export default function AnimalPicker({
+  animals,
+  onSelect,
+}: {
+  animals: AnimalOption[];
+  onSelect?: (a: AnimalOption | null) => void;
+}) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<AnimalOption | null>(null);
   const [openList, setOpenList] = useState(false);
+
+  function choose(a: AnimalOption | null) {
+    setSelected(a);
+    onSelect?.(a);
+  }
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -38,7 +49,7 @@ export default function AnimalPicker({ animals }: { animals: AnimalOption[] }) {
       <input
         value={selected ? `${selected.name}${selected.parentName ? " · " + selected.parentName : ""}` : query}
         onChange={(e) => {
-          setSelected(null);
+          choose(null);
           setQuery(e.target.value);
           setOpenList(true);
         }}
@@ -62,7 +73,7 @@ export default function AnimalPicker({ animals }: { animals: AnimalOption[] }) {
               key={a.id}
               type="button"
               onMouseDown={() => {
-                setSelected(a);
+                choose(a);
                 setQuery("");
                 setOpenList(false);
               }}
