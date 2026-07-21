@@ -172,16 +172,23 @@ export default function LodgingCalendar({
   }
 
   return (
-    <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800">
+    // overflow-auto (not just overflow-x-auto) + a bounded max-height turns
+    // this into a real internal scroll pane in both directions — needed for
+    // "sticky top" to actually freeze the date row while scrolling; with
+    // only overflow-x set, browsers won't reliably stick a top-0 element to
+    // the page scroll, only to an internal one.
+    <div className="mt-3 max-h-[75vh] overflow-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800">
       <div className={`grid ${gridCols} min-w-[760px]`}>
-        {/* Header row */}
-        <div className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
+        {/* Header row — pinned to the top of the viewport (and the corner
+            cell also pinned to the left) so the dates stay visible no
+            matter how far down the suite list you've scrolled. */}
+        <div className="sticky left-0 top-0 z-30 border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
           Suite
         </div>
         {days.map((d) => (
           <div
             key={d}
-            className="border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 last:border-r-0 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
+            className="sticky top-0 z-20 border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 last:border-r-0 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
           >
             {dayLabel(d)}
           </div>

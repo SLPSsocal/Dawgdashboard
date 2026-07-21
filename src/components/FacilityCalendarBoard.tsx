@@ -214,7 +214,10 @@ export default function FacilityCalendarBoard({
           No specialist staff marked yet — add groomers on the Staff/Pricing setup to get named columns here.
         </p>
       )}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* overflow-auto + bounded max-height (not just overflow-x-auto) so the
+          specialist header row's sticky top-0 actually freezes — an
+          x-only scroll container won't reliably stick to page scroll. */}
+      <div className="flex max-h-[75vh] gap-3 overflow-auto pb-2">
         {/* Hour label rail */}
         <div className="flex shrink-0 flex-col" style={{ width: 46 }}>
           <div className="h-[30px]" />

@@ -8,32 +8,64 @@ type Animal = {
   breed: string | null;
   size: string | null;
   photo_url: string | null;
+  created_at: string;
   parents: { first_name: string; last_name: string } | null;
 };
 
+type SortKey = "name_asc" | "name_desc" | "newest" | "oldest";
+
 export default function SearchableAnimalsList({ animals }: { animals: Animal[] }) {
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("name_asc");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return animals;
-    return animals.filter((a) => {
-      const ownerName = a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "";
-      return [a.name, a.breed, a.size, ownerName]
-        .filter((v): v is string => Boolean(v))
-        .some((v) => v.toLowerCase().includes(q));
+    const base = !q
+      ? animals
+      : animals.filter((a) => {
+          const ownerName = a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "";
+          return [a.name, a.breed, a.size, ownerName]
+            .filter((v): v is string => Boolean(v))
+            .some((v) => v.toLowerCase().includes(q));
+        });
+
+    const sorted = [...base];
+    sorted.sort((a, b) => {
+      switch (sortKey) {
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "newest":
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
     });
-  }, [animals, query]);
+    return sorted;
+  }, [animals, query, sortKey]);
 
   return (
     <div>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by animal, breed, or owner…"
-        className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by animal, breed, or owner…"
+          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="name_asc">Name (A–Z)</option>
+          <option value="name_desc">Name (Z–A)</option>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
 
       {filtered.length === 0 && (
         <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No matches.</p>
