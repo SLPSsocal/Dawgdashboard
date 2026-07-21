@@ -117,6 +117,13 @@ export default async function ReservationsPage() {
         <div className="mt-4 lg:flex lg:items-start lg:gap-4">
           <div className="lg:flex-1">
             <DailySummaryBar stats={stats} />
+            {/* Lives in the same column as the stat cards (not full-width
+                below both columns) specifically so it fills the empty space
+                left under the short stat-card row instead of getting pushed
+                all the way down past the taller Breakdown card next to it. */}
+            <div className="mt-4">
+              <PageQuickActions session={session!} />
+            </div>
           </div>
           <div className="lg:w-80 lg:shrink-0">
             <ServiceBreakdownTable breakdown={breakdown} />
@@ -124,17 +131,15 @@ export default async function ReservationsPage() {
         </div>
 
         <div className="mt-4">
-          <PageQuickActions session={session!} />
+          {rows.length === 0 && !error ? (
+            <p className="text-sm text-slate-400 dark:text-slate-500">
+              No reservations yet at {session!.facilityName}. Once reservation types and lodging
+              areas are set up, bookings will show here.
+            </p>
+          ) : (
+            <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} />
+          )}
         </div>
-
-        {rows.length === 0 && !error ? (
-          <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">
-            No reservations yet at {session!.facilityName}. Once reservation types and lodging
-            areas are set up, bookings will show here.
-          </p>
-        ) : (
-          <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} />
-        )}
       </div>
     </main>
   );
