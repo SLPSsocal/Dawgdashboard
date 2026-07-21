@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
-import { createReservation, getGroomingMemory } from "@/app/reservations/actions";
+import { createReservation, getGroomingMemory, getSpecialistConflicts } from "@/app/reservations/actions";
 
 type ReservationType = {
   id: string;
@@ -11,28 +11,35 @@ type ReservationType = {
   category: string;
   requiresLodging: boolean;
   requiresSpecialist: boolean;
+  durationMinutes: number | null;
 };
 type GroomingService = { name: string; defaultDurationMinutes: number | null };
 type Specialist = { id: string; name: string };
 type LodgingArea = { id: string; name: string };
 
 const FALLBACK_DURATION = 45;
+const EVAL_DEFAULT_DURATION = 240;
+// Evaluations only run at fixed hourly starts, not a free 15-min grid.
+const EVAL_HOURS = [8, 9, 10, 11, 12, 13];
+
+function fmtSlot(h24: number, m = 0) {
+  const value = `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const ampm = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return { value, label: `${h12}:${String(m).padStart(2, "0")} ${ampm}` };
+}
 
 function timeSlots() {
   // 7:00am-7:00pm in 15-minute steps, matching the granularity of a
   // typical grooming schedule (Gingr's own booking screen uses the same).
   const slots: { value: string; label: string }[] = [];
   for (let min = 7 * 60; min <= 19 * 60; min += 15) {
-    const h24 = Math.floor(min / 60);
-    const m = min % 60;
-    const value = `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    const ampm = h24 >= 12 ? "PM" : "AM";
-    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    slots.push({ value, label: `${h12}:${String(m).padStart(2, "0")} ${ampm}` });
+    slots.push(fmtSlot(Math.floor(min / 60), min % 60));
   }
   return slots;
 }
 const SLOTS = timeSlots();
+const EVAL_SLOTS = EVAL_HOURS.map((h) => fmtSlot(h));
 
 export default function BookingForm({
   facilityId,
@@ -65,11 +72,23 @@ export default function BookingForm({
   const [belongings, setBelongings] = useState("");
   const [notes, setNotes] = useState("");
   const [lastGroomedNote, setLastGroomedNote] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<{ id: string; animalName: string; startDate: string; endDate: string }[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const type = reservationTypes.find((t) => t.id === typeId) ?? null;
   const isGrooming = type?.category === "grooming";
+  const isEvaluation = type?.category === "evaluation";
+  const usesTimeSlot = isGrooming || isEvaluation;
+
+  // Evaluations are a fixed-length, fixed-slot block — no service picker,
+  // no editable duration, just pick which of the offered hours works.
+  useEffect(() => {
+    if (!isEvaluation) return;
+    setDurationMinutes(type?.durationMinutes ?? EVAL_DEFAULT_DURATION);
+    setStartTime((t) => (EVAL_SLOTS.some((s) => s.value === t) ? t : EVAL_SLOTS[0].value));
+    setSpecialistId("");
+  }, [isEvaluation, type?.durationMinutes]);
 
   // Prefill duration from the service default whenever the service changes
   // (until the animal's own history overrides it below).
@@ -100,6 +119,24 @@ export default function BookingForm({
     });
   }, [animal, serviceName, isGrooming, specialists]);
 
+  // Overbooking a specialist is allowed, but flag it before they submit —
+  // and again visually on the Facility Calendar once it's booked.
+  useEffect(() => {
+    if (!isGrooming || !specialistId || !startDate || !startTime || !durationMinutes) {
+      setConflicts([]);
+      return;
+    }
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    let cancelled = false;
+    getSpecialistConflicts(facilityId, specialistId, start.toISOString(), end.toISOString()).then((rows) => {
+      if (!cancelled) setConflicts(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGrooming, specialistId, startDate, startTime, durationMinutes, facilityId]);
+
   const canSubmit = Boolean(animal && startDate);
 
   function submit() {
@@ -116,9 +153,9 @@ export default function BookingForm({
           reservationTypeId: typeId || null,
           lodgingAreaId: type?.requiresLodging ? lodgingAreaId || null : null,
           startDate,
-          startTime: isGrooming ? startTime : null,
-          endDate: isGrooming ? null : endDate,
-          durationMinutes: isGrooming ? durationMinutes : null,
+          startTime: usesTimeSlot ? startTime : null,
+          endDate: usesTimeSlot ? null : endDate,
+          durationMinutes: usesTimeSlot ? durationMinutes : null,
           specialistId: isGrooming ? specialistId || null : null,
           serviceName: isGrooming ? serviceName || null : null,
           belongings: belongings || null,
@@ -177,45 +214,49 @@ export default function BookingForm({
         )}
       </div>
 
-      {isGrooming ? (
+      {usesTimeSlot ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            Grooming Appointment
+            {isEvaluation ? "Evaluation Appointment" : "Grooming Appointment"}
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Service</span>
-              <select
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                {groomingServices.length === 0 && <option value="">No services set up yet</option>}
-                {groomingServices.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Specialist</span>
-              <select
-                value={specialistId}
-                onChange={(e) => setSpecialistId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="">Unassigned</option>
-                {specialists.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {lastGroomedNote && (
-                <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">{lastGroomedNote}</p>
-              )}
-            </label>
+            {isGrooming && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Service</span>
+                <select
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  {groomingServices.length === 0 && <option value="">No services set up yet</option>}
+                  {groomingServices.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {isGrooming && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Specialist</span>
+                <select
+                  value={specialistId}
+                  onChange={(e) => setSpecialistId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">Unassigned</option>
+                  {specialists.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                {lastGroomedNote && (
+                  <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">{lastGroomedNote}</p>
+                )}
+              </label>
+            )}
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Date<span className="text-red-500"> *</span>
@@ -235,33 +276,50 @@ export default function BookingForm({
                 onChange={(e) => setStartTime(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
-                {SLOTS.map((s) => (
+                {(isEvaluation ? EVAL_SLOTS : SLOTS).map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Duration (minutes)</span>
-              <input
-                type="number"
-                min={15}
-                step={15}
-                value={durationMinutes}
-                onChange={(e) => {
-                  setDurationMinutes(Number(e.target.value));
-                  setDurationTouched(true);
-                }}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                {durationTouched
-                  ? "Saved for this dog next time you book this service."
-                  : "Prefilled from last time (or the service default) — change it if this one runs long."}
-              </p>
-            </label>
+            {isGrooming ? (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Duration (minutes)</span>
+                <input
+                  type="number"
+                  min={15}
+                  step={15}
+                  value={durationMinutes}
+                  onChange={(e) => {
+                    setDurationMinutes(Number(e.target.value));
+                    setDurationTouched(true);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  {durationTouched
+                    ? "Saved for this dog next time you book this service."
+                    : "Prefilled from last time (or the service default) — change it if this one runs long."}
+                </p>
+              </label>
+            ) : (
+              <div className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Duration</span>
+                <p className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                  {Math.round((type?.durationMinutes ?? EVAL_DEFAULT_DURATION) / 60)} hours (fixed)
+                </p>
+              </div>
+            )}
           </div>
+
+          {conflicts.length > 0 && (
+            <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              ⚠️ {specialists.find((s) => s.id === specialistId)?.name ?? "This specialist"} already has{" "}
+              {conflicts.map((c) => c.animalName).join(", ")} booked during this window — you can still create this,
+              it'll just double-book them.
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

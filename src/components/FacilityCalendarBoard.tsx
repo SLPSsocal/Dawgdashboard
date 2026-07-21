@@ -13,12 +13,13 @@ export type ApptCard = {
   typeName: string | null;
   category: string | null;
   specialistId: string | null;
-  time: string; // ISO timestamp
+  time: string; // ISO timestamp (start)
+  endTime: string; // ISO timestamp (end) — falls back to a default block if equal to start
 };
 
-// No per-reservation-type duration data exists yet, so every card renders as
-// a fixed-height block anchored at its start time. Vertical axis = time of
-// day, earliest at top.
+// Vertical axis = time of day, earliest at top. Falls back to a default
+// block length only for the (now rare) case a reservation has no real
+// duration on it.
 const DEFAULT_BLOCK_MIN = 45;
 const PX_PER_MIN = 1.4;
 const LANE_WIDTH = 200;
@@ -26,6 +27,47 @@ const LANE_WIDTH = 200;
 function minutesOfDay(iso: string) {
   const d = new Date(iso);
   return d.getHours() * 60 + d.getMinutes();
+}
+
+function durationOf(c: ApptCard) {
+  const mins = (new Date(c.endTime).getTime() - new Date(c.time).getTime()) / 60000;
+  return mins > 0 ? mins : DEFAULT_BLOCK_MIN;
+}
+
+// Groups a lane's cards into overlap clusters and assigns each card a
+// column (col/of) within its cluster, so double-booked appointments render
+// side-by-side instead of fully stacked on top of each other.
+function layoutOverlaps(items: ApptCard[]) {
+  const withRange = items
+    .map((c) => {
+      const start = minutesOfDay(c.time);
+      return { c, start, end: start + durationOf(c) };
+    })
+    .sort((a, b) => a.start - b.start);
+
+  const positioned: { c: ApptCard; col: number; of: number; overlap: boolean }[] = [];
+  let cluster: typeof withRange = [];
+  let clusterEnd = -Infinity;
+
+  function flush() {
+    if (cluster.length === 0) return;
+    const overlap = cluster.length > 1;
+    cluster.forEach((item, i) => positioned.push({ c: item.c, col: i, of: cluster.length, overlap }));
+    cluster = [];
+  }
+
+  for (const item of withRange) {
+    if (cluster.length === 0 || item.start < clusterEnd) {
+      cluster.push(item);
+      clusterEnd = Math.max(clusterEnd, item.end);
+    } else {
+      flush();
+      cluster.push(item);
+      clusterEnd = item.end;
+    }
+  }
+  flush();
+  return positioned;
 }
 
 function fmtTime(iso: string) {
@@ -75,7 +117,7 @@ export default function FacilityCalendarBoard({
     for (const c of cards) {
       const m = minutesOfDay(c.time);
       start = Math.min(start, Math.floor(m / 60) * 60);
-      end = Math.max(end, Math.ceil((m + DEFAULT_BLOCK_MIN) / 60) * 60);
+      end = Math.max(end, Math.ceil((m + durationOf(c)) / 60) * 60);
     }
     return { rangeStart: start, rangeEnd: end };
   }, [cards]);
@@ -91,7 +133,25 @@ export default function FacilityCalendarBoard({
     return (minutesOfDay(iso) - rangeStart) * PX_PER_MIN;
   }
 
-  function TimeCard({ c, draggable }: { c: ApptCard; draggable: boolean }) {
+  function TimeCard({
+    c,
+    draggable,
+    col,
+    of,
+    overlap,
+    warnOnOverlap,
+  }: {
+    c: ApptCard;
+    draggable: boolean;
+    col: number;
+    of: number;
+    overlap: boolean;
+    warnOnOverlap: boolean;
+  }) {
+    const flagged = overlap && warnOnOverlap;
+    // Side-by-side split when double-booked, instead of fully stacking and
+    // hiding one appointment behind the other.
+    const widthPct = 100 / of;
     return (
       <div
         draggable={draggable}
@@ -112,23 +172,29 @@ export default function FacilityCalendarBoard({
               }
             : undefined
         }
+        title={flagged ? "Double-booked with another appointment for this specialist" : undefined}
         style={{
           position: "absolute",
           top: topFor(c.time),
-          left: 3,
-          right: 3,
-          minHeight: DEFAULT_BLOCK_MIN * PX_PER_MIN,
+          left: `calc(${col * widthPct}% + 3px)`,
+          width: `calc(${widthPct}% - 6px)`,
+          minHeight: durationOf(c) * PX_PER_MIN,
         }}
         className={`overflow-hidden rounded-md border bg-white px-2 py-1 text-xs shadow-sm dark:bg-slate-900 ${
           draggable ? "cursor-grab touch-manipulation active:cursor-grabbing" : ""
         } ${
           selectedId === c.id
             ? "border-slate-900 ring-2 ring-slate-900 dark:border-slate-100 dark:ring-slate-100"
-            : "border-slate-200 dark:border-slate-700"
+            : flagged
+              ? "border-red-400 ring-1 ring-red-400 dark:border-red-500 dark:ring-red-500"
+              : "border-slate-200 dark:border-slate-700"
         } ${dragId === c.id ? "opacity-40" : ""}`}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="truncate font-medium">{c.animalName}</span>
+          <span className="truncate font-medium">
+            {flagged && "⚠️ "}
+            {c.animalName}
+          </span>
           <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">{fmtTime(c.time)}</span>
         </div>
         <div className="truncate text-[10px] text-slate-400 dark:text-slate-500">
@@ -153,6 +219,11 @@ export default function FacilityCalendarBoard({
   }) {
     const key = colId ?? name;
     const isOver = droppable && overKey === key;
+    // Overbooking is only a meaningful "conflict" once a real specialist is
+    // assigned — the Unassigned column and read-only lanes (evaluations,
+    // daycare/boarding) just render side-by-side without the warning color.
+    const warnOnOverlap = droppable && colId !== null;
+    const positioned = layoutOverlaps(items);
     return (
       <div className="flex shrink-0 flex-col" style={{ width: LANE_WIDTH }}>
         <div className="sticky top-0 z-10 truncate rounded-t-lg border border-b-0 border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900">
@@ -199,8 +270,8 @@ export default function FacilityCalendarBoard({
               className="absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800/70"
             />
           ))}
-          {items.map((c) => (
-            <TimeCard key={c.id} c={c} draggable={droppable} />
+          {positioned.map(({ c, col, of, overlap }) => (
+            <TimeCard key={c.id} c={c} draggable={droppable} col={col} of={of} overlap={overlap} warnOnOverlap={warnOnOverlap} />
           ))}
         </div>
       </div>

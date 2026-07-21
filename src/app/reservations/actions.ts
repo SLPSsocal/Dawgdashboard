@@ -144,6 +144,39 @@ export async function getGroomingMemory(animalId: string, serviceName: string) {
   return data ?? null;
 }
 
+// Overbooking a specialist is allowed (staff make that call on purpose
+// sometimes), but the booking form and Facility Calendar both need to warn
+// about it — this is the shared overlap check both use. Overlap = existing
+// start < new end AND existing end > new start.
+export async function getSpecialistConflicts(
+  facilityId: string,
+  specialistId: string,
+  startISO: string,
+  endISO: string,
+  excludeReservationId?: string
+) {
+  const supabase = createClient();
+  let query = supabase
+    .from("reservations")
+    .select("id, start_date, end_date, animals ( name )")
+    .eq("facility_id", facilityId)
+    .eq("specialist_id", specialistId)
+    .in("status", ["booked", "checked_in"])
+    .lt("start_date", endISO)
+    .gt("end_date", startISO);
+
+  if (excludeReservationId) query = query.neq("id", excludeReservationId);
+
+  const { data } = await query;
+  type Row = { id: string; start_date: string; end_date: string; animals: { name: string } | null };
+  return ((data as unknown as Row[]) ?? []).map((r) => ({
+    id: r.id,
+    animalName: r.animals?.name ?? "Unknown",
+    startDate: r.start_date,
+    endDate: r.end_date,
+  }));
+}
+
 export async function deleteReservation(reservationId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("reservations").delete().eq("id", reservationId);

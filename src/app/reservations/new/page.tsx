@@ -21,7 +21,7 @@ export default async function NewReservationPage() {
         .order("name"),
       supabase
         .from("reservation_types")
-        .select("id, name, category, requires_lodging, requires_specialist")
+        .select("id, name, category, requires_lodging, requires_specialist, duration_minutes")
         .eq("facility_id", session!.facilityId)
         .eq("active", true)
         .order("name"),
@@ -55,6 +55,7 @@ export default async function NewReservationPage() {
     category: t.category,
     requiresLodging: t.requires_lodging,
     requiresSpecialist: t.requires_specialist,
+    durationMinutes: t.duration_minutes,
   }));
 
   const groomingServices = (groomingItems ?? []).map((g) => ({

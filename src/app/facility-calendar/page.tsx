@@ -13,6 +13,7 @@ type ReservationRow = {
   id: string;
   status: string;
   start_date: string;
+  end_date: string;
   specialist_id: string | null;
   animals: { name: string; breed: string | null } | null;
   reservation_types: { name: string; category: string | null } | null;
@@ -44,7 +45,7 @@ export default async function FacilityCalendarPage({
   const { data: resData } = await supabase
     .from("reservations")
     .select(
-      `id, status, start_date, specialist_id,
+      `id, status, start_date, end_date, specialist_id,
        animals ( name, breed ),
        reservation_types ( name, category )`
     )
@@ -64,6 +65,7 @@ export default async function FacilityCalendarPage({
     category: r.reservation_types?.category ?? null,
     specialistId: r.specialist_id,
     time: r.start_date,
+    endTime: r.end_date,
   }));
 
   const specialists: Specialist[] = (specialistRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
@@ -109,7 +111,9 @@ export default async function FacilityCalendarPage({
 
         <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
           Grooming appointments can be dragged between groomers to reassign — or on mobile, tap a card, then tap
-          a column. Evaluations and daycare/boarding arrivals are shown for visibility only.
+          a column. Evaluations and daycare/boarding arrivals are shown for visibility only. Overbooking a
+          specialist is allowed, but double-booked appointments show side-by-side with a{" "}
+          <span className="text-red-500 dark:text-red-400">red ⚠️ warning</span> so it doesn&apos;t go unnoticed.
         </p>
 
         <FacilityCalendarBoard specialists={specialists} cards={cards} />

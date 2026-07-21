@@ -13,7 +13,7 @@ export default async function ParentsPage() {
   const supabase = createClient();
   const { data: parents } = await supabase
     .from("parents")
-    .select("id, first_name, last_name, phone, email, created_at")
+    .select("id, first_name, last_name, phone, email, created_at, animals ( name )")
     .order("last_name");
 
   return (
