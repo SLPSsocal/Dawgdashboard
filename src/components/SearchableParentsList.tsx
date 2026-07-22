@@ -132,7 +132,13 @@ export default function SearchableParentsList({ parents }: { parents: Parent[] }
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.phone ?? "—"}</td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{animalNames(p) || "—"}</td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
-                  {new Date(p.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date(p.created_at).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
                 </td>
               </tr>
             ))}

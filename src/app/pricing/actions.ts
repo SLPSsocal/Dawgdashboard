@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 function refresh() {
   revalidatePath("/pricing");
+  revalidatePath("/pricing/rules");
 }
 
 export async function addRate(formData: FormData) {

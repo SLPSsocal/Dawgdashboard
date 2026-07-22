@@ -132,20 +132,6 @@ export default function AnimalForm({
         <Field label="Species" name="species" defaultValue={defaults?.species ?? "dog"} />
         <Field label="Breed" name="breed" defaultValue={defaults?.breed} />
         <Field label="Color / Markings" name="color_markings" defaultValue={defaults?.color_markings} />
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Size</span>
-          <select
-            name="size"
-            defaultValue={defaults?.size ?? ""}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          >
-            <option value="">—</option>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-            <option value="xl">XL</option>
-          </select>
-        </label>
         <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" />
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sex</span>
@@ -164,7 +150,7 @@ export default function AnimalForm({
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="fixed" defaultChecked={defaults?.fixed ?? false} />
-        Spayed / Neutered
+        Spayed / Neutered?
       </label>
 
       <Field label="How long have you had this pet?" name="owned_since_note" defaultValue={defaults?.owned_since_note} />
@@ -193,32 +179,25 @@ export default function AnimalForm({
         defaultValue={defaults?.feeding_instructions}
       />
 
-      <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Run Card Details
-        </div>
-        <div className="mt-3 flex flex-col gap-3">
-          <TextArea
-            label="Grooming Instructions"
-            name="grooming_notes"
-            defaultValue={defaults?.grooming_notes}
-          />
-          <TextArea
-            label="Alert / Read Pop-up (important, staff-facing)"
-            name="alert_note"
-            defaultValue={defaults?.alert_note}
-          />
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="poop_eater" defaultChecked={defaults?.poop_eater ?? false} />
-              Poop Eater
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="pee_drinker" defaultChecked={defaults?.pee_drinker ?? false} />
-              Pee Drinker
-            </label>
-          </div>
-        </div>
+      <TextArea
+        label="Grooming Instructions"
+        name="grooming_notes"
+        defaultValue={defaults?.grooming_notes}
+      />
+      <TextArea
+        label="Alert / Read Pop-up (important, staff-facing)"
+        name="alert_note"
+        defaultValue={defaults?.alert_note}
+      />
+      <div className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="poop_eater" defaultChecked={defaults?.poop_eater ?? false} />
+          Poop Eater
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="pee_drinker" defaultChecked={defaults?.pee_drinker ?? false} />
+          Pee Drinker
+        </label>
       </div>
 
       {showActiveToggle && (
