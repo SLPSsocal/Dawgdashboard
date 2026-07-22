@@ -31,6 +31,30 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     .eq("invoice_id", id)
     .order("id");
 
+  // Receipt trail — every Helcim attempt tied to this invoice (approved,
+  // declined, or unconfirmed/aborted), so staff can see exactly what Helcim
+  // reported without having to log into Helcim's own dashboard for routine
+  // checks.
+  const { data: paymentRows } = await supabase
+    .from("payments")
+    .select(
+      `id, amount, status, type, helcim_transaction_id, approval_code, created_at,
+       payment_methods ( card_brand, last4 )`
+    )
+    .eq("invoice_id", id)
+    .order("created_at", { ascending: false });
+  type PaymentRow = {
+    id: string;
+    amount: number;
+    status: string;
+    type: string;
+    helcim_transaction_id: string | null;
+    approval_code: string | null;
+    created_at: string;
+    payment_methods: { card_brand: string | null; last4: string | null } | null;
+  };
+  const payments = (paymentRows as unknown as PaymentRow[]) ?? [];
+
   const facility = invoice.facilities as unknown as { name: string } | null;
   const parent = invoice.parents as unknown as { id: string; first_name: string; last_name: string } | null;
   const reservation = invoice.reservations as unknown as {
@@ -125,6 +149,64 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <span>{money(Number(invoice.total))}</span>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Payments</h2>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Every Helcim attempt tied to this invoice, as reported to us — cross-check the transaction ID against
+            Helcim&apos;s own dashboard if a status here ever looks off.
+          </p>
+          {payments.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">No payment attempts recorded yet.</p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              {payments.map((p) => {
+                const card = p.payment_methods;
+                return (
+                  <div key={p.id} className="rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">{money(Number(p.amount))}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          p.status === "approved"
+                            ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                            : p.status === "declined"
+                              ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                        }`}
+                      >
+                        {p.status === "approved" ? "Approved" : p.status === "declined" ? "Declined" : "Unconfirmed"}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      {new Date(p.created_at).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                      {card?.card_brand && ` · ${card.card_brand} •••• ${card.last4 ?? "----"}`}
+                      {p.type === "verify" && " · Card verification"}
+                    </div>
+                    {(p.helcim_transaction_id || p.approval_code) && (
+                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                        {p.helcim_transaction_id && `Txn #${p.helcim_transaction_id}`}
+                        {p.helcim_transaction_id && p.approval_code && " · "}
+                        {p.approval_code && `Approval ${p.approval_code}`}
+                      </div>
+                    )}
+                    {p.status === "unconfirmed" && !p.helcim_transaction_id && (
+                      <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                        The card form closed before we got a result back from Helcim — verify this one manually.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </main>

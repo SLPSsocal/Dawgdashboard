@@ -92,11 +92,22 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
     cardNumber?: string;
     cardHolderName?: string;
     transactionId?: string;
+    approvalCode?: string;
     amount?: string;
   };
 
+  // Trust what Helcim actually told us, for every purpose — a $1 card
+  // verification can be declined too (bad card, expired, etc.), and
+  // previously that case was silently reported as "approved" here just
+  // because the purpose was save_card, which could tell staff a card was
+  // successfully saved/verified when Helcim actually declined it.
+  const approved = d.status === "APPROVED";
+
   let paymentMethodId: string | null = null;
 
+  // Tokenization can succeed independent of the hold/charge outcome, so the
+  // card still gets saved on file even if this specific attempt was
+  // declined — staff can retry billing later without re-entering the card.
   if ((session.purpose === "save_card" || session.purpose === "charge_and_save") && d.cardToken) {
     const { data: pm, error: pmError } = await supabase
       .from("payment_methods")
@@ -115,25 +126,27 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
     paymentMethodId = pm.id;
   }
 
-  if (session.purpose === "charge_and_save" || session.purpose === "charge") {
-    const approved = d.status === "APPROVED";
-    const { error: payError } = await supabase.from("payments").insert({
-      facility_id: session.facility_id,
-      parent_id: session.parent_id,
-      invoice_id: session.invoice_id,
-      payment_method_id: paymentMethodId,
-      helcim_transaction_id: d.transactionId ?? null,
-      amount: Number(d.amount ?? session.amount ?? 0),
-      status: approved ? "approved" : "declined",
-    });
-    if (payError) throw new Error(payError.message);
+  // Log a receipt row for every attempt, including a pure card-verification
+  // (save_card) — previously only real charges got logged, so a declined or
+  // approved verify-only attempt left no record anywhere in the app.
+  const { error: payError } = await supabase.from("payments").insert({
+    facility_id: session.facility_id,
+    parent_id: session.parent_id,
+    invoice_id: session.purpose === "save_card" ? null : session.invoice_id,
+    payment_method_id: paymentMethodId,
+    helcim_transaction_id: d.transactionId ?? null,
+    approval_code: d.approvalCode ?? null,
+    type: session.purpose === "save_card" ? "verify" : "purchase",
+    amount: Number(d.amount ?? session.amount ?? 0),
+    status: approved ? "approved" : "declined",
+  });
+  if (payError) throw new Error(payError.message);
 
-    if (session.invoice_id && approved) {
-      await supabase
-        .from("invoices")
-        .update({ status: "paid", paid_at: new Date().toISOString() })
-        .eq("id", session.invoice_id);
-    }
+  if (session.invoice_id && approved && (session.purpose === "charge_and_save" || session.purpose === "charge")) {
+    await supabase
+      .from("invoices")
+      .update({ status: "paid", paid_at: new Date().toISOString() })
+      .eq("id", session.invoice_id);
   }
 
   await supabase.from("helcim_checkout_sessions").delete().eq("checkout_token", checkoutToken);
@@ -142,7 +155,37 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
   if (session.invoice_id) revalidatePath(`/invoices/${session.invoice_id}`);
   revalidatePath("/reservations");
 
-  return { approved: d.status === "APPROVED" || session.purpose === "save_card", hashValid };
+  return { approved, hashValid };
+}
+
+// Called when the HelcimPay.js iframe reports ABORTED. Critically, ABORTED
+// does not mean "declined" — Helcim's own docs only say the iframe attempt
+// failed to complete, which can also happen from a closed modal or a network
+// hiccup on our end while the transaction still went through on Helcim's
+// side. We don't get transaction data in this event, so we can't confirm
+// either way — this just logs that an attempt was made (for cross-checking
+// against Helcim's own dashboard by time/amount) without asserting a status
+// we can't actually verify.
+export async function logAbortedAttempt(
+  facilityId: string,
+  parentId: string | null,
+  invoiceId: string | null,
+  amount: number,
+  purpose: "save_card" | "charge_and_save"
+) {
+  const supabase = createClient();
+  const { error } = await supabase.from("payments").insert({
+    facility_id: facilityId,
+    parent_id: parentId,
+    invoice_id: purpose === "save_card" ? null : invoiceId,
+    payment_method_id: null,
+    helcim_transaction_id: null,
+    approval_code: null,
+    type: purpose === "save_card" ? "verify" : "purchase",
+    amount,
+    status: "unconfirmed",
+  });
+  if (error) throw new Error(error.message);
 }
 
 // Charge a card that's already on file — no modal needed, server-to-server.
@@ -183,6 +226,8 @@ export async function chargeSavedCard(paymentMethodId: string, invoiceId: string
     invoice_id: invoiceId,
     payment_method_id: pm.id,
     helcim_transaction_id: d.transactionId ?? null,
+    approval_code: d.approvalCode ?? null,
+    type: "purchase",
     amount,
     status: approved ? "approved" : "declined",
   });
