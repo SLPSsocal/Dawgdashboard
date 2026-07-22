@@ -17,10 +17,13 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <script
-          // Runs before paint to avoid a light-mode flash for users with a
-          // saved or system dark preference.
+          // Runs before paint to avoid a dark-mode flash for returning users
+          // who've explicitly toggled dark mode on this device. Every fresh
+          // browser starts in light mode regardless of OS/system dark-mode
+          // setting — only an explicit tap of the toggle switches it, and
+          // that choice is remembered per-device via localStorage.
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('dawg-theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&d)){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+            __html: `(function(){try{if(localStorage.getItem('dawg-theme')==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
           }}
         />
       </head>

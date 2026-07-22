@@ -43,6 +43,7 @@ export default async function NewSalePage() {
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <WalkInSaleForm
             facilityId={session!.facilityId}
+            staffName={session!.staffName}
             retailItems={retailCatalog.map((r) => ({ id: r.id, name: r.name, price: r.price, taxable: r.taxable }))}
             taxRate={Number(facilityRow?.tax_rate ?? 0)}
             parents={parentOptions}
