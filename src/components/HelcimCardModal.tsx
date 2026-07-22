@@ -90,7 +90,11 @@ export default function HelcimCardModal({
                 : JSON.stringify(event.data.eventMessage);
             const result = await completeHelcimSession(checkoutToken, raw);
             if (!result.approved) {
-              setError("Card was declined.");
+              setError(
+                result.looksMalformed
+                  ? "We got a response back from the card form, but it didn't look like a normal approval or decline — check Helcim's dashboard for this transaction before retrying, to avoid a duplicate charge."
+                  : "Card was declined."
+              );
             } else {
               onSuccess?.();
             }

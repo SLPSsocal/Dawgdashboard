@@ -103,6 +103,22 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
   // successfully saved/verified when Helcim actually declined it.
   const approved = d.status === "APPROVED";
 
+  // Per Helcim's own docs, even a genuinely DECLINED transaction still comes
+  // back with a transactionId. A SUCCESS event whose parsed data has neither
+  // an APPROVED status nor a transactionId doesn't look like a real decline
+  // — it looks like something didn't parse the way we expect. Recording that
+  // as a confident "declined" is exactly the kind of false signal that can
+  // send staff chasing (or worse, retrying and double-charging) a card that
+  // may have actually gone through fine on Helcim's side. Flag it instead.
+  const looksMalformed = !approved && !d.transactionId;
+  if (looksMalformed) {
+    console.error("Helcim SUCCESS event had no transactionId and non-APPROVED status — treating as unconfirmed, not declined", {
+      checkoutToken,
+      purpose: session.purpose,
+      parsedData: d,
+    });
+  }
+
   let paymentMethodId: string | null = null;
 
   // Tokenization can succeed independent of the hold/charge outcome, so the
@@ -138,7 +154,7 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
     approval_code: d.approvalCode ?? null,
     type: session.purpose === "save_card" ? "verify" : "purchase",
     amount: Number(d.amount ?? session.amount ?? 0),
-    status: approved ? "approved" : "declined",
+    status: approved ? "approved" : looksMalformed ? "unconfirmed" : "declined",
   });
   if (payError) throw new Error(payError.message);
 
@@ -155,7 +171,7 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
   if (session.invoice_id) revalidatePath(`/invoices/${session.invoice_id}`);
   revalidatePath("/reservations");
 
-  return { approved, hashValid };
+  return { approved, hashValid, looksMalformed };
 }
 
 // Called when the HelcimPay.js iframe reports ABORTED. Critically, ABORTED
