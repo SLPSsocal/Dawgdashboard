@@ -6,9 +6,13 @@ type ParentDefaults = {
   address?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
+  emergency_contact_2_name?: string | null;
+  emergency_contact_2_phone?: string | null;
   referral_source?: string | null;
   social_media_handle?: string | null;
   notes?: string | null;
+  email_opt_out?: boolean | null;
+  sms_opt_out?: boolean | null;
 };
 
 function Field({
@@ -56,11 +60,21 @@ export default function ParentForm({
     <form action={action} className="flex flex-col gap-4">
       {error && (
         <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
-          {error === "missing_required"
-            ? "First name, last name, phone, email, and referral source are required."
-            : error === "missing_name"
-              ? "First and last name are required."
-              : error}
+          {error === "duplicate" ? (
+            <>
+              <p className="font-bold uppercase tracking-wide">Parent Already Exists</p>
+              <p className="mt-1">
+                A parent with this phone number or email is already in the system. Search for them instead of
+                creating a duplicate account.
+              </p>
+            </>
+          ) : error === "missing_required" ? (
+            "First name, last name, phone, email, referral source, and Emergency Contact 1 (name and phone) are required."
+          ) : error === "missing_name" ? (
+            "First and last name are required."
+          ) : (
+            error
+          )}
         </div>
       )}
 
@@ -73,18 +87,47 @@ export default function ParentForm({
 
       <Field label="Address" name="address" defaultValue={defaults?.address} />
 
+      <div>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Emergency Contact 1
+        </span>
+        <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="Name"
+            name="emergency_contact_name"
+            defaultValue={defaults?.emergency_contact_name}
+            required
+          />
+          <Field
+            label="Phone"
+            name="emergency_contact_phone"
+            defaultValue={defaults?.emergency_contact_phone}
+            type="tel"
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Emergency Contact 2 (optional)
+        </span>
+        <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="Name"
+            name="emergency_contact_2_name"
+            defaultValue={defaults?.emergency_contact_2_name}
+          />
+          <Field
+            label="Phone"
+            name="emergency_contact_2_phone"
+            defaultValue={defaults?.emergency_contact_2_phone}
+            type="tel"
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="Emergency Contact Name"
-          name="emergency_contact_name"
-          defaultValue={defaults?.emergency_contact_name}
-        />
-        <Field
-          label="Emergency Contact Phone"
-          name="emergency_contact_phone"
-          defaultValue={defaults?.emergency_contact_phone}
-          type="tel"
-        />
         <Field
           label="Referral Source"
           name="referral_source"
@@ -107,6 +150,22 @@ export default function ParentForm({
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       </label>
+
+      <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Communication Preferences
+        </span>
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="email_opt_out" defaultChecked={defaults?.email_opt_out ?? false} />
+            Opted out of email
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="sms_opt_out" defaultChecked={defaults?.sms_opt_out ?? false} />
+            Opted out of text messages (SMS)
+          </label>
+        </div>
+      </div>
 
       <button
         type="submit"

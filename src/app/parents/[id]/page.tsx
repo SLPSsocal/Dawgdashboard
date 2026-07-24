@@ -109,9 +109,33 @@ export default async function ParentDetailPage({
         <a href="/parents" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Parents
         </a>
-        <h1 className="mt-2 text-xl font-semibold">
-          {parent.first_name} {parent.last_name}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">
+            {parent.first_name} {parent.last_name}
+          </h1>
+          <a
+            href={`/parents/${id}/reservations`}
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+          >
+            📋 Reservation History
+          </a>
+          <a
+            href={`/parents/${id}/invoices`}
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+          >
+            🧾 Invoice History
+          </a>
+          {parent.email_opt_out && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              📧 Email opt-out
+            </span>
+          )}
+          {parent.sms_opt_out && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              📵 SMS opt-out
+            </span>
+          )}
+        </div>
 
         <div className="mt-3">
           <PageQuickActions session={session!} />
