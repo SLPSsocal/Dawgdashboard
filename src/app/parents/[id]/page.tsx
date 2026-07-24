@@ -36,36 +36,43 @@ export default async function ParentDetailPage({
     .eq("parent_id", id)
     .order("name");
 
-  const [{ data: invoices }, { data: creditTx }, { data: cards }, { data: activeWaiver }, { data: signatures }] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select(`id, status, total, created_at, paid_at, facilities ( name )`)
-      .eq("parent_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("store_credit_transactions")
-      .select("amount, facility_id, facilities ( name )")
-      .eq("parent_id", id),
-    supabase
-      .from("payment_methods")
-      .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
-      .eq("parent_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("waivers")
-      .select("id, title")
-      .eq("facility_id", session!.facilityId)
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("waiver_signatures")
-      .select("id, status, signer_name, sent_at, signed_at, token, waivers ( title )")
-      .eq("parent_id", id)
-      .eq("facility_id", session!.facilityId)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: invoices }, { data: creditTx }, { data: cards }, { data: activeWaiver }, { data: signatures }, { data: referralSources }] =
+    await Promise.all([
+      supabase
+        .from("invoices")
+        .select(`id, status, total, created_at, paid_at, facilities ( name )`)
+        .eq("parent_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("store_credit_transactions")
+        .select("amount, facility_id, facilities ( name )")
+        .eq("parent_id", id),
+      supabase
+        .from("payment_methods")
+        .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
+        .eq("parent_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("waivers")
+        .select("id, title")
+        .eq("facility_id", session!.facilityId)
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("waiver_signatures")
+        .select("id, status, signer_name, sent_at, signed_at, token, waivers ( title )")
+        .eq("parent_id", id)
+        .eq("facility_id", session!.facilityId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("referral_sources")
+        .select("id, name")
+        .eq("facility_id", session!.facilityId)
+        .eq("active", true)
+        .order("name"),
+    ]);
 
   type CardRow = {
     id: string;
@@ -398,7 +405,13 @@ export default async function ParentDetailPage({
         </div>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-          <ParentForm action={updateWithId} defaults={parent} submitLabel="Save Changes" error={error} />
+          <ParentForm
+            action={updateWithId}
+            defaults={parent}
+            submitLabel="Save Changes"
+            error={error}
+            referralSources={referralSources ?? []}
+          />
         </div>
       </div>
     </main>

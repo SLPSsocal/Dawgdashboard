@@ -50,12 +50,23 @@ export default function ParentForm({
   defaults,
   submitLabel,
   error,
+  referralSources = [],
 }: {
   action: (formData: FormData) => void;
   defaults?: ParentDefaults;
   submitLabel: string;
   error?: string;
+  referralSources?: { id: string; name: string }[];
 }) {
+  // If this parent's existing referral_source isn't in the current active
+  // list (renamed, disabled, or a legacy free-text value from before this
+  // was a dropdown), still show it as a selectable option instead of
+  // silently discarding it the moment the form is saved again.
+  const currentValue = defaults?.referral_source ?? "";
+  const options =
+    currentValue && !referralSources.some((s) => s.name === currentValue)
+      ? [...referralSources, { id: "current", name: currentValue }]
+      : referralSources;
   return (
     <form action={action} className="flex flex-col gap-4">
       {error && (
@@ -128,12 +139,32 @@ export default function ParentForm({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="Referral Source"
-          name="referral_source"
-          defaultValue={defaults?.referral_source}
-          required
-        />
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Referral Source
+            <span className="text-red-500"> *</span>
+          </span>
+          <select
+            name="referral_source"
+            defaultValue={currentValue}
+            required
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="" disabled>
+              Select…
+            </option>
+            {options.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          {options.length === 0 && (
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              No referral sources set up yet — <a href="/referral-sources" className="underline">add some</a>.
+            </p>
+          )}
+        </label>
         <Field
           label="Social Media Handle"
           name="social_media_handle"
