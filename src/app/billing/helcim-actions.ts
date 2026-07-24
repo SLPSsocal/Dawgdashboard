@@ -16,10 +16,9 @@ async function clientIp(): Promise<string> {
   return "0.0.0.0";
 }
 
-// Opens a HelcimPay.js modal purely to capture + tokenize a card (no charge,
-// or a $0/$1 verification hold depending on what Helcim's sandbox allows).
-// Used both for "add a card on file" from the parent page, and "add a new
-// card" at checkout.
+// Opens a HelcimPay.js modal purely to capture + tokenize a card. Used both
+// for "add a card on file" from the parent page, and "add a new card" at
+// checkout.
 export async function startCardSession(
   facilityId: string,
   parentId: string,
@@ -34,7 +33,13 @@ export async function startCardSession(
     headers: { "api-token": token, "content-type": "application/json" },
     body: JSON.stringify({
       paymentType: purpose === "save_card" ? "verify" : "purchase",
-      amount: purpose === "save_card" ? 1 : amount,
+      // Helcim's "verify" transaction type validates a card with a $0
+      // authorization, not a real hold — it rejects any nonzero amount here
+      // with "amount must be a valid Zero Number". A previous version of
+      // this sent $1, which is what was causing "Add Card on File" to fail
+      // outright (the initialize call itself got rejected before the modal
+      // ever opened).
+      amount: purpose === "save_card" ? 0 : amount,
       currency: "USD",
     }),
   });
