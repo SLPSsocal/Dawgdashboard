@@ -64,19 +64,14 @@ export default function HelcimCardModal({
         if (event.data?.eventName !== identifierKey) return;
 
         if (event.data.eventStatus === "ABORTED") {
-          // ABORTED only means the iframe attempt didn't complete cleanly on
-          // our end — it does NOT mean Helcim declined the card. Helcim
-          // sends no transaction data with this event, so we genuinely can't
-          // confirm whether it actually went through on their side. Saying
-          // "declined" here would be a guess that could send staff either
-          // double-charging a customer who was actually charged, or telling
-          // one they weren't when they were — so we log the attempt (for
-          // manual cross-checking against Helcim's own dashboard by time)
-          // and are honest about not knowing.
-          logAbortedAttempt(facilityId, parentId, invoiceId, amount, purpose).catch(() => {});
-          setError(
-            "The card form closed before we could confirm the result. We can't tell from here whether Helcim actually processed it — check Helcim's dashboard for a transaction around this time before trying again, to avoid a duplicate charge."
-          );
+          // Per Helcim's own docs, ABORTED specifically means the payment
+          // was declined — eventMessage carries the plain-text reason (e.g.
+          // "HelcimPay.js transaction failed - Card Declined"). Log it and
+          // show the real reason instead of a generic message.
+          const reason =
+            typeof event.data.eventMessage === "string" ? event.data.eventMessage : "Card declined.";
+          logAbortedAttempt(facilityId, parentId, invoiceId, amount, purpose, reason).catch(() => {});
+          setError(reason);
           setLoading(false);
           teardown();
           return;

@@ -38,7 +38,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const { data: paymentRows } = await supabase
     .from("payments")
     .select(
-      `id, amount, status, type, helcim_transaction_id, approval_code, created_at,
+      `id, amount, status, type, helcim_transaction_id, approval_code, failure_reason, created_at,
        payment_methods ( card_brand, last4 )`
     )
     .eq("invoice_id", id)
@@ -50,6 +50,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     type: string;
     helcim_transaction_id: string | null;
     approval_code: string | null;
+    failure_reason: string | null;
     created_at: string;
     payment_methods: { card_brand: string | null; last4: string | null } | null;
   };
@@ -197,7 +198,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         {p.approval_code && `Approval ${p.approval_code}`}
                       </div>
                     )}
-                    {p.status === "unconfirmed" && !p.helcim_transaction_id && (
+                    {p.failure_reason && (
+                      <div className="mt-1 text-xs text-red-600 dark:text-red-400">{p.failure_reason}</div>
+                    )}
+                    {p.status === "unconfirmed" && !p.helcim_transaction_id && !p.failure_reason && (
                       <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                         The card form closed before we got a result back from Helcim — verify this one manually.
                       </div>

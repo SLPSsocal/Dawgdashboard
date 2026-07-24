@@ -179,20 +179,19 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
   return { approved, hashValid, looksMalformed };
 }
 
-// Called when the HelcimPay.js iframe reports ABORTED. Critically, ABORTED
-// does not mean "declined" — Helcim's own docs only say the iframe attempt
-// failed to complete, which can also happen from a closed modal or a network
-// hiccup on our end while the transaction still went through on Helcim's
-// side. We don't get transaction data in this event, so we can't confirm
-// either way — this just logs that an attempt was made (for cross-checking
-// against Helcim's own dashboard by time/amount) without asserting a status
-// we can't actually verify.
+// Called when the HelcimPay.js iframe reports ABORTED. Per Helcim's own
+// documentation this specifically means the payment was declined (not just
+// "the iframe didn't finish") — the eventMessage that comes with it is a
+// plain-text reason string like "HelcimPay.js transaction failed - Card
+// Declined", which we log verbatim so staff get the real reason instead of
+// a generic message.
 export async function logAbortedAttempt(
   facilityId: string,
   parentId: string | null,
   invoiceId: string | null,
   amount: number,
-  purpose: "save_card" | "charge_and_save"
+  purpose: "save_card" | "charge_and_save",
+  reason?: string | null
 ) {
   const supabase = createClient();
   const { error } = await supabase.from("payments").insert({
@@ -202,9 +201,10 @@ export async function logAbortedAttempt(
     payment_method_id: null,
     helcim_transaction_id: null,
     approval_code: null,
+    failure_reason: reason ?? null,
     type: purpose === "save_card" ? "verify" : "purchase",
     amount,
-    status: "unconfirmed",
+    status: "declined",
   });
   if (error) throw new Error(error.message);
 }

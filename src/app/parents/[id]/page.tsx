@@ -36,43 +36,61 @@ export default async function ParentDetailPage({
     .eq("parent_id", id)
     .order("name");
 
-  const [{ data: invoices }, { data: creditTx }, { data: cards }, { data: activeWaiver }, { data: signatures }, { data: referralSources }] =
-    await Promise.all([
-      supabase
-        .from("invoices")
-        .select(`id, status, total, created_at, paid_at, facilities ( name )`)
-        .eq("parent_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("store_credit_transactions")
-        .select("amount, facility_id, facilities ( name )")
-        .eq("parent_id", id),
-      supabase
-        .from("payment_methods")
-        .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
-        .eq("parent_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("waivers")
-        .select("id, title")
-        .eq("facility_id", session!.facilityId)
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("waiver_signatures")
-        .select("id, status, signer_name, sent_at, signed_at, token, waivers ( title )")
-        .eq("parent_id", id)
-        .eq("facility_id", session!.facilityId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("referral_sources")
-        .select("id, name")
-        .eq("facility_id", session!.facilityId)
-        .eq("active", true)
-        .order("name"),
-    ]);
+  const [
+    { data: invoices },
+    { data: creditTx },
+    { data: cards },
+    { data: activeWaiver },
+    { data: signatures },
+    { data: referralSources },
+    { data: cardAttempts },
+  ] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select(`id, status, total, created_at, paid_at, facilities ( name )`)
+      .eq("parent_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("store_credit_transactions")
+      .select("amount, facility_id, facilities ( name )")
+      .eq("parent_id", id),
+    supabase
+      .from("payment_methods")
+      .select("id, facility_id, card_brand, last4, card_holder_name, created_at, facilities ( name )")
+      .eq("parent_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("waivers")
+      .select("id, title")
+      .eq("facility_id", session!.facilityId)
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("waiver_signatures")
+      .select("id, status, signer_name, sent_at, signed_at, token, waivers ( title )")
+      .eq("parent_id", id)
+      .eq("facility_id", session!.facilityId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("referral_sources")
+      .select("id, name")
+      .eq("facility_id", session!.facilityId)
+      .eq("active", true)
+      .order("name"),
+    // Recent card-verification attempts ("Add Card on File") that didn't
+    // result in a saved card — surfaced here so staff see *why* a card
+    // didn't appear instead of just a silent absence.
+    supabase
+      .from("payments")
+      .select("id, status, failure_reason, created_at")
+      .eq("parent_id", id)
+      .eq("type", "verify")
+      .neq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(3),
+  ]);
 
   type CardRow = {
     id: string;
@@ -397,6 +415,29 @@ export default async function ParentDetailPage({
                         Remove
                       </button>
                     </form>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(cardAttempts ?? []).length > 0 && (
+              <div className="mt-3 flex flex-col gap-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Recent Failed Attempts
+                </p>
+                {(cardAttempts ?? []).map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-md border border-red-200 bg-red-50/60 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400"
+                  >
+                    <span className="font-medium">
+                      {new Date(a.created_at).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>{" "}
+                    — {a.failure_reason ?? "Declined (no reason given)."}
                   </div>
                 ))}
               </div>
