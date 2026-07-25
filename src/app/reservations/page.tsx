@@ -137,7 +137,7 @@ export default async function ReservationsPage() {
               areas are set up, bookings will show here.
             </p>
           ) : (
-            <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} />
+            <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} staffName={session!.staffName} />
           )}
         </div>
       </div>

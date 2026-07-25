@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { checkInReservation, deleteReservation, undoCheckIn, undoCheckOut } from "@/app/reservations/actions";
+import {
+  checkInReservation,
+  deleteReservation,
+  undoCheckIn,
+  undoCheckOut,
+  cancelReservation,
+  restoreReservation,
+} from "@/app/reservations/actions";
 import { useCart } from "@/lib/cart";
 
 export default function ReservationActionsMenu({
@@ -11,6 +18,7 @@ export default function ReservationActionsMenu({
   parentId,
   parentName,
   status,
+  performedBy,
 }: {
   reservationId: string;
   animalId: string;
@@ -18,6 +26,7 @@ export default function ReservationActionsMenu({
   parentId: string | null;
   parentName?: string | null;
   status: string;
+  performedBy?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -115,7 +124,7 @@ export default function ReservationActionsMenu({
           <LinkItem href={`/reservations/${reservationId}/report-card/new`} icon="❤️" label="New Report Card" />
 
           <Divider />
-          {status !== "checked_out" && (
+          {status !== "checked_out" && status !== "cancelled" && (
             <ActionItem
               icon={inCart ? "🛒" : "🛒"}
               label={inCart ? "Remove from Cart" : "Add to Cart"}
@@ -136,11 +145,25 @@ export default function ReservationActionsMenu({
             />
           )}
           {status === "checked_out" ? (
-            <ActionItem icon="↩️" label="Undo Check Out" onClick={() => run(() => undoCheckOut(reservationId))} />
+            <ActionItem icon="↩️" label="Undo Check Out" onClick={() => run(() => undoCheckOut(reservationId, performedBy))} />
           ) : status === "checked_in" ? (
-            <ActionItem icon="↩️" label="Undo Check In" onClick={() => run(() => undoCheckIn(reservationId))} />
+            <ActionItem icon="↩️" label="Undo Check In" onClick={() => run(() => undoCheckIn(reservationId, performedBy))} />
+          ) : status === "cancelled" ? (
+            <ActionItem icon="↩️" label="Restore Reservation" onClick={() => run(() => restoreReservation(reservationId, performedBy))} />
           ) : (
-            <ActionItem icon="✅" label="Check In" onClick={() => run(() => checkInReservation(reservationId))} />
+            <ActionItem icon="✅" label="Check In" onClick={() => run(() => checkInReservation(reservationId, performedBy))} />
+          )}
+          {status !== "checked_out" && status !== "cancelled" && (
+            <ActionItem
+              icon="✕"
+              label="Cancel Reservation"
+              danger
+              onClick={() => {
+                const reason = window.prompt("Reason for cancelling this reservation? (optional)");
+                if (reason === null) return;
+                run(() => cancelReservation(reservationId, reason.trim() || null, performedBy));
+              }}
+            />
           )}
           <ActionItem
             icon="🗑️"

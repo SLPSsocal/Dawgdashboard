@@ -21,8 +21,10 @@ type PricingRule = {
 type GroomingItem = { name: string; min_price: number | null; max_price: number | null };
 type RememberedPrice = { service_name: string; price: number };
 type RetailItem = { id: string; name: string; price: number; taxable: boolean };
+type OpenItemType = "Other" | "Price Adjustment" | "Tip";
 
 const NEW_CARD_VALUE = "__new__";
+const OPEN_ITEM_TYPES: OpenItemType[] = ["Other", "Price Adjustment", "Tip"];
 
 export default function CheckoutCalculator({
   reservationId,
@@ -59,6 +61,10 @@ export default function CheckoutCalculator({
   const [checkedFees, setCheckedFees] = useState<Set<string>>(new Set());
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
   const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>([]);
+  const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
+  const [openType, setOpenType] = useState<OpenItemType>("Tip");
+  const [openDesc, setOpenDesc] = useState("");
+  const [openAmount, setOpenAmount] = useState("");
   const [markPaid, setMarkPaid] = useState(false);
   const [cardId, setCardId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
@@ -136,8 +142,25 @@ export default function CheckoutCalculator({
       }
     }
 
+    for (const oi of openItems) {
+      lines.push({
+        description: oi.description ? `${oi.type}: ${oi.description}` : oi.type,
+        quantity: 1,
+        unitPrice: oi.amount,
+        lineTotal: oi.amount,
+      });
+    }
+
     return lines;
-  }, [baseRate, units, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems]);
+  }, [baseRate, units, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems]);
+
+  function addOpenItem() {
+    const amount = Number(openAmount);
+    if (!amount || amount <= 0) return;
+    setOpenItems((items) => [...items, { type: openType, description: openDesc.trim(), amount }]);
+    setOpenDesc("");
+    setOpenAmount("");
+  }
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
   const taxableSubtotal = lineItems.filter((li) => li.taxable).reduce((sum, li) => sum + li.lineTotal, 0);
@@ -375,6 +398,75 @@ export default function CheckoutCalculator({
           </div>
         </div>
       )}
+
+      {/* Open Line Items — a tip, a manual price adjustment, or any other
+          one-off charge that isn't tied to the retail catalog. */}
+      <div>
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tip / Other Charges</span>
+        <div className="mt-2 flex flex-col gap-2">
+          {openItems.map((oi, i) => (
+            <div key={i} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-800">
+              <span className="text-slate-600 dark:text-slate-300">
+                {oi.type}
+                {oi.description ? `: ${oi.description}` : ""}
+              </span>
+              <span className="flex items-center gap-2">
+                <span>${oi.amount.toFixed(2)}</span>
+                <button
+                  type="button"
+                  onClick={() => setOpenItems((items) => items.filter((_, idx) => idx !== i))}
+                  className="text-xs text-red-500 dark:text-red-400"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs">
+              <span className="block text-slate-500 dark:text-slate-400">Type</span>
+              <select
+                value={openType}
+                onChange={(e) => setOpenType(e.target.value as OpenItemType)}
+                className="mt-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                {OPEN_ITEM_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex-1 text-xs">
+              <span className="block text-slate-500 dark:text-slate-400">Description</span>
+              <input
+                value={openDesc}
+                onChange={(e) => setOpenDesc(e.target.value)}
+                placeholder="Optional"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="text-xs">
+              <span className="block text-slate-500 dark:text-slate-400">Amount</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={openAmount}
+                onChange={(e) => setOpenAmount(e.target.value)}
+                className="mt-1 w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={addOpenItem}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+            >
+              + Add
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
         {lineItems.map((li, i) => (

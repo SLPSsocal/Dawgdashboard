@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
-import { createReservation, getGroomingMemory, getSpecialistConflicts } from "@/app/reservations/actions";
+import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
 
 type ReservationType = {
   id: string;
@@ -60,6 +60,8 @@ export default function BookingForm({
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [animal, setAnimal] = useState<AnimalOption | null>(null);
+  const [siblings, setSiblings] = useState<{ id: string; name: string; breed: string | null }[]>([]);
+  const [selectedSiblingIds, setSelectedSiblingIds] = useState<Set<string>>(new Set());
   const [typeId, setTypeId] = useState(reservationTypes[0]?.id ?? "");
   const [lodgingAreaId, setLodgingAreaId] = useState("");
   const [serviceName, setServiceName] = useState(groomingServices[0]?.name ?? "");
@@ -75,6 +77,33 @@ export default function BookingForm({
   const [conflicts, setConflicts] = useState<{ id: string; animalName: string; startDate: string; endDate: string }[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Most multi-dog bookings are the same household coming in together — once
+  // a dog is picked, offer its other dogs (same parent) as one-click
+  // additions instead of making staff repeat the whole form per dog.
+  useEffect(() => {
+    setSelectedSiblingIds(new Set());
+    if (!animal?.parentId) {
+      setSiblings([]);
+      return;
+    }
+    let cancelled = false;
+    getSiblingAnimals(animal.parentId, animal.id).then((rows) => {
+      if (!cancelled) setSiblings(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [animal]);
+
+  function toggleSibling(id: string) {
+    setSelectedSiblingIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const type = reservationTypes.find((t) => t.id === typeId) ?? null;
   const isGrooming = type?.category === "grooming";
@@ -145,23 +174,34 @@ export default function BookingForm({
       setError("Pick a dog first.");
       return;
     }
+    const animalIds = [animal.id, ...siblings.filter((s) => selectedSiblingIds.has(s.id)).map((s) => s.id)];
+    // Only link these as a group if there's actually more than one dog —
+    // a solo booking doesn't need a booking_group_id at all.
+    const bookingGroupId = animalIds.length > 1 ? crypto.randomUUID() : null;
+
     startTransition(async () => {
       try {
-        const { reservationId } = await createReservation({
-          facilityId,
-          animalId: animal.id,
-          reservationTypeId: typeId || null,
-          lodgingAreaId: type?.requiresLodging ? lodgingAreaId || null : null,
-          startDate,
-          startTime: usesTimeSlot ? startTime : null,
-          endDate: usesTimeSlot ? null : endDate,
-          durationMinutes: usesTimeSlot ? durationMinutes : null,
-          specialistId: isGrooming ? specialistId || null : null,
-          serviceName: isGrooming ? serviceName || null : null,
-          belongings: belongings || null,
-          notes: notes || null,
-        });
-        void reservationId;
+        for (const aId of animalIds) {
+          await createReservation({
+            facilityId,
+            animalId: aId,
+            reservationTypeId: typeId || null,
+            lodgingAreaId: type?.requiresLodging ? lodgingAreaId || null : null,
+            startDate,
+            startTime: usesTimeSlot ? startTime : null,
+            endDate: usesTimeSlot ? null : endDate,
+            durationMinutes: usesTimeSlot ? durationMinutes : null,
+            // A shared specialist/service memory lookup only makes sense for
+            // the primary dog that was actually picked via the grooming
+            // memory flow above — siblings still get the same appointment
+            // settings, just without double-writing that per-dog memory.
+            specialistId: isGrooming ? specialistId || null : null,
+            serviceName: isGrooming ? serviceName || null : null,
+            belongings: belongings || null,
+            notes: notes || null,
+            bookingGroupId,
+          });
+        }
         router.push("/reservations");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to create booking");
@@ -176,6 +216,30 @@ export default function BookingForm({
         <p className="text-xs text-slate-400 dark:text-slate-500">
           No animals yet — <a href="/animals/new" className="underline">add one first</a>.
         </p>
+      )}
+
+      {siblings.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Also book from the same household?
+          </span>
+          <div className="mt-2 flex flex-col gap-1">
+            {siblings.map((s) => (
+              <label key={s.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedSiblingIds.has(s.id)}
+                  onChange={() => toggleSibling(s.id)}
+                />
+                {s.name}
+                {s.breed ? ` · ${s.breed}` : ""}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Creates identical bookings for each dog checked — you can adjust lodging per dog afterward.
+          </p>
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

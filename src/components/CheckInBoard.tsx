@@ -28,7 +28,15 @@ function fmtDate(iso: string) {
   });
 }
 
-export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: CheckInRow[]; checkedOutToday?: CheckInRow[] }) {
+export default function CheckInBoard({
+  rows,
+  checkedOutToday = [],
+  staffName,
+}: {
+  rows: CheckInRow[];
+  checkedOutToday?: CheckInRow[];
+  staffName?: string | null;
+}) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -178,6 +186,7 @@ export default function CheckInBoard({ rows, checkedOutToday = [] }: { rows: Che
                         parentId={r.parentId}
                         parentName={r.parentName}
                         status={r.status}
+                        performedBy={staffName}
                       />
                     </div>
                   </td>

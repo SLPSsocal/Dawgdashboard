@@ -1,3 +1,5 @@
+import { vaccineStatus, vaccineShield } from "@/lib/vaccines";
+
 type Parent = { id: string; first_name: string; last_name: string };
 
 type AnimalDefaults = {
@@ -13,7 +15,9 @@ type AnimalDefaults = {
   owned_since_note?: string | null;
   vet_name?: string | null;
   vet_phone?: string | null;
-  vaccination_expiry?: string | null;
+  rabies_expiration?: string | null;
+  distemper_expiration?: string | null;
+  bordetella_expiration?: string | null;
   medical_notes?: string | null;
   behavioral_notes?: string | null;
   feeding_instructions?: string | null;
@@ -51,6 +55,35 @@ function Field({
         required={required}
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
+    </label>
+  );
+}
+
+function VaccineField({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string | null;
+}) {
+  const status = vaccineStatus(defaultValue);
+  const shield = vaccineShield(status);
+  return (
+    <label className="block">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label} Expiration</span>
+      <input
+        name={name}
+        type="date"
+        defaultValue={defaultValue ?? ""}
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {status !== "unknown" && (
+        <p className={`mt-1 text-xs ${shield.className}`}>
+          {shield.icon} {status === "expired" ? "Expired" : status === "expiring_soon" ? "Expiring soon" : "Current"}
+        </p>
+      )}
     </label>
   );
 }
@@ -158,12 +191,15 @@ export default function AnimalForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vet Name" name="vet_name" defaultValue={defaults?.vet_name} />
         <Field label="Vet Phone" name="vet_phone" defaultValue={defaults?.vet_phone} type="tel" />
-        <Field
-          label="Vaccination Expiry"
-          name="vaccination_expiry"
-          defaultValue={defaults?.vaccination_expiry}
-          type="date"
-        />
+      </div>
+
+      <div>
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Vaccinations</span>
+        <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <VaccineField label="Rabies" name="rabies_expiration" defaultValue={defaults?.rabies_expiration} />
+          <VaccineField label="Distemper" name="distemper_expiration" defaultValue={defaults?.distemper_expiration} />
+          <VaccineField label="Bordetella" name="bordetella_expiration" defaultValue={defaults?.bordetella_expiration} />
+        </div>
       </div>
 
       <TextArea label="Medical Notes / Allergies" name="medical_notes" defaultValue={defaults?.medical_notes} />

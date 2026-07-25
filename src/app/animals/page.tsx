@@ -12,6 +12,9 @@ type Animal = {
   size: string | null;
   photo_url: string | null;
   created_at: string;
+  rabies_expiration: string | null;
+  distemper_expiration: string | null;
+  bordetella_expiration: string | null;
   parents: { first_name: string; last_name: string } | null;
 };
 
@@ -25,7 +28,9 @@ export default async function AnimalsPage() {
   const supabase = createClient();
   const { data } = await supabase
     .from("animals")
-    .select("id, name, breed, size, photo_url, created_at, parents ( first_name, last_name )")
+    .select(
+      "id, name, breed, size, photo_url, created_at, rabies_expiration, distemper_expiration, bordetella_expiration, parents ( first_name, last_name )"
+    )
     .eq("active", true)
     .order("name");
 

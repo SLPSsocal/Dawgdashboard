@@ -10,46 +10,97 @@ function refresh() {
   revalidatePath("/lodging");
 }
 
-export async function checkOutReservation(reservationId: string) {
+// Every meaningful thing that happens to a reservation (created, edited,
+// checked in/out, cancelled, restored) gets a row here — this is what backs
+// the "what changed and when" history shown on the reservation detail page.
+async function logHistory(
+  reservationId: string,
+  action: string,
+  details: string | null,
+  performedBy: string | null
+) {
+  const supabase = createClient();
+  const { error } = await supabase.from("reservation_history").insert({
+    reservation_id: reservationId,
+    action,
+    details,
+    performed_by: performedBy ?? null,
+  });
+  // Never let a logging failure block the actual operation — this is an
+  // audit trail, not a source of truth for reservation state itself.
+  if (error) console.error("Failed to log reservation history", reservationId, action, error.message);
+}
+
+export async function checkOutReservation(reservationId: string, performedBy?: string | null) {
   const supabase = createClient();
   const { error } = await supabase
     .from("reservations")
     .update({ status: "checked_out", checked_out_at: new Date().toISOString() })
     .eq("id", reservationId);
   if (error) throw new Error(error.message);
+  await logHistory(reservationId, "checked_out", null, performedBy ?? null);
   refresh();
 }
 
-export async function undoCheckIn(reservationId: string) {
+export async function undoCheckIn(reservationId: string, performedBy?: string | null) {
   const supabase = createClient();
   const { error } = await supabase
     .from("reservations")
     .update({ status: "booked", checked_in_at: null })
     .eq("id", reservationId);
   if (error) throw new Error(error.message);
+  await logHistory(reservationId, "undo_check_in", null, performedBy ?? null);
   refresh();
 }
 
 // Reverses an accidental checkout — puts the reservation back to
 // checked_in. Does not touch any invoice already created by that checkout;
 // staff should void/adjust the invoice separately if one was generated.
-export async function undoCheckOut(reservationId: string) {
+export async function undoCheckOut(reservationId: string, performedBy?: string | null) {
   const supabase = createClient();
   const { error } = await supabase
     .from("reservations")
     .update({ status: "checked_in", checked_out_at: null })
     .eq("id", reservationId);
   if (error) throw new Error(error.message);
+  await logHistory(reservationId, "undo_check_out", null, performedBy ?? null);
   refresh();
 }
 
-export async function checkInReservation(reservationId: string) {
+export async function checkInReservation(reservationId: string, performedBy?: string | null) {
   const supabase = createClient();
   const { error } = await supabase
     .from("reservations")
     .update({ status: "checked_in", checked_in_at: new Date().toISOString() })
     .eq("id", reservationId);
   if (error) throw new Error(error.message);
+  await logHistory(reservationId, "checked_in", null, performedBy ?? null);
+  refresh();
+}
+
+// Cancels a reservation instead of deleting it — the row (and its history)
+// stays around so it still shows up in the dog's/parent's visit history as
+// "cancelled" rather than just silently disappearing.
+export async function cancelReservation(reservationId: string, reason: string | null, performedBy?: string | null) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_reason: reason })
+    .eq("id", reservationId);
+  if (error) throw new Error(error.message);
+  await logHistory(reservationId, "cancelled", reason, performedBy ?? null);
+  refresh();
+}
+
+// Undoes a cancellation — back to "booked" so it reappears on the board.
+export async function restoreReservation(reservationId: string, performedBy?: string | null) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("reservations")
+    .update({ status: "booked", cancelled_at: null, cancelled_reason: null })
+    .eq("id", reservationId);
+  if (error) throw new Error(error.message);
+  await logHistory(reservationId, "restored", null, performedBy ?? null);
   refresh();
 }
 
@@ -75,6 +126,7 @@ export async function createReservation(payload: {
   serviceName: string | null; // grooming service, for remembering duration/specialist
   belongings: string | null;
   notes: string | null;
+  bookingGroupId?: string | null; // links siblings booked together in one pass
 }) {
   const supabase = createClient();
 
@@ -113,11 +165,13 @@ export async function createReservation(payload: {
       status: "booked",
       belongings: payload.belongings,
       notes: payload.notes,
+      booking_group_id: payload.bookingGroupId ?? null,
     })
     .select("id")
     .single();
 
   if (error || !reservation) throw new Error(error?.message ?? "Failed to create booking");
+  await logHistory(reservation.id as string, "created", null, null);
 
   // Remember duration + who groomed this animal for this service, so the
   // next booking prefills both instead of guessing from the service
@@ -194,7 +248,58 @@ export async function deleteReservation(reservationId: string) {
   refresh();
 }
 
-export async function updateReservation(reservationId: string, formData: FormData) {
+// Dogs sharing a parent with this one — used to offer "also book these
+// dogs" when creating a reservation, since most multi-dog bookings are the
+// same household coming in together.
+export async function getSiblingAnimals(parentId: string, excludeAnimalId: string) {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("animals")
+    .select("id, name, breed")
+    .eq("parent_id", parentId)
+    .eq("active", true)
+    .neq("id", excludeAnimalId)
+    .order("name");
+  return data ?? [];
+}
+
+// Reservations that share this one's booking_group_id — i.e. other dogs
+// from the same household booked together in one pass. Shown on the
+// reservation detail page so staff can see "who else came in with this dog."
+export async function getBookingGroupSiblings(reservationId: string, bookingGroupId: string | null) {
+  if (!bookingGroupId) return [];
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("reservations")
+    .select("id, status, animals ( id, name )")
+    .eq("booking_group_id", bookingGroupId)
+    .neq("id", reservationId);
+  type Row = { id: string; status: string; animals: { id: string; name: string } | null };
+  return ((data as unknown as Row[]) ?? []).map((r) => ({
+    id: r.id,
+    status: r.status,
+    animalId: r.animals?.id ?? null,
+    animalName: r.animals?.name ?? "Unknown",
+  }));
+}
+
+function diffFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  labels: Record<string, string>
+): string | null {
+  const changes: string[] = [];
+  for (const key of Object.keys(labels)) {
+    const b = before[key] ?? null;
+    const a = after[key] ?? null;
+    if (String(b ?? "") !== String(a ?? "")) {
+      changes.push(`${labels[key]}: "${b ?? "—"}" → "${a ?? "—"}"`);
+    }
+  }
+  return changes.length ? changes.join("; ") : null;
+}
+
+export async function updateReservation(reservationId: string, performedBy: string | null, formData: FormData) {
   const supabase = createClient();
 
   const start_date = String(formData.get("start_date") ?? "");
@@ -204,6 +309,12 @@ export async function updateReservation(reservationId: string, formData: FormDat
   const notes = String(formData.get("notes") ?? "") || null;
   const belongings = String(formData.get("belongings") ?? "") || null;
 
+  const { data: before } = await supabase
+    .from("reservations")
+    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings")
+    .eq("id", reservationId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("reservations")
     .update({ start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings })
@@ -211,6 +322,22 @@ export async function updateReservation(reservationId: string, formData: FormDat
 
   if (error) {
     redirect(`/reservations/${reservationId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (before) {
+    const summary = diffFields(
+      before,
+      { start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings },
+      {
+        start_date: "Arrival",
+        end_date: "Departure",
+        reservation_type_id: "Type",
+        lodging_area_id: "Lodging",
+        notes: "Notes",
+        belongings: "Belongings",
+      }
+    );
+    if (summary) await logHistory(reservationId, "modified", summary, performedBy);
   }
 
   refresh();

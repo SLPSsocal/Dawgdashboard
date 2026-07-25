@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { overallVaccineStatus, vaccineShield } from "@/lib/vaccines";
 
 type Animal = {
   id: string;
@@ -9,6 +10,9 @@ type Animal = {
   size: string | null;
   photo_url: string | null;
   created_at: string;
+  rabies_expiration?: string | null;
+  distemper_expiration?: string | null;
+  bordetella_expiration?: string | null;
   parents: { first_name: string; last_name: string } | null;
 };
 
@@ -87,7 +91,25 @@ export default function SearchableAnimalsList({ animals }: { animals: Animal[] }
               )}
             </div>
             <div>
-              <div className="font-medium">{a.name}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium">{a.name}</span>
+                {(() => {
+                  const status = overallVaccineStatus({
+                    rabies_expiration: a.rabies_expiration,
+                    distemper_expiration: a.distemper_expiration,
+                    bordetella_expiration: a.bordetella_expiration,
+                  });
+                  if (status === "expired" || status === "expiring_soon") {
+                    const shield = vaccineShield(status);
+                    return (
+                      <span title={shield.label}>
+                        {shield.icon}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">{a.breed ?? "—"} · {a.size ?? "—"}</div>
               <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                 {a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "No parent linked"}

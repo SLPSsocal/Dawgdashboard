@@ -2,7 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
-import { updateReservation } from "../actions";
+import { updateReservation, getBookingGroupSiblings } from "../actions";
+import CancelReservationControls from "@/components/CancelReservationControls";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -41,31 +42,38 @@ export default async function ReservationDetailPage({
     parents: { id: string; first_name: string; last_name: string } | null;
   } | null;
 
-  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }] = await Promise.all([
-    supabase
-      .from("reservation_types")
-      .select("id, name")
-      .eq("facility_id", session!.facilityId)
-      .order("name"),
-    supabase
-      .from("lodging_areas")
-      .select("id, name")
-      .eq("facility_id", session!.facilityId)
-      .eq("active", true)
-      .order("name"),
-    supabase
-      .from("incidents")
-      .select("id, description, severity, reported_by, created_at")
-      .eq("reservation_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("report_cards")
-      .select("id, rating, activities, notes, created_at")
-      .eq("reservation_id", id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings] =
+    await Promise.all([
+      supabase
+        .from("reservation_types")
+        .select("id, name")
+        .eq("facility_id", session!.facilityId)
+        .order("name"),
+      supabase
+        .from("lodging_areas")
+        .select("id, name")
+        .eq("facility_id", session!.facilityId)
+        .eq("active", true)
+        .order("name"),
+      supabase
+        .from("incidents")
+        .select("id, description, severity, reported_by, created_at")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("report_cards")
+        .select("id, rating, activities, notes, created_at")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("reservation_history")
+        .select("id, action, details, performed_by, created_at")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false }),
+      getBookingGroupSiblings(id, reservation.booking_group_id ?? null),
+    ]);
 
-  const updateWithId = updateReservation.bind(null, id);
+  const updateWithId = updateReservation.bind(null, id, session!.staffName);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -74,7 +82,14 @@ export default async function ReservationDetailPage({
         <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
         </a>
-        <h1 className="mt-2 text-xl font-semibold">{animal?.name ?? "Unknown"}&apos;s Reservation</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">{animal?.name ?? "Unknown"}&apos;s Reservation</h1>
+          {reservation.status === "cancelled" && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+              Cancelled
+            </span>
+          )}
+        </div>
         {animal?.parents && (
           <p className="text-sm text-slate-400 dark:text-slate-500">
             Parent:{" "}
@@ -83,6 +98,39 @@ export default async function ReservationDetailPage({
             </a>
           </p>
         )}
+
+        {reservation.status === "cancelled" && (
+          <div className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            Cancelled {reservation.cancelled_at ? new Date(reservation.cancelled_at).toLocaleString() : ""}
+            {reservation.cancelled_reason ? ` — ${reservation.cancelled_reason}` : ""}
+          </div>
+        )}
+
+        {siblings.length > 0 && (
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Booked together with:{" "}
+            {siblings.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 && ", "}
+                {s.animalId ? (
+                  <a href={`/reservations/${s.id}`} className="underline">
+                    {s.animalName}
+                  </a>
+                ) : (
+                  s.animalName
+                )}
+              </span>
+            ))}
+          </p>
+        )}
+
+        <div className="mt-4">
+          <CancelReservationControls
+            reservationId={id}
+            status={reservation.status}
+            performedBy={session!.staffName}
+          />
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <a
@@ -231,6 +279,23 @@ export default async function ReservationDetailPage({
                   {rc.notes && <div className="text-slate-500 dark:text-slate-400">{rc.notes}</div>}
                   <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                     {new Date(rc.created_at).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(history?.length ?? 0) > 0 && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">🕓 History</h2>
+            <div className="mt-2 flex flex-col gap-2">
+              {history!.map((h) => (
+                <div key={h.id} className="rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <div className="font-medium capitalize">{h.action.replace(/_/g, " ")}</div>
+                  {h.details && <div className="text-slate-500 dark:text-slate-400">{h.details}</div>}
+                  <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    {h.performed_by ?? "Unknown"} · {new Date(h.created_at).toLocaleString()}
                   </div>
                 </div>
               ))}
