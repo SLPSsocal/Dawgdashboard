@@ -181,14 +181,21 @@ export default async function ParentDetailPage({
           )}
           <div className="mt-3 flex flex-col gap-2">
             {(animals ?? []).map((a) => (
-              <a
+              <div
                 key={a.id}
-                href={`/animals/${a.id}`}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+                className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
               >
-                <span className="font-medium">{a.name}</span>{" "}
-                <span className="text-slate-400 dark:text-slate-500">{a.breed ?? ""}</span>
-              </a>
+                <a href={`/animals/${a.id}`} className="min-w-0 flex-1">
+                  <span className="font-medium">{a.name}</span>{" "}
+                  <span className="text-slate-400 dark:text-slate-500">{a.breed ?? ""}</span>
+                </a>
+                <a
+                  href={`/reservations/new?animal_id=${a.id}`}
+                  className="ml-2 shrink-0 rounded-full border border-slate-300 px-2 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+                >
+                  📅 Book
+                </a>
+              </div>
             ))}
           </div>
         </div>

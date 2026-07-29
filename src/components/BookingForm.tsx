@@ -48,6 +48,8 @@ export default function BookingForm({
   lodgingAreas,
   groomingServices,
   specialists,
+  initialAnimal,
+  staffName,
 }: {
   facilityId: string;
   animals: AnimalOption[];
@@ -55,11 +57,15 @@ export default function BookingForm({
   lodgingAreas: LodgingArea[];
   groomingServices: GroomingService[];
   specialists: Specialist[];
+  // Arriving here from a specific dog or parent's page ("New Booking")
+  // should skip re-searching for who staff were already looking at.
+  initialAnimal?: AnimalOption | null;
+  staffName?: string | null;
 }) {
   const router = useRouter();
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const [animal, setAnimal] = useState<AnimalOption | null>(null);
+  const [animal, setAnimal] = useState<AnimalOption | null>(initialAnimal ?? null);
   const [siblings, setSiblings] = useState<{ id: string; name: string; breed: string | null }[]>([]);
   const [selectedSiblingIds, setSelectedSiblingIds] = useState<Set<string>>(new Set());
   const [typeId, setTypeId] = useState(reservationTypes[0]?.id ?? "");
@@ -181,8 +187,9 @@ export default function BookingForm({
 
     startTransition(async () => {
       try {
+        let firstReservationId: string | null = null;
         for (const aId of animalIds) {
-          await createReservation({
+          const { reservationId } = await createReservation({
             facilityId,
             animalId: aId,
             reservationTypeId: typeId || null,
@@ -200,9 +207,14 @@ export default function BookingForm({
             belongings: belongings || null,
             notes: notes || null,
             bookingGroupId,
+            performedBy: staffName ?? null,
           });
+          if (!firstReservationId) firstReservationId = reservationId;
         }
-        router.push("/reservations");
+        // Land on the actual confirmation instead of the board — staff should
+        // see arrival/departure and who/what was just booked right away,
+        // same as Gingr does after saving a reservation.
+        router.push(firstReservationId ? `/reservations/${firstReservationId}` : "/reservations");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to create booking");
       }
@@ -211,7 +223,7 @@ export default function BookingForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <AnimalPicker animals={animals} onSelect={setAnimal} />
+      <AnimalPicker animals={animals} onSelect={setAnimal} initialSelected={initialAnimal ?? null} />
       {animals.length === 0 && (
         <p className="text-xs text-slate-400 dark:text-slate-500">
           No animals yet — <a href="/animals/new" className="underline">add one first</a>.

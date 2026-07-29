@@ -4,12 +4,24 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import { updateReservation, getBookingGroupSiblings } from "../actions";
 import CancelReservationControls from "@/components/CancelReservationControls";
+import { overallVaccineStatus, vaccineShield, type VaccineExpirations } from "@/lib/vaccines";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString([], {
+    weekday: "short",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default async function ReservationDetailPage({
@@ -28,7 +40,9 @@ export default async function ReservationDetailPage({
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      `*, animals ( id, name, breed, parent_id, parents ( id, first_name, last_name ) )`
+      `*, animals ( id, name, breed, species, sex, fixed, alert_note,
+         rabies_expiration, distemper_expiration, bordetella_expiration,
+         parent_id, parents ( id, first_name, last_name, phone, email ) )`
     )
     .eq("id", id)
     .maybeSingle();
@@ -38,11 +52,18 @@ export default async function ReservationDetailPage({
     id: string;
     name: string;
     breed: string | null;
+    species: string | null;
+    sex: string | null;
+    fixed: boolean | null;
+    alert_note: string | null;
+    rabies_expiration: string | null;
+    distemper_expiration: string | null;
+    bordetella_expiration: string | null;
     parent_id: string;
-    parents: { id: string; first_name: string; last_name: string } | null;
+    parents: { id: string; first_name: string; last_name: string; phone: string | null; email: string | null } | null;
   } | null;
 
-  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings] =
+  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings, { data: cardRows }, { data: signedWaiver }] =
     await Promise.all([
       supabase
         .from("reservation_types")
@@ -71,9 +92,33 @@ export default async function ReservationDetailPage({
         .eq("reservation_id", id)
         .order("created_at", { ascending: false }),
       getBookingGroupSiblings(id, reservation.booking_group_id ?? null),
+      animal?.parents
+        ? supabase.from("payment_methods").select("id").eq("parent_id", animal.parents.id).limit(1)
+        : Promise.resolve({ data: null }),
+      animal?.parents
+        ? supabase
+            .from("waiver_signatures")
+            .select("id")
+            .eq("parent_id", animal.parents.id)
+            .eq("facility_id", session!.facilityId)
+            .eq("status", "signed")
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
   const updateWithId = updateReservation.bind(null, id, session!.staffName);
+  const createdEntry = (history ?? []).find((h) => h.action === "created") ?? null;
+  const hasCardOnFile = (cardRows ?? []).length > 0;
+  const vaxRecord: VaccineExpirations | null = animal
+    ? {
+        rabies_expiration: animal.rabies_expiration,
+        distemper_expiration: animal.distemper_expiration,
+        bordetella_expiration: animal.bordetella_expiration,
+      }
+    : null;
+  const vaxStatus = vaxRecord ? overallVaccineStatus(vaxRecord) : "unknown";
+  const vaxShield = vaccineShield(vaxStatus);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -90,14 +135,65 @@ export default async function ReservationDetailPage({
             </span>
           )}
         </div>
-        {animal?.parents && (
-          <p className="text-sm text-slate-400 dark:text-slate-500">
-            Parent:{" "}
-            <a href={`/parents/${animal.parents.id}`} className="underline">
-              {animal.parents.first_name} {animal.parents.last_name}
-            </a>
-          </p>
-        )}
+        {/* Booking confirmation summary — Arrives/Goes/Confirmed, then a Pet
+            and Parent card, mirroring what Gingr shows right after a
+            reservation is saved so staff get an at-a-glance recap instead
+            of having to dig through the edit form below. */}
+        <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm dark:border-sky-900 dark:bg-sky-950/20">
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <div>
+              <span className="text-slate-500 dark:text-slate-400">Arrives At: </span>
+              <span className="font-semibold">{fmtDateTime(reservation.start_date)}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 dark:text-slate-400">Goes: </span>
+              <span className="font-semibold">{fmtDateTime(reservation.end_date)}</span>
+            </div>
+          </div>
+          <div className="mt-2 text-right text-xs text-slate-400 dark:text-slate-500">
+            Confirmed: {fmtDateTime(reservation.created_at)}
+            {createdEntry?.performed_by ? ` by ${createdEntry.performed_by}` : ""}
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {animal && (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🐾</span>
+                <a href={`/animals/${animal.id}`} className="font-medium underline">
+                  {animal.name}
+                </a>
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {animal.breed ?? animal.species ?? "—"}
+                {animal.sex ? `, ${animal.sex.charAt(0).toUpperCase()}${animal.sex.slice(1)}` : ""}
+                {animal.fixed != null ? ` (${animal.fixed ? "Fixed" : "Unaltered"})` : ""}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-sm">
+                {vaxStatus !== "unknown" && <span title={vaxShield.label}>{vaxShield.icon}</span>}
+                {animal.alert_note && <span title={`Alert: ${animal.alert_note}`}>⚠️</span>}
+              </div>
+            </div>
+          )}
+          {animal?.parents && (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">👤</span>
+                <a href={`/parents/${animal.parents.id}`} className="font-medium underline">
+                  {animal.parents.first_name} {animal.parents.last_name}
+                </a>
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {animal.parents.phone ?? animal.parents.email ?? "—"}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-sm">
+                {hasCardOnFile && <span title="Card on file">💳</span>}
+                {signedWaiver && <span title="Waiver signed">✍️</span>}
+              </div>
+            </div>
+          )}
+        </div>
 
         {reservation.status === "cancelled" && (
           <div className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">

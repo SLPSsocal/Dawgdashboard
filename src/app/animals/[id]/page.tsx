@@ -68,6 +68,12 @@ export default async function AnimalDetailPage({
           <a href={`/animals/${id}/invoices`} className="text-sm text-indigo-600 underline dark:text-indigo-400">
             🧾 Receipts
           </a>
+          <a
+            href={`/reservations/new?animal_id=${id}`}
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+          >
+            📅 New Booking
+          </a>
         </div>
         {parent && (
           <p className="text-sm text-slate-400 dark:text-slate-500">

@@ -16,12 +16,17 @@ export type AnimalOption = {
 export default function AnimalPicker({
   animals,
   onSelect,
+  initialSelected,
 }: {
   animals: AnimalOption[];
   onSelect?: (a: AnimalOption | null) => void;
+  // Pre-fills the picker (e.g. arriving via "New Booking" from a specific
+  // animal or parent's page) instead of making staff search again for a
+  // dog they were already looking at.
+  initialSelected?: AnimalOption | null;
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<AnimalOption | null>(null);
+  const [selected, setSelected] = useState<AnimalOption | null>(initialSelected ?? null);
   const [openList, setOpenList] = useState(false);
 
   function choose(a: AnimalOption | null) {

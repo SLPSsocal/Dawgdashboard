@@ -6,9 +6,14 @@ import PageQuickActions from "@/components/PageQuickActions";
 import BookingForm from "@/components/BookingForm";
 import type { AnimalOption } from "@/components/AnimalPicker";
 
-export default async function NewReservationPage() {
+export default async function NewReservationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ animal_id?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
+  const { animal_id: animalIdParam } = await searchParams;
 
   const supabase = createClient();
   const [{ data: animals }, { data: types }, { data: areas }, { data: groomingItems }, { data: staffRows }] =
@@ -72,6 +77,11 @@ export default async function NewReservationPage() {
 
   const specialists = (staffRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
 
+  // Arriving here from a dog's or parent's page ("New Booking") should
+  // pre-fill the dog instead of making staff search for who they were just
+  // looking at.
+  const initialAnimal = animalIdParam ? animalOptions.find((a) => a.id === animalIdParam) ?? null : null;
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
@@ -98,6 +108,8 @@ export default async function NewReservationPage() {
             lodgingAreas={areas ?? []}
             groomingServices={groomingServices}
             specialists={specialists}
+            initialAnimal={initialAnimal}
+            staffName={session!.staffName}
           />
         </div>
       </div>

@@ -127,6 +127,7 @@ export async function createReservation(payload: {
   belongings: string | null;
   notes: string | null;
   bookingGroupId?: string | null; // links siblings booked together in one pass
+  performedBy?: string | null; // staff who created it, for the history/confirmation trail
 }) {
   const supabase = createClient();
 
@@ -171,7 +172,7 @@ export async function createReservation(payload: {
     .single();
 
   if (error || !reservation) throw new Error(error?.message ?? "Failed to create booking");
-  await logHistory(reservation.id as string, "created", null, null);
+  await logHistory(reservation.id as string, "created", null, payload.performedBy ?? null);
 
   // Remember duration + who groomed this animal for this service, so the
   // next booking prefills both instead of guessing from the service
