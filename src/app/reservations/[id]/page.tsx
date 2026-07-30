@@ -7,6 +7,7 @@ import CancelReservationControls from "@/components/CancelReservationControls";
 import { overallVaccineStatus, vaccineShield, type VaccineExpirations } from "@/lib/vaccines";
 import { getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import SendPrecheckinLink from "@/components/SendPrecheckinLink";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -263,6 +264,18 @@ export default async function ReservationDetailPage({
           )}
         </div>
 
+        {animal && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <SendPrecheckinLink
+              reservationId={id}
+              facilityId={reservation.facility_id}
+              animalId={animal.id}
+              parentId={animal.parents?.id ?? null}
+              phone={animal.parents?.phone ?? null}
+            />
+          </div>
+        )}
+
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           {error && (
             <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
@@ -333,6 +346,14 @@ export default async function ReservationDetailPage({
                 placeholder="Leash, bed, favorite toy…"
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
+              {reservation.belongings_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={reservation.belongings_photo_url}
+                  alt="Belongings"
+                  className="mt-2 h-20 w-20 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+                />
+              )}
             </label>
 
             <label className="block">

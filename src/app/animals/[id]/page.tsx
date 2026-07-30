@@ -10,6 +10,7 @@ import { overallVaccineStatus, vaccineShield, vaccineStatus, VACCINE_LABELS, typ
 import { getProfileTagCatalog, getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagEditor from "@/components/ProfileTagEditor";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import { getAnimalFieldHistory, ANIMAL_HISTORY_FIELD_LABELS, type AnimalHistoryField } from "@/lib/animalFieldHistory";
 
 export default async function AnimalDetailPage({
   params,
@@ -42,9 +43,10 @@ export default async function AnimalDetailPage({
   const overallStatus = overallVaccineStatus(vaxRecord);
   const overallShield = vaccineShield(overallStatus);
 
-  const [tagCatalog, assignedTags] = await Promise.all([
+  const [tagCatalog, assignedTags, fieldHistory] = await Promise.all([
     getProfileTagCatalog("animal"),
     getProfileTagsFor("animal", id),
+    getAnimalFieldHistory(id),
   ]);
 
   return (
@@ -130,6 +132,18 @@ export default async function AnimalDetailPage({
           <AnimalPhotoUpload animalId={id} currentUrl={animal.photo_url ?? null} />
         </div>
 
+        {animal.grooming_photo_url && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">✂️ Grooming Style Photo</h2>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={animal.grooming_photo_url}
+              alt="Grooming style reference"
+              className="mt-2 h-32 w-32 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+            />
+          </div>
+        )}
+
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <AnimalForm
             action={updateWithId}
@@ -139,6 +153,30 @@ export default async function AnimalDetailPage({
             showActiveToggle
           />
         </div>
+
+        {fieldHistory.length > 0 && (
+          <details className="group mt-4 rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+              <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">🕓 Notes History ({fieldHistory.length})</h2>
+              <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
+            </summary>
+            <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+              {fieldHistory.map((h) => (
+                <div key={h.id} className="rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <div className="font-medium">{ANIMAL_HISTORY_FIELD_LABELS[h.field as AnimalHistoryField] ?? h.field}</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-slate-400 line-through dark:text-slate-500">{h.old_value || "(empty)"}</span>
+                    {" → "}
+                    <span>{h.new_value || "(empty)"}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    {h.changed_by ?? "Unknown"} · {new Date(h.created_at).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </main>
   );
