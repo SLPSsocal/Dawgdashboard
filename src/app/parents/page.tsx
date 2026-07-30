@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import SearchableParentsList from "@/components/SearchableParentsList";
+import { getProfileTagsBulk } from "@/lib/profileTags";
 
 export default async function ParentsPage() {
   const session = await getSession();
@@ -15,6 +16,13 @@ export default async function ParentsPage() {
     .from("parents")
     .select("id, first_name, last_name, phone, email, created_at, animals ( name )")
     .order("last_name");
+
+  const tagsByParent = Object.fromEntries(
+    await getProfileTagsBulk(
+      "parent",
+      (parents ?? []).map((p) => p.id)
+    )
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -40,7 +48,7 @@ export default async function ParentsPage() {
         {!parents || parents.length === 0 ? (
           <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No parents yet.</p>
         ) : (
-          <SearchableParentsList parents={parents} />
+          <SearchableParentsList parents={parents} tagsByParent={tagsByParent} />
         )}
       </div>
     </main>

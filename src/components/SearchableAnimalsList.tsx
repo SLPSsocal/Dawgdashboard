@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { overallVaccineStatus, vaccineShield } from "@/lib/vaccines";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 type Animal = {
   id: string;
@@ -18,7 +19,13 @@ type Animal = {
 
 type SortKey = "name_asc" | "name_desc" | "newest" | "oldest";
 
-export default function SearchableAnimalsList({ animals }: { animals: Animal[] }) {
+export default function SearchableAnimalsList({
+  animals,
+  tagsByAnimal,
+}: {
+  animals: Animal[];
+  tagsByAnimal?: Record<string, { icon: string; name: string; note?: string | null }[]>;
+}) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name_asc");
 
@@ -109,6 +116,7 @@ export default function SearchableAnimalsList({ animals }: { animals: Animal[] }
                   }
                   return null;
                 })()}
+                <ProfileTagBadges tags={tagsByAnimal?.[a.id] ?? []} />
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">{a.breed ?? "—"} · {a.size ?? "—"}</div>
               <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">

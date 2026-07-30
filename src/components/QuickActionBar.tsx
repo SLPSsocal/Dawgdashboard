@@ -20,6 +20,7 @@ const LINKS = [
   { name: "Items for Sale", href: "/retail", icon: "🛍️" },
   { name: "Waivers", href: "/waivers", icon: "✍️" },
   { name: "Referral Sources", href: "/referral-sources", icon: "🔗" },
+  { name: "Profile Tags", href: "/profile-tags", icon: "🏷️" },
 ];
 
 function pillClass() {

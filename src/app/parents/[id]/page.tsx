@@ -9,6 +9,9 @@ import { addStoreCredit } from "../billing-actions";
 import { deletePaymentMethod } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
 import SendWaiverLink from "@/components/SendWaiverLink";
+import { getProfileTagCatalog, getProfileTagsFor } from "@/lib/profileTags";
+import ProfileTagEditor from "@/components/ProfileTagEditor";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -44,6 +47,8 @@ export default async function ParentDetailPage({
     { data: signatures },
     { data: referralSources },
     { data: cardAttempts },
+    tagCatalog,
+    assignedTags,
   ] = await Promise.all([
     supabase
       .from("invoices")
@@ -90,6 +95,8 @@ export default async function ParentDetailPage({
       .neq("status", "approved")
       .order("created_at", { ascending: false })
       .limit(3),
+    getProfileTagCatalog("parent"),
+    getProfileTagsFor("parent", id),
   ]);
 
   type CardRow = {
@@ -138,6 +145,7 @@ export default async function ParentDetailPage({
           <h1 className="text-xl font-semibold">
             {parent.first_name} {parent.last_name}
           </h1>
+          <ProfileTagBadges tags={assignedTags} />
           <a
             href={`/parents/${id}/reservations`}
             className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
@@ -197,6 +205,19 @@ export default async function ParentDetailPage({
                 </a>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Tags</h2>
+          <div className="mt-2">
+            <ProfileTagEditor
+              targetType="parent"
+              targetId={id}
+              catalog={tagCatalog}
+              assigned={assignedTags}
+              staffName={session!.staffName}
+            />
           </div>
         </div>
 

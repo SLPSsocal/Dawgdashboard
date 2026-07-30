@@ -5,6 +5,8 @@ import FacilityHeader from "@/components/FacilityHeader";
 import { updateReservation, getBookingGroupSiblings } from "../actions";
 import CancelReservationControls from "@/components/CancelReservationControls";
 import { overallVaccineStatus, vaccineShield, type VaccineExpirations } from "@/lib/vaccines";
+import { getProfileTagsFor } from "@/lib/profileTags";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -107,6 +109,11 @@ export default async function ReservationDetailPage({
         : Promise.resolve({ data: null }),
     ]);
 
+  const [animalProfileTags, parentProfileTags] = await Promise.all([
+    animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
+    animal?.parents ? getProfileTagsFor("parent", animal.parents.id) : Promise.resolve([]),
+  ]);
+
   const updateWithId = updateReservation.bind(null, id, session!.staffName);
   const createdEntry = (history ?? []).find((h) => h.action === "created") ?? null;
   const hasCardOnFile = (cardRows ?? []).length > 0;
@@ -164,6 +171,7 @@ export default async function ReservationDetailPage({
                 <a href={`/animals/${animal.id}`} className="font-medium underline">
                   {animal.name}
                 </a>
+                <ProfileTagBadges tags={animalProfileTags} />
               </div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {animal.breed ?? animal.species ?? "—"}
@@ -183,6 +191,7 @@ export default async function ReservationDetailPage({
                 <a href={`/parents/${animal.parents.id}`} className="font-medium underline">
                   {animal.parents.first_name} {animal.parents.last_name}
                 </a>
+                <ProfileTagBadges tags={parentProfileTags} />
               </div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {animal.parents.phone ?? animal.parents.email ?? "—"}

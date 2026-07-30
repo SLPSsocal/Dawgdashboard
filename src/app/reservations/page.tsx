@@ -6,6 +6,7 @@ import PageQuickActions from "@/components/PageQuickActions";
 import CheckInBoard, { type CheckInRow } from "@/components/CheckInBoard";
 import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
+import { getProfileTagsBulk } from "@/lib/profileTags";
 
 type Row = {
   id: string;
@@ -82,6 +83,14 @@ export default async function ReservationsPage() {
   const boardRows: CheckInRow[] = rows.map(toRow);
   const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
 
+  const allRows = [...boardRows, ...checkedOutRows];
+  const [animalTags, parentTags] = await Promise.all([
+    getProfileTagsBulk("animal", allRows.map((r) => r.animalId)),
+    getProfileTagsBulk("parent", allRows.map((r) => r.parentId ?? "").filter(Boolean)),
+  ]);
+  const animalTagsObj = Object.fromEntries(animalTags);
+  const parentTagsObj = Object.fromEntries(parentTags);
+
   const expectedTodayCount = boardRows.filter((r) => r.status === "booked" && r.startDate.slice(0, 10) === todayStr).length;
   const checkedInCount = boardRows.filter((r) => r.status === "checked_in").length;
   const overnightCount = boardRows.filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr).length;
@@ -137,7 +146,13 @@ export default async function ReservationsPage() {
               areas are set up, bookings will show here.
             </p>
           ) : (
-            <CheckInBoard rows={boardRows} checkedOutToday={checkedOutRows} staffName={session!.staffName} />
+            <CheckInBoard
+              rows={boardRows}
+              checkedOutToday={checkedOutRows}
+              staffName={session!.staffName}
+              animalTags={animalTagsObj}
+              parentTags={parentTagsObj}
+            />
           )}
         </div>
       </div>

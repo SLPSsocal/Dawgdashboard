@@ -7,6 +7,9 @@ import AnimalForm from "@/components/AnimalForm";
 import AnimalPhotoUpload from "@/components/AnimalPhotoUpload";
 import { updateAnimal } from "../actions";
 import { overallVaccineStatus, vaccineShield, vaccineStatus, VACCINE_LABELS, type VaccineExpirations } from "@/lib/vaccines";
+import { getProfileTagCatalog, getProfileTagsFor } from "@/lib/profileTags";
+import ProfileTagEditor from "@/components/ProfileTagEditor";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 export default async function AnimalDetailPage({
   params,
@@ -39,6 +42,11 @@ export default async function AnimalDetailPage({
   const overallStatus = overallVaccineStatus(vaxRecord);
   const overallShield = vaccineShield(overallStatus);
 
+  const [tagCatalog, assignedTags] = await Promise.all([
+    getProfileTagCatalog("animal"),
+    getProfileTagsFor("animal", id),
+  ]);
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
@@ -48,6 +56,7 @@ export default async function AnimalDetailPage({
         </a>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold">{animal.name}</h1>
+          <ProfileTagBadges tags={assignedTags} />
           {overallStatus !== "unknown" && (
             <span
               title={overallShield.label}
@@ -102,6 +111,19 @@ export default async function AnimalDetailPage({
 
         <div className="mt-3">
           <PageQuickActions session={session!} />
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Tags</h2>
+          <div className="mt-2">
+            <ProfileTagEditor
+              targetType="animal"
+              targetId={id}
+              catalog={tagCatalog}
+              assigned={assignedTags}
+              staffName={session!.staffName}
+            />
+          </div>
         </div>
 
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

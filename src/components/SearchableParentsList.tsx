@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 type Parent = {
   id: string;
@@ -42,7 +43,13 @@ function Th({
   );
 }
 
-export default function SearchableParentsList({ parents }: { parents: Parent[] }) {
+export default function SearchableParentsList({
+  parents,
+  tagsByParent,
+}: {
+  parents: Parent[];
+  tagsByParent?: Record<string, { icon: string; name: string; note?: string | null }[]>;
+}) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("last_name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -124,9 +131,12 @@ export default function SearchableParentsList({ parents }: { parents: Parent[] }
                   </a>
                 </td>
                 <td className="px-3 py-2">
-                  <a href={`/parents/${p.id}`} className="font-medium hover:underline">
-                    {p.last_name}
-                  </a>
+                  <span className="inline-flex items-center gap-1.5">
+                    <a href={`/parents/${p.id}`} className="font-medium hover:underline">
+                      {p.last_name}
+                    </a>
+                    <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
+                  </span>
                 </td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.email ?? "—"}</td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.phone ?? "—"}</td>
@@ -154,7 +164,10 @@ export default function SearchableParentsList({ parents }: { parents: Parent[] }
             href={`/parents/${p.id}`}
             className="rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
           >
-            <div className="font-medium">{p.first_name} {p.last_name}</div>
+            <div className="flex items-center gap-1.5 font-medium">
+              {p.first_name} {p.last_name}
+              <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
+            </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">{p.phone ?? "—"} · {p.email ?? "—"}</div>
             {animalNames(p) && (
               <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">🐾 {animalNames(p)}</div>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import SearchableAnimalsList from "@/components/SearchableAnimalsList";
+import { getProfileTagsBulk } from "@/lib/profileTags";
 
 type Animal = {
   id: string;
@@ -35,6 +36,12 @@ export default async function AnimalsPage() {
     .order("name");
 
   const animals = (data as unknown as Animal[]) ?? [];
+  const tagsByAnimal = Object.fromEntries(
+    await getProfileTagsBulk(
+      "animal",
+      animals.map((a) => a.id)
+    )
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -60,7 +67,7 @@ export default async function AnimalsPage() {
         {animals.length === 0 ? (
           <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No animals yet.</p>
         ) : (
-          <SearchableAnimalsList animals={animals} />
+          <SearchableAnimalsList animals={animals} tagsByAnimal={tagsByAnimal} />
         )}
       </div>
     </main>

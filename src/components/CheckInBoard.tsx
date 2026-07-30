@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ReservationActionsMenu from "@/components/ReservationActionsMenu";
+import ProfileTagBadges from "@/components/ProfileTagBadges";
 
 export type CheckInRow = {
   id: string;
@@ -28,14 +29,20 @@ function fmtDate(iso: string) {
   });
 }
 
+type TagRecord = Record<string, { icon: string; name: string; note?: string | null }[]>;
+
 export default function CheckInBoard({
   rows,
   checkedOutToday = [],
   staffName,
+  animalTags,
+  parentTags,
 }: {
   rows: CheckInRow[];
   checkedOutToday?: CheckInRow[];
   staffName?: string | null;
+  animalTags?: TagRecord;
+  parentTags?: TagRecord;
 }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
@@ -151,19 +158,25 @@ export default function CheckInBoard({
                   className={`border-b border-l-4 border-slate-100 last:border-b-0 dark:border-slate-800 ${accent}`}
                 >
                   <td className="px-3 py-2">
-                    <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
-                      {r.animalName}
-                    </a>
+                    <span className="inline-flex items-center gap-1.5">
+                      <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                        {r.animalName}
+                      </a>
+                      <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />
+                    </span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">{r.breed ?? "—"}</div>
                   </td>
                   <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                    {r.parentId ? (
-                      <a href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
-                        {r.parentName ?? "—"}
-                      </a>
-                    ) : (
-                      r.parentName ?? "—"
-                    )}
+                    <span className="inline-flex items-center gap-1.5">
+                      {r.parentId ? (
+                        <a href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                          {r.parentName ?? "—"}
+                        </a>
+                      ) : (
+                        r.parentName ?? "—"
+                      )}
+                      {r.parentId && <ProfileTagBadges tags={parentTags?.[r.parentId] ?? []} />}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.typeName ?? "—"}</td>
                   <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.lodgingName ?? "—"}</td>
