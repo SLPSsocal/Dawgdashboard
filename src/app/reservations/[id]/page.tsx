@@ -8,6 +8,7 @@ import { overallVaccineStatus, vaccineShield, type VaccineExpirations } from "@/
 import { getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
 import SendPrecheckinLink from "@/components/SendPrecheckinLink";
+import GroomingNoteForm from "@/components/GroomingNoteForm";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -66,11 +67,11 @@ export default async function ReservationDetailPage({
     parents: { id: string; first_name: string; last_name: string; phone: string | null; email: string | null } | null;
   } | null;
 
-  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings, { data: cardRows }, { data: signedWaiver }] =
+  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings, { data: cardRows }, { data: signedWaiver }, { data: groomingRecords }] =
     await Promise.all([
       supabase
         .from("reservation_types")
-        .select("id, name")
+        .select("id, name, category")
         .eq("facility_id", session!.facilityId)
         .order("name"),
       supabase
@@ -108,6 +109,11 @@ export default async function ReservationDetailPage({
             .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("grooming_records")
+        .select("id, notes, photo_url, groomer_name, created_at")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false }),
     ]);
 
   const [animalProfileTags, parentProfileTags] = await Promise.all([
@@ -127,6 +133,8 @@ export default async function ReservationDetailPage({
     : null;
   const vaxStatus = vaxRecord ? overallVaccineStatus(vaxRecord) : "unknown";
   const vaxShield = vaccineShield(vaxStatus);
+  const currentType = (types ?? []).find((t) => t.id === reservation.reservation_type_id) ?? null;
+  const isGrooming = currentType?.category === "grooming";
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -374,6 +382,42 @@ export default async function ReservationDetailPage({
             </button>
           </form>
         </div>
+
+        {isGrooming && animal && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">✂️ Grooming Notes</h2>
+            <div className="mt-3">
+              <GroomingNoteForm
+                reservationId={id}
+                animalId={animal.id}
+                facilityId={reservation.facility_id}
+                staffName={session!.staffName}
+              />
+            </div>
+            {(groomingRecords?.length ?? 0) > 0 && (
+              <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                {groomingRecords!.map((g) => (
+                  <div key={g.id} className="flex gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    {g.photo_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={g.photo_url}
+                        alt=""
+                        className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover dark:border-slate-700"
+                      />
+                    )}
+                    <div>
+                      {g.notes && <div className="text-slate-600 dark:text-slate-300">{g.notes}</div>}
+                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                        {g.groomer_name ?? "Unknown"} · {new Date(g.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {(incidents?.length ?? 0) > 0 && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

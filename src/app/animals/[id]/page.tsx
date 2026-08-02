@@ -11,6 +11,7 @@ import { getProfileTagCatalog, getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagEditor from "@/components/ProfileTagEditor";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
 import { getAnimalFieldHistory, ANIMAL_HISTORY_FIELD_LABELS, type AnimalHistoryField } from "@/lib/animalFieldHistory";
+import { getGroomingRecordsForAnimal } from "@/app/grooming-notes/actions";
 
 export default async function AnimalDetailPage({
   params,
@@ -43,10 +44,11 @@ export default async function AnimalDetailPage({
   const overallStatus = overallVaccineStatus(vaxRecord);
   const overallShield = vaccineShield(overallStatus);
 
-  const [tagCatalog, assignedTags, fieldHistory] = await Promise.all([
+  const [tagCatalog, assignedTags, fieldHistory, groomingRecords] = await Promise.all([
     getProfileTagCatalog("animal"),
     getProfileTagsFor("animal", id),
     getAnimalFieldHistory(id),
+    getGroomingRecordsForAnimal(id),
   ]);
 
   return (
@@ -141,6 +143,36 @@ export default async function AnimalDetailPage({
               alt="Grooming style reference"
               className="mt-2 h-32 w-32 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
             />
+          </div>
+        )}
+
+        {groomingRecords.length > 0 && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">✂️ Grooming History</h2>
+            <div className="mt-2 flex flex-col gap-2">
+              {groomingRecords.map((g) => (
+                <a
+                  key={g.id}
+                  href={`/reservations/${g.reservation_id}`}
+                  className="flex gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+                >
+                  {g.photo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={g.photo_url}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover dark:border-slate-700"
+                    />
+                  )}
+                  <div>
+                    {g.notes && <div className="text-slate-600 dark:text-slate-300">{g.notes}</div>}
+                    <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      {g.groomer_name ?? "Unknown"} · {new Date(g.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
