@@ -167,6 +167,7 @@ export async function createReservation(payload: {
       belongings: payload.belongings,
       notes: payload.notes,
       booking_group_id: payload.bookingGroupId ?? null,
+      grooming_service_name: payload.serviceName,
     })
     .select("id")
     .single();
@@ -309,17 +310,29 @@ export async function updateReservation(reservationId: string, performedBy: stri
   const lodging_area_id = String(formData.get("lodging_area_id") ?? "") || null;
   const notes = String(formData.get("notes") ?? "") || null;
   const belongings = String(formData.get("belongings") ?? "") || null;
+  // Only present on the edit form when the reservation is a grooming type
+  // (see reservations/[id]/page.tsx) — absent otherwise, which would
+  // otherwise wipe it out for non-grooming reservations.
+  const hasServiceField = formData.has("grooming_service_name");
+  const grooming_service_name = String(formData.get("grooming_service_name") ?? "") || null;
 
   const { data: before } = await supabase
     .from("reservations")
-    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings")
+    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name")
     .eq("id", reservationId)
     .maybeSingle();
 
-  const { error } = await supabase
-    .from("reservations")
-    .update({ start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings })
-    .eq("id", reservationId);
+  const updatePayload: Record<string, unknown> = {
+    start_date,
+    end_date,
+    reservation_type_id,
+    lodging_area_id,
+    notes,
+    belongings,
+  };
+  if (hasServiceField) updatePayload.grooming_service_name = grooming_service_name;
+
+  const { error } = await supabase.from("reservations").update(updatePayload).eq("id", reservationId);
 
   if (error) {
     redirect(`/reservations/${reservationId}?error=${encodeURIComponent(error.message)}`);
@@ -328,7 +341,15 @@ export async function updateReservation(reservationId: string, performedBy: stri
   if (before) {
     const summary = diffFields(
       before,
-      { start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings },
+      {
+        start_date,
+        end_date,
+        reservation_type_id,
+        lodging_area_id,
+        notes,
+        belongings,
+        grooming_service_name: hasServiceField ? grooming_service_name : before.grooming_service_name,
+      },
       {
         start_date: "Arrival",
         end_date: "Departure",
@@ -336,6 +357,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         lodging_area_id: "Lodging",
         notes: "Notes",
         belongings: "Belongings",
+        grooming_service_name: "Service",
       }
     );
     if (summary) await logHistory(reservationId, "modified", summary, performedBy);

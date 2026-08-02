@@ -67,7 +67,7 @@ export default async function ReservationDetailPage({
     parents: { id: string; first_name: string; last_name: string; phone: string | null; email: string | null } | null;
   } | null;
 
-  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings, { data: cardRows }, { data: signedWaiver }, { data: groomingRecords }] =
+  const [{ data: types }, { data: areas }, { data: incidents }, { data: reportCards }, { data: history }, siblings, { data: cardRows }, { data: signedWaiver }, { data: groomingRecords }, { data: groomingServices }] =
     await Promise.all([
       supabase
         .from("reservation_types")
@@ -114,6 +114,12 @@ export default async function ReservationDetailPage({
         .select("id, notes, photo_url, groomer_name, created_at")
         .eq("reservation_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("grooming_menu_items")
+        .select("name")
+        .eq("facility_id", session!.facilityId)
+        .eq("active", true)
+        .order("name"),
     ]);
 
   const [animalProfileTags, parentProfileTags] = await Promise.all([
@@ -165,6 +171,12 @@ export default async function ReservationDetailPage({
               <span className="text-slate-500 dark:text-slate-400">Goes: </span>
               <span className="font-semibold">{fmtDateTime(reservation.end_date)}</span>
             </div>
+            {isGrooming && reservation.grooming_service_name && (
+              <div className="sm:col-span-2">
+                <span className="text-slate-500 dark:text-slate-400">Service: </span>
+                <span className="font-semibold">✂️ {reservation.grooming_service_name}</span>
+              </div>
+            )}
           </div>
           <div className="mt-2 text-right text-xs text-slate-400 dark:text-slate-500">
             Confirmed: {fmtDateTime(reservation.created_at)}
@@ -329,6 +341,27 @@ export default async function ReservationDetailPage({
                 ))}
               </select>
             </label>
+
+            {isGrooming && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Service</span>
+                <select
+                  name="grooming_service_name"
+                  defaultValue={reservation.grooming_service_name ?? ""}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">— Select a service —</option>
+                  {(groomingServices ?? []).map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  Shows on the Facility Calendar and run card so the groomer knows what to do.
+                </p>
+              </label>
+            )}
 
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging</span>

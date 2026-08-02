@@ -12,6 +12,7 @@ export type ApptCard = {
   status: string;
   typeName: string | null;
   category: string | null;
+  serviceName: string | null;
   specialistId: string | null;
   time: string; // ISO timestamp (start)
   endTime: string; // ISO timestamp (end) — falls back to a default block if equal to start
@@ -198,7 +199,7 @@ export default function FacilityCalendarBoard({
           <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">{fmtTime(c.time)}</span>
         </div>
         <div className="truncate text-[10px] text-slate-400 dark:text-slate-500">
-          {c.breed ?? "—"} · {c.typeName ?? "—"} {c.status === "checked_in" ? "🟢" : ""}
+          {c.breed ?? "—"} · {c.serviceName ?? c.typeName ?? "—"} {c.status === "checked_in" ? "🟢" : ""}
         </div>
       </div>
     );

@@ -123,7 +123,9 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               )}
             </ul>
             <p className="mt-2 text-base">
-              {type?.name ?? "Reservation"}: {fmtDateTime(reservation.start_date)} -{" "}
+              {type?.name ?? "Reservation"}
+              {reservation.grooming_service_name ? ` — ${reservation.grooming_service_name}` : ""}:{" "}
+              {fmtDateTime(reservation.start_date)} -{" "}
               <span className="font-bold">{fmtDateTime(reservation.end_date)}</span>
             </p>
           </div>
