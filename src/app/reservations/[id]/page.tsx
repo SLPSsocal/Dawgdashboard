@@ -214,8 +214,18 @@ export default async function ReservationDetailPage({
                 </a>
                 <ProfileTagBadges tags={parentProfileTags} />
               </div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {animal.parents.phone ?? animal.parents.email ?? "—"}
+              <div className="mt-1 text-xs">
+                {animal.parents.phone ? (
+                  <a href={`tel:${animal.parents.phone}`} className="text-indigo-600 underline dark:text-indigo-400">
+                    {animal.parents.phone}
+                  </a>
+                ) : animal.parents.email ? (
+                  <a href={`mailto:${animal.parents.email}`} className="text-indigo-600 underline dark:text-indigo-400">
+                    {animal.parents.email}
+                  </a>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400">—</span>
+                )}
               </div>
               <div className="mt-1.5 flex items-center gap-1.5 text-sm">
                 {hasCardOnFile && <span title="Card on file">💳</span>}

@@ -224,6 +224,12 @@ export default function BookingForm({
   return (
     <div className="flex flex-col gap-4">
       <AnimalPicker animals={animals} onSelect={setAnimal} initialSelected={initialAnimal ?? null} />
+      {animal?.alertNote && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+          <span>❗</span>
+          <span>{animal.alertNote}</span>
+        </div>
+      )}
       {animals.length === 0 && (
         <p className="text-xs text-slate-400 dark:text-slate-500">
           No animals yet — <a href="/animals/new" className="underline">add one first</a>.

@@ -162,7 +162,20 @@ export default function AnimalForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Name" name="name" defaultValue={defaults?.name} required />
-        <Field label="Species" name="species" defaultValue={defaults?.species ?? "dog"} />
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Species</span>
+          <select
+            name="species"
+            defaultValue={defaults?.species ?? "dog"}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="dog">Dog</option>
+            <option value="cat">Cat</option>
+            <option value="hamster">Hamster</option>
+            <option value="rabbit">Rabbit</option>
+            <option value="guinea_pig">Guinea Pig</option>
+          </select>
+        </label>
         <Field label="Breed" name="breed" defaultValue={defaults?.breed} />
         <Field label="Color / Markings" name="color_markings" defaultValue={defaults?.color_markings} />
         <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" />
@@ -225,16 +238,6 @@ export default function AnimalForm({
         name="alert_note"
         defaultValue={defaults?.alert_note}
       />
-      <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="poop_eater" defaultChecked={defaults?.poop_eater ?? false} />
-          Poop Eater
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="pee_drinker" defaultChecked={defaults?.pee_drinker ?? false} />
-          Pee Drinker
-        </label>
-      </div>
 
       {showActiveToggle && (
         <label className="flex items-center gap-2 text-sm">

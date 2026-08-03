@@ -138,8 +138,24 @@ export default function SearchableParentsList({
                     <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
                   </span>
                 </td>
-                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.email ?? "—"}</td>
-                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.phone ?? "—"}</td>
+                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {p.email ? (
+                    <a href={`mailto:${p.email}`} className="text-indigo-600 underline dark:text-indigo-400">
+                      {p.email}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {p.phone ? (
+                    <a href={`tel:${p.phone}`} className="text-indigo-600 underline dark:text-indigo-400">
+                      {p.phone}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{animalNames(p) || "—"}</td>
                 <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
                   {new Date(p.created_at).toLocaleString([], {
@@ -156,23 +172,39 @@ export default function SearchableParentsList({
         </table>
       </div>
 
-      {/* Mobile: cards. */}
+      {/* Mobile: cards. Name/tags/animals link to the profile; phone/email
+          are their own tel:/mailto: links, so they can't be nested inside
+          that same <a> (invalid HTML, breaks click targets). */}
       <div className="mt-4 grid grid-cols-1 gap-2 md:hidden">
         {filtered.map((p) => (
-          <a
+          <div
             key={p.id}
-            href={`/parents/${p.id}`}
             className="rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
           >
-            <div className="flex items-center gap-1.5 font-medium">
-              {p.first_name} {p.last_name}
-              <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
+            <a href={`/parents/${p.id}`} className="block">
+              <div className="flex items-center gap-1.5 font-medium">
+                {p.first_name} {p.last_name}
+                <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
+              </div>
+              {animalNames(p) && (
+                <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">🐾 {animalNames(p)}</div>
+              )}
+            </a>
+            <div className="mt-1 flex flex-wrap gap-x-3 text-sm">
+              {p.phone ? (
+                <a href={`tel:${p.phone}`} className="text-indigo-600 underline dark:text-indigo-400">
+                  {p.phone}
+                </a>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400">—</span>
+              )}
+              {p.email && (
+                <a href={`mailto:${p.email}`} className="text-indigo-600 underline dark:text-indigo-400">
+                  {p.email}
+                </a>
+              )}
             </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">{p.phone ?? "—"} · {p.email ?? "—"}</div>
-            {animalNames(p) && (
-              <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">🐾 {animalNames(p)}</div>
-            )}
-          </a>
+          </div>
         ))}
       </div>
     </div>

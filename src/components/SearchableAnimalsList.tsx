@@ -14,6 +14,7 @@ type Animal = {
   rabies_expiration?: string | null;
   distemper_expiration?: string | null;
   bordetella_expiration?: string | null;
+  alert_note?: string | null;
   parents: { first_name: string; last_name: string } | null;
 };
 
@@ -100,6 +101,7 @@ export default function SearchableAnimalsList({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-medium">{a.name}</span>
+                {a.alert_note && <span title={`Alert: ${a.alert_note}`}>❗</span>}
                 {(() => {
                   const status = overallVaccineStatus({
                     rabies_expiration: a.rabies_expiration,

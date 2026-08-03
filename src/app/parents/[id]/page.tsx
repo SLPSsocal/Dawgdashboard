@@ -35,7 +35,7 @@ export default async function ParentDetailPage({
 
   const { data: animals } = await supabase
     .from("animals")
-    .select("id, name, breed, active")
+    .select("id, name, breed, active, alert_note")
     .eq("parent_id", id)
     .order("name");
 
@@ -138,7 +138,9 @@ export default async function ParentDetailPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/parents" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <PageQuickActions session={session!} />
+
+        <a href="/parents" className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500">
           ← Parents
         </a>
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -169,9 +171,17 @@ export default async function ParentDetailPage({
             </span>
           )}
         </div>
-
-        <div className="mt-3">
-          <PageQuickActions session={session!} />
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+          {parent.phone && (
+            <a href={`tel:${parent.phone}`} className="text-indigo-600 underline dark:text-indigo-400">
+              📞 {parent.phone}
+            </a>
+          )}
+          {parent.email && (
+            <a href={`mailto:${parent.email}`} className="text-indigo-600 underline dark:text-indigo-400">
+              ✉️ {parent.email}
+            </a>
+          )}
         </div>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -193,8 +203,12 @@ export default async function ParentDetailPage({
                 key={a.id}
                 className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
               >
-                <a href={`/animals/${a.id}`} className="min-w-0 flex-1">
+                <a
+                  href={`/animals/${a.id}`}
+                  className="min-w-0 flex-1 underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600"
+                >
                   <span className="font-medium">{a.name}</span>{" "}
+                  {a.alert_note && <span title={`Alert: ${a.alert_note}`}>❗</span>}{" "}
                   <span className="text-slate-400 dark:text-slate-500">{a.breed ?? ""}</span>
                 </a>
                 <a

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
+import { getProfileTagsFor } from "@/lib/profileTags";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -41,8 +42,8 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      `*, animals ( name, breed, size, sex, fixed, birthdate, photo_url,
-         medical_notes, medications, behavioral_notes, grooming_notes, alert_note, poop_eater, pee_drinker,
+      `*, animals ( id, name, breed, size, sex, fixed, birthdate, photo_url,
+         medical_notes, medications, behavioral_notes, grooming_notes, alert_note,
          parents ( first_name, last_name, phone, emergency_contact_name, emergency_contact_phone ) ),
        lodging_areas ( name ), reservation_types ( name )`
     )
@@ -51,6 +52,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   if (!reservation) notFound();
 
   const animal = reservation.animals as unknown as {
+    id: string;
     name: string;
     breed: string | null;
     size: string | null;
@@ -63,8 +65,6 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     behavioral_notes: string | null;
     grooming_notes: string | null;
     alert_note: string | null;
-    poop_eater: boolean | null;
-    pee_drinker: boolean | null;
     parents: {
       first_name: string;
       last_name: string;
@@ -76,6 +76,9 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const lodging = reservation.lodging_areas as unknown as { name: string } | null;
   const type = reservation.reservation_types as unknown as { name: string } | null;
   const parent = animal?.parents ?? null;
+  const animalTags = animal ? await getProfileTagsFor("animal", animal.id) : [];
+  const isPoopEater = animalTags.some((t) => t.name === "Poop Eater");
+  const isPeeDrinker = animalTags.some((t) => t.name === "Pee Drinker");
 
   const age = ageString(animal?.birthdate ?? null);
   const sexLabel = animal?.sex
@@ -150,15 +153,15 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               Read: {animal.alert_note}
             </p>
           )}
-          {(animal?.poop_eater || animal?.pee_drinker) && (
+          {(isPoopEater || isPeeDrinker) && (
             <p className="mt-1 flex gap-4">
-              {animal?.poop_eater && (
+              {isPoopEater && (
                 <span className="text-amber-800">
                   <span className="mr-1">💩</span>
                   <span className="font-semibold">Poop Eater</span>
                 </span>
               )}
-              {animal?.pee_drinker && (
+              {isPeeDrinker && (
                 <span className="text-purple-700">
                   <span className="mr-1">💧</span>
                   <span className="font-semibold">Pee Drinker</span>
@@ -166,7 +169,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               )}
             </p>
           )}
-          {!animal?.grooming_notes && !animal?.behavioral_notes && !animal?.alert_note && !animal?.poop_eater && !animal?.pee_drinker && (
+          {!animal?.grooming_notes && !animal?.behavioral_notes && !animal?.alert_note && !isPoopEater && !isPeeDrinker && (
             <p className="text-slate-400">No grooming, behavior, or alert notes on file.</p>
           )}
         </div>

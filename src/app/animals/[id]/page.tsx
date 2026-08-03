@@ -55,7 +55,9 @@ export default async function AnimalDetailPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/animals" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <PageQuickActions session={session!} />
+
+        <a href="/animals" className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500">
           ← Animals
         </a>
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -113,9 +115,12 @@ export default async function AnimalDetailPage({
           </div>
         )}
 
-        <div className="mt-3">
-          <PageQuickActions session={session!} />
-        </div>
+        {animal.alert_note && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+            <span>❗</span>
+            <span>{animal.alert_note}</span>
+          </div>
+        )}
 
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Tags</h2>

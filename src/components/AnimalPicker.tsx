@@ -8,6 +8,7 @@ export type AnimalOption = {
   breed: string | null;
   parentName: string | null;
   parentId?: string | null;
+  alertNote?: string | null;
 };
 
 // Typeahead picker for the New Booking form. Keeps the same "type to

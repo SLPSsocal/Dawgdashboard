@@ -21,7 +21,7 @@ export default async function NewReservationPage({
       // Animals are shared across facilities, so any dog can be booked here.
       supabase
         .from("animals")
-        .select("id, name, breed, parent_id, parents ( first_name, last_name )")
+        .select("id, name, breed, parent_id, alert_note, parents ( first_name, last_name )")
         .eq("active", true)
         .order("name"),
       supabase
@@ -51,6 +51,7 @@ export default async function NewReservationPage({
     name: string;
     breed: string | null;
     parent_id: string | null;
+    alert_note: string | null;
     parents: { first_name: string; last_name: string } | null;
   };
   const animalOptions: AnimalOption[] = ((animals as unknown as AnimalRow[]) ?? []).map((a) => ({
@@ -59,6 +60,7 @@ export default async function NewReservationPage({
     breed: a.breed,
     parentId: a.parent_id,
     parentName: a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : null,
+    alertNote: a.alert_note,
   }));
 
   const reservationTypes = (types ?? []).map((t) => ({

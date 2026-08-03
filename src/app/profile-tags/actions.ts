@@ -43,6 +43,24 @@ export async function removeProfileTagAssignment(
   refresh(targetType, targetId);
 }
 
+// Updates just the note on an already-checked tag (checkbox UI keeps the
+// assignment row, this only touches its note text) — separate from
+// remove+reassign so it doesn't churn the assignment's id/created_by/created_at.
+export async function updateProfileTagNote(
+  targetType: "animal" | "parent",
+  targetId: string,
+  assignmentId: string,
+  note: string
+) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("profile_tag_assignments")
+    .update({ note: note.trim() || null })
+    .eq("id", assignmentId);
+  if (error) throw new Error(error.message);
+  refresh(targetType, targetId);
+}
+
 // Catalog admin — matches the Referral Sources pattern: soft-retire, never
 // hard-delete, so historical assignments keep their icon/name even if a tag
 // gets retired later.

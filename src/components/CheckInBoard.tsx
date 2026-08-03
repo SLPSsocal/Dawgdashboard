@@ -9,6 +9,7 @@ export type CheckInRow = {
   status: string;
   animalId: string;
   animalName: string;
+  alertNote: string | null;
   breed: string | null;
   parentId: string | null;
   parentName: string | null;
@@ -162,6 +163,7 @@ export default function CheckInBoard({
                       <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                         {r.animalName}
                       </a>
+                      {r.alertNote && <span title={`Alert: ${r.alertNote}`}>❗</span>}
                       <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />
                     </span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">{r.breed ?? "—"}</div>

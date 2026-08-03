@@ -18,6 +18,7 @@ type Row = {
     name: string;
     breed: string | null;
     photo_url: string | null;
+    alert_note: string | null;
     parents: { id: string; first_name: string; last_name: string; phone: string | null } | null;
   } | null;
   lodging_areas: { name: string } | null;
@@ -30,6 +31,7 @@ function toRow(r: Row): CheckInRow {
     status: r.status,
     animalId: r.animals?.id ?? "",
     animalName: r.animals?.name ?? "Unknown",
+    alertNote: r.animals?.alert_note ?? null,
     breed: r.animals?.breed ?? null,
     parentId: r.animals?.parents?.id ?? null,
     parentName: r.animals?.parents ? `${r.animals.parents.first_name} ${r.animals.parents.last_name}` : null,
@@ -48,7 +50,7 @@ export default async function ReservationsPage() {
   // by session.facilityId, which came from the PIN login for this facility only.
   const supabase = createClient();
   const selectCols = `id, status, start_date, end_date,
-       animals ( id, name, breed, photo_url, parents ( id, first_name, last_name, phone ) ),
+       animals ( id, name, breed, photo_url, alert_note, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name ),
        reservation_types ( name )`;
 
