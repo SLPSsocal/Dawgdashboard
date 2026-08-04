@@ -90,6 +90,11 @@ export default async function AnimalDetailPage({
             📅 New Booking
           </a>
         </div>
+
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <AnimalPhotoUpload animalId={id} currentUrl={animal.photo_url ?? null} />
+        </div>
+
         {parent && (
           <p className="text-sm text-slate-400 dark:text-slate-500">
             Parent:{" "}
@@ -133,10 +138,6 @@ export default async function AnimalDetailPage({
               staffName={session!.staffName}
             />
           </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <AnimalPhotoUpload animalId={id} currentUrl={animal.photo_url ?? null} />
         </div>
 
         {animal.grooming_photo_url && (

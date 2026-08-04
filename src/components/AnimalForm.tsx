@@ -163,10 +163,13 @@ export default function AnimalForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Name" name="name" defaultValue={defaults?.name} required />
         <label className="block">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Species</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Species<span className="text-red-500"> *</span>
+          </span>
           <select
             name="species"
             defaultValue={defaults?.species ?? "dog"}
+            required
             className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="dog">Dog</option>
@@ -176,9 +179,9 @@ export default function AnimalForm({
             <option value="guinea_pig">Guinea Pig</option>
           </select>
         </label>
-        <Field label="Breed" name="breed" defaultValue={defaults?.breed} />
+        <Field label="Breed" name="breed" defaultValue={defaults?.breed} required />
         <Field label="Color / Markings" name="color_markings" defaultValue={defaults?.color_markings} />
-        <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" />
+        <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" required />
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sex</span>
           <select
@@ -191,7 +194,7 @@ export default function AnimalForm({
             <option value="female">Female</option>
           </select>
         </label>
-        <Field label="Birthdate" name="birthdate" defaultValue={defaults?.birthdate} type="date" />
+        <Field label="Birthdate" name="birthdate" defaultValue={defaults?.birthdate} type="date" required />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
@@ -199,7 +202,12 @@ export default function AnimalForm({
         Spayed / Neutered?
       </label>
 
-      <Field label="How long have you had this pet?" name="owned_since_note" defaultValue={defaults?.owned_since_note} />
+      <Field
+        label="How long have you had this pet?"
+        name="owned_since_note"
+        defaultValue={defaults?.owned_since_note}
+        required
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vet Name" name="vet_name" defaultValue={defaults?.vet_name} />
@@ -240,9 +248,15 @@ export default function AnimalForm({
       />
 
       {showActiveToggle && (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="active" defaultChecked={defaults?.active ?? true} />
-          Active
+        <label className="block">
+          <span className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="active" defaultChecked={defaults?.active ?? true} />
+            🐾 Still an active guest here?
+          </span>
+          <span className="mt-1 block pl-6 text-xs text-slate-400 dark:text-slate-500">
+            Uncheck only if {defaults?.name || "this pet"} is no longer visiting us — moved away, or otherwise no
+            longer a customer.
+          </span>
         </label>
       )}
 
