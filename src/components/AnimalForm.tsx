@@ -254,8 +254,8 @@ export default function AnimalForm({
             🐾 Still an active guest here?
           </span>
           <span className="mt-1 block pl-6 text-xs text-slate-400 dark:text-slate-500">
-            Uncheck only if {defaults?.name || "this pet"} is no longer visiting us — moved away, or otherwise no
-            longer a customer.
+            Uncheck if {defaults?.name || "this pet"} is no longer with us — no longer a customer, moved away, or has
+            passed away.
           </span>
         </label>
       )}
