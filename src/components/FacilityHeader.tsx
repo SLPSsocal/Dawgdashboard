@@ -2,6 +2,7 @@ import { logout } from "@/app/logout/actions";
 import type { Session } from "@/lib/session";
 import ThemeToggle from "@/components/ThemeToggle";
 import CartButton from "@/components/CartButton";
+import SupportWidget from "@/components/SupportWidget";
 
 // Slim identity strip only — nav/quick-actions moved into page content via
 // <PageQuickActions/> so this doesn't eat vertical space on every page.
@@ -25,6 +26,7 @@ export default function FacilityHeader({ session }: { session: Session }) {
           </form>
         </div>
       </div>
+      <SupportWidget staffName={session.staffName} facilityId={session.facilityId} />
     </header>
   );
 }
