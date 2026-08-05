@@ -21,6 +21,7 @@ const LINKS = [
   { name: "Waivers", href: "/waivers", icon: "✍️" },
   { name: "Referral Sources", href: "/referral-sources", icon: "🔗" },
   { name: "Profile Tags", href: "/profile-tags", icon: "🏷️" },
+  { name: "Admin Reports", href: "/admin", icon: "📈" },
 ];
 
 function pillClass() {

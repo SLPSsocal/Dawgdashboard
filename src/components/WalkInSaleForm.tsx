@@ -80,6 +80,7 @@ export default function WalkInSaleForm({
           unitPrice: item.price,
           lineTotal: item.price * row.qty,
           taxable: item.taxable,
+          lineKind: "retail" as const,
         };
       })
       .filter((li): li is SaleLineItem => li !== null);
@@ -94,6 +95,12 @@ export default function WalkInSaleForm({
         unitPrice: oi.amount,
         lineTotal: oi.amount,
         taxable: false,
+        lineKind:
+          oi.type === "Tip"
+            ? ("tip" as const)
+            : oi.type === "Price Adjustment"
+              ? ("adjustment" as const)
+              : ("other" as const),
       })),
     [openItems]
   );
@@ -108,6 +115,7 @@ export default function WalkInSaleForm({
           unitPrice: creditAmountNum,
           lineTotal: creditAmountNum,
           taxable: false,
+          lineKind: "other" as const,
         }
       : null;
 

@@ -95,24 +95,25 @@ export default function CheckoutCalculator({
       quantity: units,
       unitPrice: baseRate,
       lineTotal: baseTotal,
+      lineKind: "base",
     });
 
     if (bestMultiDayRule) {
       const discount =
         bestMultiDayRule.method === "percent" ? baseTotal * (bestMultiDayRule.amount / 100) : bestMultiDayRule.amount;
-      lines.push({ description: bestMultiDayRule.label, quantity: 1, unitPrice: discount, lineTotal: discount });
+      lines.push({ description: bestMultiDayRule.label, quantity: 1, unitPrice: discount, lineTotal: discount, lineKind: "discount" });
     }
 
     // Each additional dog beyond the first gets its own discount tier.
     for (let i = 0; i < Math.min(numDogs - 1, additionalDogRules.length); i++) {
       const rule = additionalDogRules[i];
       const amt = rule.method === "percent" ? baseRate * units * (rule.amount / 100) : rule.amount;
-      lines.push({ description: rule.label, quantity: 1, unitPrice: amt, lineTotal: amt });
+      lines.push({ description: rule.label, quantity: 1, unitPrice: amt, lineTotal: amt, lineKind: "discount" });
     }
 
     for (const rule of flatFeeRules) {
       if (checkedFees.has(rule.id)) {
-        lines.push({ description: rule.label, quantity: 1, unitPrice: rule.amount, lineTotal: rule.amount });
+        lines.push({ description: rule.label, quantity: 1, unitPrice: rule.amount, lineTotal: rule.amount, lineKind: "fee" });
       }
     }
 
@@ -123,6 +124,7 @@ export default function CheckoutCalculator({
           quantity: 1,
           unitPrice: row.price,
           lineTotal: row.price,
+          lineKind: "grooming",
           groomingServiceName: row.service,
         });
       }
@@ -136,6 +138,7 @@ export default function CheckoutCalculator({
           quantity: row.qty,
           unitPrice: item.price,
           lineTotal: item.price * row.qty,
+          lineKind: "retail",
           retailItemId: item.id,
           taxable: item.taxable,
         });
@@ -148,6 +151,8 @@ export default function CheckoutCalculator({
         quantity: 1,
         unitPrice: oi.amount,
         lineTotal: oi.amount,
+        lineKind:
+          oi.type === "Tip" ? "tip" : oi.type === "Price Adjustment" ? "adjustment" : "other",
       });
     }
 

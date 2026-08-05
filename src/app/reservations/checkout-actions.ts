@@ -3,11 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+// Classifies what a line actually is, so reports can separate grooming
+// revenue from lodging revenue from tips without guessing at description text.
+export type LineKind =
+  | "base"
+  | "discount"
+  | "fee"
+  | "grooming"
+  | "retail"
+  | "tip"
+  | "adjustment"
+  | "other";
+
 export type CheckoutLineItem = {
   description: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  lineKind?: LineKind;
   groomingServiceName?: string;
   retailItemId?: string;
   taxable?: boolean;
@@ -56,6 +69,8 @@ export async function completeCheckout(
         unit_price: li.unitPrice,
         line_total: li.lineTotal,
         retail_item_id: li.retailItemId ?? null,
+        line_kind: li.lineKind ?? (li.retailItemId ? "retail" : "other"),
+        grooming_service_name: li.groomingServiceName ?? null,
       }))
     );
     if (lineError) throw new Error(lineError.message);

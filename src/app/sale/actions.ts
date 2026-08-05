@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { LineKind } from "@/app/reservations/checkout-actions";
 
 export type SaleLineItem = {
   retailItemId: string | null;
@@ -10,6 +11,7 @@ export type SaleLineItem = {
   unitPrice: number;
   lineTotal: number;
   taxable: boolean;
+  lineKind?: LineKind;
 };
 
 // Standalone retail sale — not tied to a reservation/checkout. Used for
@@ -65,6 +67,7 @@ export async function createWalkInSale(payload: {
         unit_price: li.unitPrice,
         line_total: li.lineTotal,
         retail_item_id: li.retailItemId,
+        line_kind: li.lineKind ?? (li.retailItemId ? "retail" : "other"),
       }))
     );
     if (lineError) throw new Error(lineError.message);

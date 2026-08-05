@@ -95,14 +95,26 @@ export default function SupportWidget({
     }
   }, [canvasSize, strokes]);
 
+  // The canvas is capped with maxWidth:100%, so on a narrow screen its CSS
+  // size is smaller than its bitmap size. Without scaling by that ratio the
+  // ink lands offset from the cursor.
   function getPos(e: ReactPointerEvent<HTMLCanvasElement>): Point {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width ? canvas.width / rect.width : 1;
+    const scaleY = rect.height ? canvas.height / rect.height : 1;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
     if (!canvasSize) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Pointer capture is best-effort — it throws if the pointer is already
+    // released, which must not take the whole widget down.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* non-fatal */
+    }
     drawingRef.current = true;
     setStrokes((s) => [...s, [getPos(e)]]);
   }
@@ -110,8 +122,14 @@ export default function SupportWidget({
     if (!drawingRef.current) return;
     const pos = getPos(e);
     setStrokes((s) => {
+      // A move can arrive before the opening stroke has committed, or after
+      // Undo/Remove emptied the list while the pointer was still down. Start
+      // a fresh stroke instead of spreading undefined (which threw a
+      // client-side exception and blanked the whole page).
+      if (s.length === 0) return [[pos]];
       const next = [...s];
-      next[next.length - 1] = [...next[next.length - 1], pos];
+      const last = next[next.length - 1] ?? [];
+      next[next.length - 1] = [...last, pos];
       return next;
     });
   }
