@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { addCareLog } from "@/app/care-logs/actions";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -20,6 +21,7 @@ export default function CareLogForm({
   facilityId: string;
   staffName?: string | null;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -34,6 +36,10 @@ export default function CareLogForm({
         await addCareLog(reservationId, animalId, facilityId, formData);
         setSaved(true);
         formRef.current?.reset();
+        // revalidatePath alone marks the server cache stale but doesn't
+        // re-render the route the user is already sitting on — without this
+        // the new entry only shows up after a manual reload.
+        router.refresh();
         setTimeout(() => setSaved(false), 2000);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Couldn't save — try again.");
