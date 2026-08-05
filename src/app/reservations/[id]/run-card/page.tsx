@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
 import { getProfileTagsFor } from "@/lib/profileTags";
+import { getBookingGroupSiblings } from "../../actions";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -44,6 +45,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     .select(
       `*, animals ( id, name, breed, size, sex, fixed, birthdate, photo_url,
          medical_notes, medications, behavioral_notes, grooming_notes, alert_note,
+         feeding_instructions,
          parents ( first_name, last_name, phone, emergency_contact_name, emergency_contact_phone ) ),
        lodging_areas ( name ), reservation_types ( name )`
     )
@@ -65,6 +67,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     behavioral_notes: string | null;
     grooming_notes: string | null;
     alert_note: string | null;
+    feeding_instructions: string | null;
     parents: {
       first_name: string;
       last_name: string;
@@ -76,7 +79,10 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const lodging = reservation.lodging_areas as unknown as { name: string } | null;
   const type = reservation.reservation_types as unknown as { name: string } | null;
   const parent = animal?.parents ?? null;
-  const animalTags = animal ? await getProfileTagsFor("animal", animal.id) : [];
+  const [animalTags, siblings] = await Promise.all([
+    animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
+    getBookingGroupSiblings(id, reservation.booking_group_id ?? null),
+  ]);
   const isPoopEater = animalTags.some((t) => t.name === "Poop Eater");
   const isPeeDrinker = animalTags.some((t) => t.name === "Pee Drinker");
 
@@ -91,7 +97,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span>{session!.facilityName}</span>
           <span className="flex items-center gap-3">
-            Run Card 1 of 1
+            Run Card {siblings.length > 0 ? `(1 of ${siblings.length + 1} in this booking)` : ""}
             <PrintButton />
           </span>
         </div>
@@ -134,21 +140,32 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
+        {/* whitespace-pre-line preserves the line breaks the pre-check-in form
+            writes into these fields (AM/Lunch/PM feeding lines would otherwise
+            collapse into one run-on sentence). break-words stops a long
+            unbroken string (pasted URL, long drug name) from overflowing the
+            max-w-2xl column and getting clipped at the paper edge on print. */}
         <div className="mt-4 border-t border-slate-300 pt-3 text-sm">
+          {animal?.feeding_instructions && (
+            <p className="whitespace-pre-line break-words text-amber-800">
+              <span className="mr-1">🍽️</span>
+              <span className="font-semibold">Feeding:</span> {animal.feeding_instructions}
+            </p>
+          )}
           {animal?.grooming_notes && (
-            <p className="text-blue-600">
+            <p className="mt-1 whitespace-pre-line break-words text-blue-600">
               <span className="mr-1">✂️</span>
               <span className="font-semibold">Grooming:</span> {animal.grooming_notes}
             </p>
           )}
           {animal?.behavioral_notes && (
-            <p className="mt-1 text-green-700">
+            <p className="mt-1 whitespace-pre-line break-words text-green-700">
               <span className="mr-1">🐾</span>
               <span className="font-semibold">Groupable:</span> {animal.behavioral_notes}
             </p>
           )}
           {animal?.alert_note && (
-            <p className="mt-1 font-semibold text-slate-900">
+            <p className="mt-1 whitespace-pre-line break-words font-semibold text-slate-900">
               <span className="mr-1">❗</span>
               Read: {animal.alert_note}
             </p>
@@ -169,29 +186,36 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               )}
             </p>
           )}
-          {!animal?.grooming_notes && !animal?.behavioral_notes && !animal?.alert_note && !isPoopEater && !isPeeDrinker && (
-            <p className="text-slate-400">No grooming, behavior, or alert notes on file.</p>
+          {!animal?.feeding_instructions && !animal?.grooming_notes && !animal?.behavioral_notes && !animal?.alert_note && !isPoopEater && !isPeeDrinker && (
+            <p className="text-slate-400">No feeding, grooming, behavior, or alert notes on file.</p>
           )}
         </div>
 
         {animal?.medical_notes && (
-          <div className="mt-3 border-t border-slate-200 pt-3 text-sm">
+          <div className="mt-3 whitespace-pre-line break-words border-t border-slate-200 pt-3 text-sm">
             <span className="font-semibold">Medical Notes / Allergies:</span> {animal.medical_notes}
           </div>
         )}
         {animal?.medications && (
-          <div className="mt-2 text-sm">
+          <div className="mt-2 whitespace-pre-line break-words text-sm">
             <span className="font-semibold">Medications:</span> {animal.medications}
           </div>
         )}
         {reservation.belongings && (
-          <div className="mt-2 text-sm">
+          <div className="mt-2 whitespace-pre-line break-words text-sm">
             <span className="font-semibold">Belongings:</span> {reservation.belongings}
           </div>
         )}
         {reservation.notes && (
-          <div className="mt-2 text-sm">
+          <div className="mt-2 whitespace-pre-line break-words text-sm">
             <span className="font-semibold">Reservation Notes:</span> {reservation.notes}
+          </div>
+        )}
+
+        {siblings.length > 0 && (
+          <div className="mt-3 border-t border-slate-200 pt-3 text-sm">
+            <span className="font-semibold">🏠 Booked with (same household):</span>{" "}
+            {siblings.map((s) => s.animalName).join(", ")}
           </div>
         )}
 

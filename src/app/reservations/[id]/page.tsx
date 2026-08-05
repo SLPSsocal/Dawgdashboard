@@ -9,6 +9,8 @@ import { getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
 import SendPrecheckinLink from "@/components/SendPrecheckinLink";
 import GroomingNoteForm from "@/components/GroomingNoteForm";
+import CareLogForm from "@/components/CareLogForm";
+import { getCareLogsForReservation } from "@/app/care-logs/actions";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -122,9 +124,10 @@ export default async function ReservationDetailPage({
         .order("name"),
     ]);
 
-  const [animalProfileTags, parentProfileTags] = await Promise.all([
+  const [animalProfileTags, parentProfileTags, careLogs] = await Promise.all([
     animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
     animal?.parents ? getProfileTagsFor("parent", animal.parents.id) : Promise.resolve([]),
+    getCareLogsForReservation(id),
   ]);
 
   const updateWithId = updateReservation.bind(null, id, session!.staffName);
@@ -276,6 +279,15 @@ export default async function ReservationDetailPage({
           >
             🖨️ Print Run Card
           </a>
+          {/* Same page, same layout — just opened in-tab without the print
+              dialog, so it can be inspected on screen (and by QA agents,
+              which can't dismiss a native print dialog). */}
+          <a
+            href={`/reservations/${id}/run-card`}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+          >
+            👁️ Preview Run Card
+          </a>
           {animal && (
             <a
               href={`/reservations/${id}/incidents/new`}
@@ -425,6 +437,34 @@ export default async function ReservationDetailPage({
             </button>
           </form>
         </div>
+
+        {animal && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">🍽️ Feeding / Medication Log</h2>
+            <div className="mt-3">
+              <CareLogForm
+                reservationId={id}
+                animalId={animal.id}
+                facilityId={reservation.facility_id}
+                staffName={session!.staffName}
+              />
+            </div>
+            {careLogs.length > 0 && (
+              <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                {careLogs.map((c) => (
+                  <div key={c.id} className="rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    <div className="text-slate-600 dark:text-slate-300">
+                      {c.log_type === "feeding" ? "🍽️" : c.log_type === "medication" ? "💊" : "📝"} {c.notes}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      {c.logged_by ?? "Unknown"} · {new Date(c.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {isGrooming && animal && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

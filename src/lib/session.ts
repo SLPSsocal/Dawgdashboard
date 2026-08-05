@@ -6,6 +6,10 @@ export type Session = {
   facilityId: string;
   facilitySlug: string;
   facilityName: string;
+  // Set only by /qa-login. Marks a session driven by an automated QA/AI
+  // agent so irreversible real-money actions (live card charges) can be
+  // hard-blocked server-side. Absent/false for every normal staff login.
+  isQa?: boolean;
 };
 
 const COOKIE_NAME = "dawg_session";
@@ -31,6 +35,9 @@ export async function setSession(session: Session) {
   const raw = Buffer.from(JSON.stringify(session), "utf-8").toString("base64");
   store.set(COOKIE_NAME, raw, {
     httpOnly: true,
+    // Secure only in production — localhost dev is plain http, where a
+    // Secure cookie would silently never be set.
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 12, // 12hr shift-length session

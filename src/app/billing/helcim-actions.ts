@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getHelcimTokenForFacility } from "@/lib/helcim";
+import { isQaSession, QA_SIMULATED_TXN_PREFIX } from "@/lib/qaMode";
 
 const HELCIM_INITIALIZE_URL = "https://api.helcim.com/v2/helcim-pay/initialize";
 const HELCIM_PURCHASE_URL = "https://api.helcim.com/v2/payment/purchase";
@@ -26,6 +27,15 @@ export async function startCardSession(
   invoiceId: string | null,
   amount: number
 ) {
+  // Never open a live card-capture session for a QA/agent session — that
+  // would hit the real merchant account. The agent should exercise payments
+  // via the seeded saved card instead, which is simulated in chargeSavedCard.
+  if (await isQaSession()) {
+    throw new Error(
+      "QA mode: live card entry is disabled. Use the seeded saved test card to exercise the payment flow."
+    );
+  }
+
   const token = await getHelcimTokenForFacility(facilityId);
 
   const res = await fetch(HELCIM_INITIALIZE_URL, {
@@ -218,6 +228,37 @@ export async function chargeSavedCard(paymentMethodId: string, invoiceId: string
     .eq("id", paymentMethodId)
     .maybeSingle();
   if (!pm) throw new Error("Payment method not found");
+
+  // QA/agent sessions never reach the live Helcim gateway. We still write a
+  // payment row and settle the invoice so an automated tester can exercise
+  // the whole checkout path (saved card -> paid invoice -> receipt), but the
+  // row is stamped QA-SIMULATED- so it can never be mistaken for real money.
+  if (await isQaSession()) {
+    const simulatedTxn = `${QA_SIMULATED_TXN_PREFIX}${crypto.randomUUID()}`;
+    const { error: qaPayError } = await supabase.from("payments").insert({
+      facility_id: pm.facility_id,
+      parent_id: pm.parent_id,
+      invoice_id: invoiceId,
+      payment_method_id: pm.id,
+      helcim_transaction_id: simulatedTxn,
+      approval_code: "QA-SIM",
+      type: "purchase",
+      amount,
+      status: "approved",
+    });
+    if (qaPayError) throw new Error(qaPayError.message);
+
+    if (invoiceId) {
+      await supabase
+        .from("invoices")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", invoiceId);
+      revalidatePath(`/invoices/${invoiceId}`);
+    }
+    if (pm.parent_id) revalidatePath(`/parents/${pm.parent_id}`);
+    revalidatePath("/reservations");
+    return { approved: true, transactionId: simulatedTxn, simulated: true };
+  }
 
   const token = await getHelcimTokenForFacility(pm.facility_id);
   const ip = await clientIp();
