@@ -34,6 +34,35 @@ export async function unlockAdmin(formData: FormData) {
 }
 
 /**
+ * Persists the payout-formula constants for a facility so the commission
+ * report stops depending on hardcoded numbers.
+ */
+export async function saveCommissionSettings(formData: FormData) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  const facilityId = String(formData.get("facility_id") ?? "");
+  const retention = Number(formData.get("retention") ?? 98);
+  const cardFee = Number(formData.get("card_fee") ?? 4.0816);
+  const returnTo = String(formData.get("return_to") ?? "/admin/commission");
+
+  if (!facilityId || Number.isNaN(retention) || Number.isNaN(cardFee)) redirect(returnTo);
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("facilities")
+    .update({
+      commission_retention_percent: Math.min(Math.max(retention, 0), 100),
+      card_fee_percent: Math.min(Math.max(cardFee, 0), 100),
+    })
+    .eq("id", facilityId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/commission");
+  redirect(returnTo);
+}
+
+/**
  * Saves the manual groomer/House split for one tip. Used on mixed
  * grooming+boarding tickets where the app can't infer who earned what.
  */

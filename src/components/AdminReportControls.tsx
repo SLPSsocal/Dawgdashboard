@@ -9,12 +9,15 @@ export default function AdminReportControls({
   to,
   facilityId,
   facilities,
+  extraFields,
 }: {
   basePath: string;
   from: string;
   to: string;
   facilityId: string | null;
   facilities: Facility[];
+  /** Report-specific inputs (they submit with the rest of the form). */
+  extraFields?: React.ReactNode;
 }) {
   return (
     <form
@@ -61,6 +64,7 @@ export default function AdminReportControls({
           ))}
         </select>
       </label>
+      {extraFields}
       <button
         type="submit"
         className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 dark:bg-slate-100 dark:text-slate-900"
