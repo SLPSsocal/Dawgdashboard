@@ -33,7 +33,8 @@ const BUCKET_LABEL = { bath: "Bath", haircut: "Haircut", a_la_carte: "A La Carte
 // Fallbacks only. The real values live on the facility row so they can be
 // changed without a deploy, and can be overridden per-run from the URL for
 // "what if we moved it to 97%" style checks.
-const DEFAULT_RETENTION = 98;
+// 100 = commission is calculated on the full service price, no shop cut.
+const DEFAULT_RETENTION = 100;
 const DEFAULT_CARD_FEE = 4.0816;
 
 export default async function AdminCommissionPage({
