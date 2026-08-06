@@ -110,12 +110,15 @@ export default function CheckInBoard({
     title,
     data,
     accent,
+    dot,
     defaultOpen = true,
     alwaysShow = false,
   }: {
     title: string;
     data: CheckInRow[];
     accent: string;
+    /** Small status dot instead of an OS emoji in the heading. */
+    dot: string;
     defaultOpen?: boolean;
     // Keep the container visible (showing "(0)" and just the header row)
     // even when empty — used for Expected Today/Tomorrow so staff always
@@ -127,11 +130,13 @@ export default function CheckInBoard({
     return (
       <details
         open={defaultOpen}
-        className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        className="group mt-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
       >
-        <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            {title} ({data.length})
+        <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2.5">
+          <h2 className="flex items-center gap-2 text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+            {title}
+            <span className="font-normal text-slate-400 dark:text-slate-500">{data.length}</span>
           </h2>
           <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
             ▾
@@ -158,7 +163,7 @@ export default function CheckInBoard({
                   key={r.id}
                   className={`border-b border-l-4 border-slate-100 last:border-b-0 dark:border-slate-800 ${accent}`}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <span className="inline-flex items-center gap-1.5">
                       <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                         {r.animalName}
@@ -168,7 +173,7 @@ export default function CheckInBoard({
                     </span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">{r.breed ?? "—"}</div>
                   </td>
-                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-300">
                     <span className="inline-flex items-center gap-1.5">
                       {r.parentId ? (
                         <a href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
@@ -180,11 +185,11 @@ export default function CheckInBoard({
                       {r.parentId && <ProfileTagBadges tags={parentTags?.[r.parentId] ?? []} />}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.typeName ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.lodgingName ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{fmtDate(r.startDate)}</td>
-                  <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-300">{r.typeName ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-slate-600 dark:text-slate-300">{r.lodgingName ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-slate-500 dark:text-slate-400">{fmtDate(r.startDate)}</td>
+                  <td className="px-3 py-1.5 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
+                  <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1.5">
                       {r.status === "checked_in" && (
                         <a
@@ -220,15 +225,15 @@ export default function CheckInBoard({
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by animal, parent, breed, or type…"
-        className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        placeholder="Search animal, parent, breed, or service…"
+        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] placeholder:text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
       />
 
-      <Table title="🟢 Currently Checked In" data={checkedIn} accent="border-l-green-500" />
-      <Table title="📋 Expected Today" data={expectedToday} accent="border-l-amber-500" alwaysShow />
-      <Table title="📅 Expected Tomorrow" data={expectedTomorrow} accent="border-l-sky-500" alwaysShow />
-      <Table title="🗓️ Expected in the Future" data={expectedFuture} accent="border-l-violet-500" />
-      <Table title="✅ Checked Out Today" data={checkedOut} accent="border-l-slate-400" defaultOpen={false} />
+      <Table title="Currently Checked In" dot="bg-emerald-500" data={checkedIn} accent="border-l-emerald-500" />
+      <Table title="Expected Today" dot="bg-amber-500" data={expectedToday} accent="border-l-amber-500" alwaysShow />
+      <Table title="Expected Tomorrow" dot="bg-sky-500" data={expectedTomorrow} accent="border-l-sky-500" alwaysShow />
+      <Table title="Expected in the Future" dot="bg-violet-500" data={expectedFuture} accent="border-l-violet-500" />
+      <Table title="Checked Out Today" dot="bg-slate-400" data={checkedOut} accent="border-l-slate-400" defaultOpen={false} />
 
       {filtered.length === 0 && (
         <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">No matches.</p>

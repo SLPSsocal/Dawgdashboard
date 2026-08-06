@@ -1,12 +1,13 @@
 import type { Session } from "@/lib/session";
-import { getCheckInCandidates } from "@/lib/checkinCandidates";
-import QuickActionBar from "@/components/QuickActionBar";
 
-// Rendered inside each page's own content area (right under the header),
-// not as part of the sticky top chrome — keeps the identity strip slim and
-// gives the nav buttons the full page width to breathe instead of being
-// squeezed into the header row.
-export default async function PageQuickActions({ session }: { session: Session }) {
-  const candidates = await getCheckInCandidates(session.facilityId);
-  return <QuickActionBar candidates={candidates} />;
+// DEPRECATED — renders nothing.
+//
+// Navigation moved into <FacilityHeader /> (see AppNav). This used to emit a
+// 12-button pill block into every page's content area, which is what pushed
+// actual page content halfway down the screen. Kept as a no-op shim so the
+// ~17 pages that still call it don't need touching in one pass; new pages
+// should not use it, and remaining call sites can be deleted opportunistically.
+export default async function PageQuickActions(_props: { session: Session }) {
+  void _props;
+  return null;
 }

@@ -119,29 +119,26 @@ export default async function ReservationsPage() {
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
 
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-xl font-semibold">Check-in Board</h1>
+      {/* Summary stacks vertically and compactly — KPI strip, service mix,
+          then straight into search + tables. The old two-column layout left a
+          tall empty gap under the short stat row beside the breakdown card. */}
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="text-[19px] font-semibold leading-tight">Check-in Board</h1>
+          <span className="text-[13px] text-slate-500 dark:text-slate-400">
+            {new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
+          </span>
+        </div>
         {error && (
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        <div className="mt-4 lg:flex lg:items-start lg:gap-4">
-          <div className="lg:flex-1">
-            <DailySummaryBar stats={stats} />
-            {/* Lives in the same column as the stat cards (not full-width
-                below both columns) specifically so it fills the empty space
-                left under the short stat-card row instead of getting pushed
-                all the way down past the taller Breakdown card next to it. */}
-            <div className="mt-4">
-              <PageQuickActions session={session!} />
-            </div>
-          </div>
-          <div className="lg:w-80 lg:shrink-0">
-            <ServiceBreakdownTable breakdown={breakdown} />
-          </div>
+        <div className="mt-3 flex flex-col gap-2">
+          <DailySummaryBar stats={stats} />
+          <ServiceBreakdownTable breakdown={breakdown} />
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           {rows.length === 0 && !error ? (
             <p className="text-sm text-slate-400 dark:text-slate-500">
               No reservations yet at {session!.facilityName}. Once reservation types and lodging

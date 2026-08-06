@@ -10,45 +10,42 @@ const DOT_COLORS = [
   "bg-slate-400",
 ];
 
+// Was a ~280px-tall scrolling table with SERVICE/COUNT headers for a handful
+// of numbers. Now a wrapping row of chips that costs ~60-90px, so the
+// reservation tables move up the page.
 export default function ServiceBreakdownTable({
   breakdown,
 }: {
   breakdown: { name: string; count: number }[];
 }) {
+  if (breakdown.length === 0) return null;
   const total = breakdown.reduce((sum, b) => sum + b.count, 0);
 
-  if (breakdown.length === 0) return null;
-
   return (
-    <div className="flex max-h-72 flex-col rounded-xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-200">Breakdown by Service Type</h2>
-
-      {/* Only this list scrolls — it never grows the stat-pill row beside it. */}
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-auto">
-        <table className="w-full min-w-[280px] border-collapse text-sm">
-          <thead className="sticky top-0 bg-white dark:bg-slate-900">
-            <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:text-slate-500">
-              <th className="py-2">Service</th>
-              <th className="py-2 text-right">Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {breakdown.map((b, i) => (
-              <tr key={b.name} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                <td className="flex items-center gap-2 py-2">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_COLORS[i % DOT_COLORS.length]}`} />
-                  {b.name}
-                </td>
-                <td className="py-2 text-right font-medium">{b.count || "—"}</td>
-              </tr>
-            ))}
-            <tr className="sticky bottom-0 bg-slate-50 dark:bg-slate-800/50">
-              <td className="py-2 font-semibold">Total</td>
-              <td className="py-2 text-right font-semibold">{total}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Service mix
+      </span>
+      {breakdown.map((b, i) => (
+        <span key={b.name} className="inline-flex items-center gap-1.5 text-[13px]">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_COLORS[i % DOT_COLORS.length]}`} />
+          <span className={b.count > 0 ? "text-slate-600 dark:text-slate-300" : "text-slate-400 dark:text-slate-600"}>
+            {b.name}
+          </span>
+          <span
+            className={`tabular-nums ${
+              b.count > 0
+                ? "font-semibold text-slate-900 dark:text-slate-100"
+                : "text-slate-300 dark:text-slate-700"
+            }`}
+          >
+            {b.count}
+          </span>
+        </span>
+      ))}
+      <span className="ml-auto text-[13px] text-slate-500 dark:text-slate-400">
+        Total <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{total}</span>
+      </span>
     </div>
   );
 }

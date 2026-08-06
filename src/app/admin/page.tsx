@@ -7,23 +7,44 @@ import AdminGate from "@/components/AdminGate";
 const REPORTS = [
   {
     href: "/admin/tips",
-    icon: "💵",
     title: "Tips",
     blurb:
       "Gratuity by groomer and House pool for any date range, with a per-animal breakdown. Flags grooming+boarding tickets that need a manual split.",
   },
   {
     href: "/admin/revenue",
-    icon: "📊",
     title: "Revenue by Service Type",
     blurb: "Boarding, daycare, grooming, retail, fees and tips broken out per location.",
   },
   {
     href: "/admin/commission",
-    icon: "✂️",
     title: "Groomer Commission",
     blurb:
       "Payout per groomer using each one's Bath / Haircut / A La Carte split, less card processing, plus tips.",
+  },
+];
+
+// Setup + QA screens that used to sit as top-level nav pills on every page.
+const TOOLS = [
+  {
+    href: "/support",
+    title: "Reported Issues",
+    blurb: "Everything submitted through the 💬 button — screenshots, notes, open/resolved status.",
+  },
+  {
+    href: "/referral-sources",
+    title: "Referral Sources",
+    blurb: "Options in the Referral Source dropdown on the New Parent form.",
+  },
+  {
+    href: "/profile-tags",
+    title: "Profile Tags",
+    blurb: "Icons staff can attach to a dog or parent profile.",
+  },
+  {
+    href: "/grooming-commission",
+    title: "Commission Splits",
+    blurb: "Each groomer's Bath / Haircut / A La Carte percentage.",
   },
 ];
 
@@ -45,27 +66,44 @@ export default async function AdminIndexPage({
           <AdminGate facilityName={session!.facilityName} next="/admin" error={error} />
         ) : (
           <>
-            <h1 className="text-xl font-semibold">Admin Reports</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h1 className="text-[19px] font-semibold leading-tight">Admin</h1>
+            <p className="mt-1 max-w-[65ch] text-[13px] text-slate-500 dark:text-slate-400">
               Reports run across every location, not just {session!.facilityName}. Owner-only.
             </p>
 
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <h2 className="mt-6 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Reports
+            </h2>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {REPORTS.map((r) => (
                 <a
                   key={r.href}
                   href={r.href}
-                  className="rounded-xl border border-slate-300 bg-white p-4 hover:border-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
+                  className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
                 >
-                  <div className="text-base font-semibold">
-                    {r.icon} {r.title}
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{r.blurb}</p>
+                  <div className="text-[14px] font-semibold">{r.title}</div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{r.blurb}</p>
                 </a>
               ))}
             </div>
 
-            <p className="mt-6 text-xs text-slate-400 dark:text-slate-500">
+            <h2 className="mt-6 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Setup &amp; QA
+            </h2>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {TOOLS.map((r) => (
+                <a
+                  key={r.href}
+                  href={r.href}
+                  className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
+                >
+                  <div className="text-[14px] font-semibold">{r.title}</div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{r.blurb}</p>
+                </a>
+              ))}
+            </div>
+
+            <p className="mt-6 text-[12px] text-slate-400 dark:text-slate-500">
               Tip totals only count money that was actually invoiced. A tip is attributed to the groomer
               scheduled on the reservation; anything not clearly a groomer&apos;s goes to the House /
               General Staff pool.
