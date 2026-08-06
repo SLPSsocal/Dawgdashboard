@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
 import { checkInReservation } from "@/app/reservations/actions";
 
 export type CheckInCandidate = {
@@ -11,21 +12,37 @@ export type CheckInCandidate = {
   startDate: string;
 };
 
-const LINKS = [
-  { name: "Lodging Calendar", href: "/lodging/calendar", icon: "📅" },
-  { name: "Facility Calendar", href: "/facility-calendar", icon: "🗓️" },
-  { name: "Parents", href: "/parents", icon: "👪" },
-  { name: "Animals", href: "/animals", icon: "🐶" },
+// Split into what staff hit constantly vs. what they configure occasionally.
+// Only the two primary actions stay as filled buttons; day-to-day destinations
+// become quiet text links, and setup screens move behind a Manage menu. That
+// takes the toolbar from 12 competing CTAs down to 2.
+const NAV_LINKS = [
+  { name: "Lodging", href: "/lodging/calendar" },
+  { name: "Calendar", href: "/facility-calendar" },
+  { name: "Parents", href: "/parents" },
+  { name: "Animals", href: "/animals" },
+];
+
+const MANAGE_LINKS = [
+  { name: "Admin Reports", href: "/admin", icon: "📈" },
   { name: "Pricing", href: "/pricing", icon: "💲" },
   { name: "Items for Sale", href: "/retail", icon: "🛍️" },
   { name: "Waivers", href: "/waivers", icon: "✍️" },
   { name: "Referral Sources", href: "/referral-sources", icon: "🔗" },
   { name: "Profile Tags", href: "/profile-tags", icon: "🏷️" },
-  { name: "Admin Reports", href: "/admin", icon: "📈" },
 ];
 
-function pillClass() {
-  return "shrink-0 inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-500 dark:hover:text-indigo-400";
+const ALL_LINKS = [...NAV_LINKS, ...MANAGE_LINKS];
+
+const PRIMARY_BTN =
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-white transition-colors";
+
+function navLinkClass(active: boolean) {
+  return `inline-flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px] transition-colors ${
+    active
+      ? "bg-slate-200 font-medium text-slate-900 dark:bg-slate-800 dark:text-slate-50"
+      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+  }`;
 }
 
 function CheckInPopup({
@@ -138,39 +155,85 @@ function CheckInPopup({
 export default function QuickActionBar({ candidates }: { candidates: CheckInCandidate[] }) {
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const manageRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (manageRef.current && !manageRef.current.contains(e.target as Node)) setManageOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const manageActive = MANAGE_LINKS.some((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
 
   return (
     <>
-      {/* Desktop / tablet: compact inline pill row. */}
-      <div className="hidden md:flex flex-wrap items-center gap-1.5 text-sm">
-        <button
-          type="button"
-          onClick={() => setCheckInOpen(true)}
-          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-indigo-600 bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-indigo-700"
-        >
+      {/* Desktop: two primary actions, quiet links, then a Manage menu. */}
+      <div className="hidden items-center gap-1 md:flex">
+        <button type="button" onClick={() => setCheckInOpen(true)} className={`${PRIMARY_BTN} bg-indigo-600 hover:bg-indigo-700`}>
           🐾 Check-in
         </button>
-        <a
-          href="/reservations/new"
-          className="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-emerald-700"
-        >
+        <a href="/reservations/new" className={`${PRIMARY_BTN} bg-emerald-600 hover:bg-emerald-700`}>
           ➕ New Booking
         </a>
-        {LINKS.map((l) => (
-          <a key={l.href} href={l.href} className={pillClass()}>
-            {l.icon} {l.name}
+
+        <span className="mx-1.5 h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />
+
+        {NAV_LINKS.map((l) => (
+          <a key={l.href} href={l.href} className={navLinkClass(pathname === l.href)}>
+            {l.name}
           </a>
         ))}
+
+        <div className="relative" ref={manageRef}>
+          <button
+            type="button"
+            onClick={() => setManageOpen((o) => !o)}
+            aria-expanded={manageOpen}
+            className={navLinkClass(manageActive)}
+          >
+            Manage
+            <span className="ml-1 text-[10px] text-slate-400">▾</span>
+          </button>
+          {manageOpen && (
+            <div className="absolute left-0 z-40 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+              {MANAGE_LINKS.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors ${
+                    pathname === l.href
+                      ? "bg-slate-100 font-medium text-slate-900 dark:bg-slate-800 dark:text-slate-50"
+                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60"
+                  }`}
+                >
+                  <span className="w-4 text-center text-[13px]">{l.icon}</span>
+                  {l.name}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Mobile: hamburger opens a slide-out side menu instead of a scrolling row. */}
-      <div className="md:hidden">
+      {/* Mobile: primary actions inline, everything else in the drawer. */}
+      <div className="flex items-center gap-1.5 md:hidden">
+        <button type="button" onClick={() => setCheckInOpen(true)} className={`${PRIMARY_BTN} bg-indigo-600 hover:bg-indigo-700`}>
+          🐾 Check-in
+        </button>
+        <a href="/reservations/new" className={`${PRIMARY_BTN} bg-emerald-600 hover:bg-emerald-700`}>
+          ➕ Booking
+        </a>
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium shadow-sm dark:border-slate-700 dark:bg-slate-900"
+          aria-label="Open menu"
+          className="inline-flex h-8 shrink-0 items-center rounded-lg border border-slate-200 px-2.5 text-[13px] text-slate-600 dark:border-slate-700 dark:text-slate-300"
         >
-          ☰ Menu
+          ☰
         </button>
       </div>
 
@@ -178,39 +241,27 @@ export default function QuickActionBar({ candidates }: { candidates: CheckInCand
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute left-0 top-0 flex h-full w-72 flex-col gap-1 bg-white p-3 shadow-xl dark:bg-slate-900"
+            className="absolute left-0 top-0 flex h-full w-72 flex-col bg-white p-3 shadow-xl dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Menu</span>
+            <div className="mb-3 flex items-center justify-between px-1">
+              <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">Menu</span>
               <button type="button" onClick={() => setDrawerOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close menu">
                 ✕
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDrawerOpen(false);
-                setCheckInOpen(true);
-              }}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-left text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              🐾 Check-in
-            </button>
-            <a
-              href="/reservations/new"
-              onClick={() => setDrawerOpen(false)}
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-left text-sm font-medium text-white hover:bg-emerald-700"
-            >
-              ➕ New Booking
-            </a>
-            {LINKS.map((l) => (
+            {ALL_LINKS.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+                  pathname === l.href
+                    ? "bg-slate-100 font-medium text-slate-900 dark:bg-slate-800 dark:text-slate-50"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60"
+                }`}
               >
-                {l.icon} {l.name}
+                <span className="w-4 text-center">{"icon" in l ? String(l.icon) : "•"}</span>
+                {l.name}
               </a>
             ))}
           </div>

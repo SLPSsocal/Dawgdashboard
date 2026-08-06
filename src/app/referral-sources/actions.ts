@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 function refresh() {
@@ -22,11 +23,13 @@ export async function addReferralSource(formData: FormData) {
 export async function renameReferralSource(id: string, formData: FormData) {
   const supabase = createClient();
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
+  if (!name) redirect("/referral-sources");
 
   const { error } = await supabase.from("referral_sources").update({ name }).eq("id", id);
   if (error) throw new Error(error.message);
   refresh();
+  // Drop the ?edit= param so the row leaves edit mode after saving.
+  redirect("/referral-sources");
 }
 
 // Soft toggle only — same reasoning as pricing rules: a disabled source
