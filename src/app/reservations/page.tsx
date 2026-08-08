@@ -98,6 +98,18 @@ export default async function ReservationsPage() {
   const overnightCount = boardRows.filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr).length;
   const checkedOutTodayCount = checkedOutRows.length;
 
+  // "Overnight: 2" on its own doesn't tell you which nights are being billed.
+  // List each staying dog with the night it's covering, so the count can be
+  // reconciled against an invoice instead of taken on faith.
+  const overnightRows = boardRows
+    .filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr)
+    .map((r) => ({
+      animalName: r.animalName,
+      // The night worked tonight runs today -> tomorrow.
+      nightOf: todayStr,
+      departs: r.endDate,
+    }));
+
   const stats = [
     { label: "Expected Today", value: expectedTodayCount },
     { label: "Checked In", value: checkedInCount, accent: "border-l-4 border-l-green-500" },
@@ -136,6 +148,46 @@ export default async function ReservationsPage() {
         <div className="mt-3 flex flex-col gap-2">
           <DailySummaryBar stats={stats} />
           <ServiceBreakdownTable breakdown={breakdown} />
+
+          {overnightRows.length > 0 && (
+            <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Overnight tonight — which nights are billing
+                </span>
+                <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
+                  ▾
+                </span>
+              </summary>
+              <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                {overnightRows.map((o, i) => (
+                  <div key={i} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
+                    <span className="font-medium">{o.animalName}</span>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      night of{" "}
+                      {new Date(`${o.nightOf}T12:00:00`).toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                      {" → "}
+                      {new Date(
+                        new Date(`${o.nightOf}T12:00:00`).getTime() + 86400000
+                      ).toLocaleDateString([], { month: "short", day: "numeric" })}
+                    </span>
+                    <span className="ml-auto text-slate-400 dark:text-slate-500">
+                      departs{" "}
+                      {new Date(o.departs).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
 
         <div className="mt-3">

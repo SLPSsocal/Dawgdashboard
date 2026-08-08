@@ -147,7 +147,7 @@ export default async function ParentDetailPage({
           <h1 className="text-xl font-semibold">
             {parent.first_name} {parent.last_name}
           </h1>
-          <ProfileTagBadges tags={assignedTags} />
+          <ProfileTagBadges tags={assignedTags} variant="chip" />
           <a
             href={`/parents/${id}/reservations`}
             className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"

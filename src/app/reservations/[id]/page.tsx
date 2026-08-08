@@ -195,7 +195,7 @@ export default async function ReservationDetailPage({
                 <a href={`/animals/${animal.id}`} className="font-medium underline">
                   {animal.name}
                 </a>
-                <ProfileTagBadges tags={animalProfileTags} />
+                <ProfileTagBadges tags={animalProfileTags} variant="chip" />
               </div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {animal.breed ?? animal.species ?? "—"}
@@ -215,7 +215,7 @@ export default async function ReservationDetailPage({
                 <a href={`/parents/${animal.parents.id}`} className="font-medium underline">
                   {animal.parents.first_name} {animal.parents.last_name}
                 </a>
-                <ProfileTagBadges tags={parentProfileTags} />
+                <ProfileTagBadges tags={parentProfileTags} variant="chip" />
               </div>
               <div className="mt-1 text-xs">
                 {animal.parents.phone ? (

@@ -235,12 +235,22 @@ export default function CheckoutCalculator({
   if (pendingInvoice) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-400">
-          {animalName} is checked out. Total: ${pendingInvoice.amount.toFixed(2)}.
+        {/* Deliberately does NOT say "checked out" — the stay is closed but
+            the money hasn't moved yet, and claiming otherwise is what made
+            this screen read as broken. */}
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="font-semibold">
+            Step 2 of 2 — payment due: ${pendingInvoice.amount.toFixed(2)}
+          </div>
+          <div className="mt-0.5">
+            {animalName}&apos;s invoice is created and <strong>still unpaid</strong>. Nothing has been
+            charged yet.
+          </div>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Enter the new card below to charge ${pendingInvoice.amount.toFixed(2)} and save it on file for next
-          time — this doesn&apos;t touch your own server; the card form is Helcim&apos;s secure hosted iframe.
+          Entering the card below does two things at once: charges $
+          {pendingInvoice.amount.toFixed(2)} and saves the card to this parent&apos;s profile for next
+          time. The form is Helcim&apos;s secure hosted page — card numbers never touch this app.
         </p>
         {parentId && (
           <HelcimCardModal
@@ -511,11 +521,13 @@ export default function CheckoutCalculator({
         </select>
         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {usingNewCard
-            ? "You'll check out first, then enter the new card on the next screen to charge and save it."
+            ? `Next step builds the invoice, then Helcim's secure card form opens to charge $${total.toFixed(
+                2
+              )}. The card is saved to this parent's profile automatically — nothing is charged until you enter it.`
             : cardId
-              ? `Charges $${total.toFixed(2)} on Complete Checkout and marks the invoice paid automatically.`
+              ? `Charges $${total.toFixed(2)} to this saved card and marks the invoice paid.`
               : parentId
-                ? "No card selected — you can also add one on the parent's profile anytime."
+                ? "No card selected — the invoice will be left open and payable later."
                 : "No parent linked to this reservation, so a card can't be saved here."}
         </p>
       </label>
@@ -537,7 +549,13 @@ export default function CheckoutCalculator({
         disabled={isPending}
         className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:w-fit dark:bg-slate-100 dark:text-slate-900"
       >
-        {isPending ? "Checking Out…" : "Complete Checkout"}
+        {isPending
+          ? "Working…"
+          : usingNewCard
+            ? `Continue to Card — $${total.toFixed(2)}`
+            : cardId
+              ? `Charge $${total.toFixed(2)} & Check Out`
+              : "Check Out"}
       </button>
     </div>
   );

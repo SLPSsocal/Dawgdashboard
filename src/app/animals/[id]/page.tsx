@@ -62,7 +62,7 @@ export default async function AnimalDetailPage({
         </a>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold">{animal.name}</h1>
-          <ProfileTagBadges tags={assignedTags} />
+          <ProfileTagBadges tags={assignedTags} variant="chip" />
           {overallStatus !== "unknown" && (
             <span
               title={overallShield.label}
