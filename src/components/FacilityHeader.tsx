@@ -14,7 +14,11 @@ export default async function FacilityHeader({ session }: { session: Session }) 
   const candidates = await getCheckInCandidates(session.facilityId);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+    <>
+      {/* NOTE: no backdrop-blur here. A backdrop-filter creates a containing
+          block for position:fixed descendants, which was clipping the support
+          dialog to the header's 56px box instead of the viewport. */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:px-6">
         <a
           href="/"
@@ -50,7 +54,10 @@ export default async function FacilityHeader({ session }: { session: Session }) 
           </form>
         </div>
       </div>
+      </header>
+      {/* Sibling of the header, not a child — so its fixed positioning is
+          relative to the viewport. */}
       <SupportWidget staffName={session.staffName} facilityId={session.facilityId} />
-    </header>
+    </>
   );
 }

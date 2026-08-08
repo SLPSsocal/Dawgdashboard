@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+// A single unlabelled emoji gave no way to tell which mode you were in — a
+// user with dark mode left on from an earlier session read it as pages
+// "randomly going black". Now it states the current mode in words, so the
+// state is legible and one click undoes it.
 export default function ThemeToggle() {
   const [dark, setDark] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -22,14 +26,19 @@ export default function ThemeToggle() {
     }
   }
 
+  // Render a fixed-size placeholder until mounted so the header doesn't shift.
+  if (!mounted) return <span className="inline-block h-8 w-[68px]" />;
+
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label="Toggle dark mode"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-sm dark:border-slate-700"
+      title={dark ? "Dark mode is on — click for light" : "Light mode is on — click for dark"}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2 text-[12px] font-medium text-slate-600 transition-colors hover:border-slate-400 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500"
     >
-      {mounted ? (dark ? "☀️" : "🌙") : null}
+      <span aria-hidden>{dark ? "🌙" : "☀️"}</span>
+      <span className="hidden sm:inline">{dark ? "Dark" : "Light"}</span>
     </button>
   );
 }

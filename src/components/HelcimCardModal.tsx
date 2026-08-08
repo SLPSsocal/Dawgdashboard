@@ -39,7 +39,7 @@ export default function HelcimCardModal({
 }: {
   facilityId: string;
   parentId: string;
-  purpose: "save_card" | "charge_and_save";
+  purpose: "save_card" | "charge_and_save" | "charge";
   invoiceId?: string | null;
   amount: number;
   buttonLabel: string;

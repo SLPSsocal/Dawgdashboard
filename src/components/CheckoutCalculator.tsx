@@ -24,6 +24,15 @@ type RetailItem = { id: string; name: string; price: number; taxable: boolean };
 type OpenItemType = "Other" | "Price Adjustment" | "Tip";
 
 const NEW_CARD_VALUE = "__new__";
+
+// "" = collect nothing now; "card:<id>" = a saved card; the rest are
+// non-gateway tenders recorded straight against the invoice.
+type PaymentMethodKey = "" | "cash" | "store_credit" | "admin_credit" | string;
+type PaymentRow = { method: PaymentMethodKey; amount: string };
+
+function fmtDay(iso: string) {
+  return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+}
 const OPEN_ITEM_TYPES: OpenItemType[] = ["Other", "Price Adjustment", "Tip"];
 
 export default function CheckoutCalculator({
@@ -35,6 +44,8 @@ export default function CheckoutCalculator({
   baseRate,
   rateUnit,
   units,
+  startDate,
+  endDate,
   rules,
   groomingItems,
   rememberedPrices,
@@ -50,6 +61,8 @@ export default function CheckoutCalculator({
   baseRate: number;
   rateUnit: string;
   units: number;
+  startDate: string;
+  endDate: string;
   rules: PricingRule[];
   groomingItems: GroomingItem[];
   rememberedPrices: RememberedPrice[];
@@ -65,8 +78,8 @@ export default function CheckoutCalculator({
   const [openType, setOpenType] = useState<OpenItemType>("Tip");
   const [openDesc, setOpenDesc] = useState("");
   const [openAmount, setOpenAmount] = useState("");
-  const [markPaid, setMarkPaid] = useState(false);
-  const [cardId, setCardId] = useState<string>("");
+  const [payments, setPayments] = useState<PaymentRow[]>([{ method: "", amount: "" }]);
+  const [saveNewCard, setSaveNewCard] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // Once checkout has been submitted for the "new card" path, the reservation
@@ -91,7 +104,11 @@ export default function CheckoutCalculator({
     const lines: CheckoutLineItem[] = [];
     const baseTotal = baseRate * units;
     lines.push({
-      description: `${animalName} — ${units} × ${rateUnit.replace("per_", "")} @ $${baseRate.toFixed(2)}`,
+      // Spell out the exact dates being billed. "6 x night" alone can't be
+      // checked against a calendar; "Aug 14 -> Aug 20" can.
+      description: `${animalName} — ${units} × ${rateUnit.replace("per_", "")} @ $${baseRate.toFixed(
+        2
+      )} (${fmtDay(startDate)} → ${fmtDay(endDate)})`,
       quantity: units,
       unitPrice: baseRate,
       lineTotal: baseTotal,
@@ -171,7 +188,34 @@ export default function CheckoutCalculator({
   const taxableSubtotal = lineItems.filter((li) => li.taxable).reduce((sum, li) => sum + li.lineTotal, 0);
   const taxAmount = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
   const total = subtotal + taxAmount;
-  const usingNewCard = cardId === NEW_CARD_VALUE;
+  // A blank amount on a single payment line means "the whole ticket".
+  const allocated = payments.reduce((sum, p) => {
+    if (!p.method) return sum;
+    const n = Number(p.amount);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const activePayments = payments.filter((p) => p.method);
+  const soleFullPayment =
+    activePayments.length === 1 && activePayments[0].amount.trim() === "" ? activePayments[0] : null;
+  const effectivePayments = soleFullPayment
+    ? [{ method: soleFullPayment.method, amount: total }]
+    : activePayments.map((p) => ({ method: p.method, amount: Number(p.amount) || 0 }));
+  const effectiveAllocated = effectivePayments.reduce((s2, p) => s2 + p.amount, 0);
+  const remaining = Math.round((total - effectiveAllocated) * 100) / 100;
+
+  const newCardPayment = effectivePayments.find((p) => p.method === NEW_CARD_VALUE) ?? null;
+  const savedCardPayment = effectivePayments.find((p) => String(p.method).startsWith("card:")) ?? null;
+  const nonCardTotal = effectivePayments
+    .filter((p) => p.method !== NEW_CARD_VALUE && !String(p.method).startsWith("card:"))
+    .reduce((s2, p) => s2 + p.amount, 0);
+  const usingNewCard = Boolean(newCardPayment);
+
+  function addPaymentRow() {
+    setPayments((rows) => [...rows, { method: "", amount: "" }]);
+  }
+  function updatePaymentRow(idx: number, patch: Partial<PaymentRow>) {
+    setPayments((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
 
   function addRetailRow() {
     if (retailItems.length === 0) return;
@@ -209,21 +253,34 @@ export default function CheckoutCalculator({
           taxAmount,
           // Never mark paid up front for a card path — only a real Helcim
           // approval (below, or via chargeSavedCard) should do that.
-          markPaid: usingNewCard ? false : markPaid,
+          // Only settle up front when the whole ticket is covered by
+          // non-gateway tenders (cash / credit). Anything touching a card
+          // stays open until Helcim actually approves.
+          markPaid:
+            !usingNewCard &&
+            !savedCardPayment &&
+            effectiveAllocated > 0 &&
+            Math.abs(total - nonCardTotal) < 0.005,
         });
 
         if (usingNewCard) {
           // Reservation is checked out and the invoice exists (open/unpaid).
           // Swap to the "enter card" panel instead of navigating away yet.
-          setPendingInvoice({ id: invoiceId, amount: total });
+          setPendingInvoice({ id: invoiceId, amount: newCardPayment?.amount ?? total });
           return;
         }
 
-        if (cardId) {
+        if (savedCardPayment) {
           // Invoice starts "open" — this flips it to "paid" only once Helcim
           // actually approves the charge. A decline leaves the invoice open
           // and surfaces the error here instead of silently marking it paid.
-          await chargeSavedCard(cardId, invoiceId, total);
+          // Charges only this line's share, so a split bills the card the
+          // remainder rather than the full ticket.
+          await chargeSavedCard(
+            String(savedCardPayment.method).replace("card:", ""),
+            invoiceId,
+            savedCardPayment.amount
+          );
         }
         router.push("/reservations");
       } catch (e) {
@@ -248,15 +305,17 @@ export default function CheckoutCalculator({
           </div>
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Entering the card below does two things at once: charges $
-          {pendingInvoice.amount.toFixed(2)} and saves the card to this parent&apos;s profile for next
-          time. The form is Helcim&apos;s secure hosted page — card numbers never touch this app.
+          Charging ${pendingInvoice.amount.toFixed(2)}
+          {saveNewCard
+            ? " — and saving this card to the parent's profile, as you selected."
+            : " — this card will not be saved."}{" "}
+          The form is Helcim&apos;s secure hosted page; card numbers never touch this app.
         </p>
         {parentId && (
           <HelcimCardModal
             facilityId={facilityId}
             parentId={parentId}
-            purpose="charge_and_save"
+            purpose={saveNewCard ? "charge_and_save" : "charge"}
             invoiceId={pendingInvoice.id}
             amount={pendingInvoice.amount}
             buttonLabel={`Enter Card & Charge $${pendingInvoice.amount.toFixed(2)}`}
@@ -366,7 +425,14 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
-      {retailItems.length > 0 && (
+      {retailItems.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          <span className="font-medium text-slate-700 dark:text-slate-200">Items for Sale</span> — nothing in the
+          catalog yet.{" "}
+          <a href="/retail" className="text-indigo-600 underline dark:text-indigo-400">Add items</a>{" "}
+          and they&apos;ll be sellable here.
+        </div>
+      ) : (
         <div>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Items for Sale</span>
@@ -504,43 +570,113 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Card Payment</span>
-        <select
-          value={cardId}
-          onChange={(e) => setCardId(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option value="">Don&apos;t charge a card here</option>
-          {savedCards.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.card_brand ?? "Card"} •••• {c.last4 ?? "----"}
-            </option>
-          ))}
-          {parentId && <option value={NEW_CARD_VALUE}>+ Add a new card…</option>}
-        </select>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          {usingNewCard
-            ? `Next step builds the invoice, then Helcim's secure card form opens to charge $${total.toFixed(
-                2
-              )}. The card is saved to this parent's profile automatically — nothing is charged until you enter it.`
-            : cardId
-              ? `Charges $${total.toFixed(2)} to this saved card and marks the invoice paid.`
-              : parentId
-                ? "No card selected — the invoice will be left open and payable later."
-                : "No parent linked to this reservation, so a card can't be saved here."}
-        </p>
-      </label>
+      {/* Payment Method — supports splitting one ticket across several
+          tender types (e.g. $15 cash, remainder on card). Card lines settle
+          through Helcim; cash / store credit / admin credit are recorded
+          against the invoice without touching the gateway. */}
+      <div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Payment Method</span>
+          <button
+            type="button"
+            onClick={addPaymentRow}
+            className="text-xs font-medium text-slate-500 underline dark:text-slate-400"
+          >
+            + Split payment
+          </button>
+        </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={markPaid}
-          disabled={Boolean(cardId)}
-          onChange={(e) => setMarkPaid(e.target.checked)}
-        />
-        Payment collected now (cash / external)
-      </label>
+        <div className="mt-1.5 flex flex-col gap-2">
+          {payments.map((p, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <select
+                value={p.method}
+                onChange={(e) => updatePaymentRow(i, { method: e.target.value as PaymentMethodKey })}
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="">Don&apos;t collect payment now</option>
+                {savedCards.map((c) => (
+                  <option key={c.id} value={`card:${c.id}`}>
+                    {c.card_brand ?? "Card"} •••• {c.last4 ?? "----"}
+                  </option>
+                ))}
+                {parentId && <option value={NEW_CARD_VALUE}>+ Add a new card…</option>}
+                <option value="cash">Cash</option>
+                <option value="store_credit">Store Credit</option>
+                <option value="admin_credit">Admin Credit (comp / adjustment)</option>
+              </select>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={p.amount}
+                onChange={(e) => updatePaymentRow(i, { amount: e.target.value })}
+                placeholder={remaining.toFixed(2)}
+                className="w-28 rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              {payments.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setPayments((rows) => rows.filter((_, idx) => idx !== i))}
+                  className="text-xs text-red-500 dark:text-red-400"
+                  aria-label="Remove payment line"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Running reconciliation so a split can't silently under/over-collect. */}
+        <div className="mt-1.5 text-xs">
+          {allocated > 0 && (
+            <span className="text-slate-500 dark:text-slate-400">
+              Allocated ${allocated.toFixed(2)} of ${total.toFixed(2)}
+              {" · "}
+              <span
+                className={
+                  Math.abs(remaining) < 0.005
+                    ? "font-medium text-emerald-600 dark:text-emerald-400"
+                    : remaining > 0
+                      ? "font-medium text-amber-600 dark:text-amber-400"
+                      : "font-medium text-red-600 dark:text-red-400"
+                }
+              >
+                {Math.abs(remaining) < 0.005
+                  ? "balanced"
+                  : remaining > 0
+                    ? `$${remaining.toFixed(2)} still due`
+                    : `$${Math.abs(remaining).toFixed(2)} over`}
+              </span>
+            </span>
+          )}
+          {allocated === 0 && (
+            <span className="text-slate-400 dark:text-slate-500">
+              Nothing collected now — the invoice stays open and payable later.
+            </span>
+          )}
+        </div>
+
+        {usingNewCard && parentId && (
+          // Saving a card is a decision about someone else's payment
+          // instrument, so it's opt-in rather than a side effect.
+          <label className="mt-2 flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={saveNewCard}
+              onChange={(e) => setSaveNewCard(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Save this card to the parent&apos;s profile for future checkouts.{" "}
+              <span className="text-slate-400 dark:text-slate-500">
+                Leave unchecked to charge it once without storing it.
+              </span>
+            </span>
+          </label>
+        )}
+      </div>
 
       {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</div>}
 
@@ -552,9 +688,9 @@ export default function CheckoutCalculator({
         {isPending
           ? "Working…"
           : usingNewCard
-            ? `Continue to Card — $${total.toFixed(2)}`
-            : cardId
-              ? `Charge $${total.toFixed(2)} & Check Out`
+            ? `Continue to Card — $${(newCardPayment?.amount ?? total).toFixed(2)}`
+            : savedCardPayment
+              ? `Charge $${savedCardPayment.amount.toFixed(2)} & Check Out`
               : "Check Out"}
       </button>
     </div>

@@ -23,7 +23,7 @@ async function clientIp(): Promise<string> {
 export async function startCardSession(
   facilityId: string,
   parentId: string,
-  purpose: "save_card" | "charge_and_save",
+  purpose: "save_card" | "charge_and_save" | "charge",
   invoiceId: string | null,
   amount: number
 ) {
@@ -200,7 +200,7 @@ export async function logAbortedAttempt(
   parentId: string | null,
   invoiceId: string | null,
   amount: number,
-  purpose: "save_card" | "charge_and_save",
+  purpose: "save_card" | "charge_and_save" | "charge",
   reason?: string | null
 ) {
   const supabase = createClient();

@@ -117,6 +117,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             baseRate={currentRate}
             rateUnit={type?.rate_unit ?? "per_night"}
             units={units}
+            startDate={reservation.start_date}
+            endDate={reservation.end_date}
             rules={(rules ?? []) as unknown as Parameters<typeof CheckoutCalculator>[0]["rules"]}
             groomingItems={groomingItems ?? []}
             rememberedPrices={remembered ?? []}
