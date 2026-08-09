@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import Link from "next/link";
 
 type Parent = {
   id: string;
@@ -126,15 +127,15 @@ export default function SearchableParentsList({
             {filtered.map((p) => (
               <tr key={p.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/40">
                 <td className="px-3 py-2">
-                  <a href={`/parents/${p.id}`} className="font-medium hover:underline">
+                  <Link href={`/parents/${p.id}`} className="font-medium hover:underline">
                     {p.first_name}
-                  </a>
+                  </Link>
                 </td>
                 <td className="px-3 py-2">
                   <span className="inline-flex items-center gap-1.5">
-                    <a href={`/parents/${p.id}`} className="font-medium hover:underline">
+                    <Link href={`/parents/${p.id}`} className="font-medium hover:underline">
                       {p.last_name}
-                    </a>
+                    </Link>
                     <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
                   </span>
                 </td>
@@ -181,7 +182,7 @@ export default function SearchableParentsList({
             key={p.id}
             className="rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
           >
-            <a href={`/parents/${p.id}`} className="block">
+            <Link href={`/parents/${p.id}`} className="block">
               <div className="flex items-center gap-1.5 font-medium">
                 {p.first_name} {p.last_name}
                 <ProfileTagBadges tags={tagsByParent?.[p.id] ?? []} />
@@ -189,7 +190,7 @@ export default function SearchableParentsList({
               {animalNames(p) && (
                 <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">🐾 {animalNames(p)}</div>
               )}
-            </a>
+            </Link>
             <div className="mt-1 flex flex-wrap gap-x-3 text-sm">
               {p.phone ? (
                 <a href={`tel:${p.phone}`} className="text-indigo-600 underline dark:text-indigo-400">

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import { updateSupportTicketStatus } from "./actions";
+import Link from "next/link";
 
 const STATUS_LABEL: Record<string, string> = {
   open: "🟡 Open",

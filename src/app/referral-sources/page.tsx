@@ -6,6 +6,7 @@ import PageQuickActions from "@/components/PageQuickActions";
 import Toggle from "@/components/ui/Toggle";
 import { Badge, Card, PageHeader, PageShell, SettingsList, SettingsRow } from "@/components/ui/Page";
 import { addReferralSource, renameReferralSource, setReferralSourceActive } from "./actions";
+import Link from "next/link";
 
 export default async function ReferralSourcesPage({
   searchParams,
@@ -72,14 +73,14 @@ export default async function ReferralSourcesPage({
                   }
                   actions={
                     isEditing ? undefined : (
-                      <a
+                      <Link
                         href={`/referral-sources?edit=${s.id}`}
                         title={`Rename ${s.name}`}
                         aria-label={`Rename ${s.name}`}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[13px] text-slate-400 opacity-0 transition hover:bg-slate-200 hover:text-slate-700 focus:opacity-100 group-hover:opacity-100 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                       >
                         ✏️
-                      </a>
+                      </Link>
                     )
                   }
                 >
@@ -97,12 +98,12 @@ export default async function ReferralSourcesPage({
                       >
                         Save
                       </button>
-                      <a
+                      <Link
                         href="/referral-sources"
                         className="inline-flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px] text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                       >
                         Cancel
-                      </a>
+                      </Link>
                     </form>
                   ) : (
                     <span

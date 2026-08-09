@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import CheckoutCalculator from "@/components/CheckoutCalculator";
 import { getRetailCatalogForFacility } from "@/lib/retailPricing";
+import Link from "next/link";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -86,9 +87,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Checkout — {animal?.name ?? "Unknown"}</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">
           {type?.name ?? "No reservation type"} · {units} {type?.rate_unit === "per_night" ? "night(s)" : "day(s)"}
@@ -100,9 +101,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             No card on file for {animal.parents.first_name} yet — use &quot;+ Add a new card…&quot; in the Card
             Payment field below, or{" "}
-            <a href={`/parents/${animal.parents.id}`} className="underline">
+            <Link href={`/parents/${animal.parents.id}`} className="underline">
               add one on their profile
-            </a>{" "}
+            </Link>{" "}
             anytime.
           </p>
         )}

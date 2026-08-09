@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import SearchableAnimalsList from "@/components/SearchableAnimalsList";
 import { getProfileTagsBulk } from "@/lib/profileTags";
+import Link from "next/link";
 
 type Animal = {
   id: string;
@@ -53,12 +54,12 @@ export default async function AnimalsPage() {
             <h1 className="text-xl font-semibold">Animals</h1>
             <p className="text-sm text-slate-400 dark:text-slate-500">Shared across all facilities</p>
           </div>
-          <a
+          <Link
             href="/animals/new"
             className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
           >
             + New Animal
-          </a>
+          </Link>
         </div>
 
         <div className="mt-3">

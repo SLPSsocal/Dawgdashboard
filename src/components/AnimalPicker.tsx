@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 export type AnimalOption = {
   id: string;
@@ -70,9 +71,9 @@ export default function AnimalPicker({
           {results.length === 0 && (
             <p className="px-3 py-3 text-sm text-slate-400 dark:text-slate-500">
               No dogs found.{" "}
-              <a href="/animals/new" className="text-indigo-600 underline dark:text-indigo-400">
+              <Link href="/animals/new" className="text-indigo-600 underline dark:text-indigo-400">
                 Add a new animal
-              </a>
+              </Link>
             </p>
           )}
           {results.map((a) => (

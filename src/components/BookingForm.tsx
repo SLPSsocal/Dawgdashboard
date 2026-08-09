@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
 import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
+import Link from "next/link";
 
 type ReservationType = {
   id: string;
@@ -232,7 +233,7 @@ export default function BookingForm({
       )}
       {animals.length === 0 && (
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          No animals yet — <a href="/animals/new" className="underline">add one first</a>.
+          No animals yet — <Link href="/animals/new" className="underline">add one first</Link>.
         </p>
       )}
 

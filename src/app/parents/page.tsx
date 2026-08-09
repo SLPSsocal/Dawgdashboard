@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import SearchableParentsList from "@/components/SearchableParentsList";
 import { getProfileTagsBulk } from "@/lib/profileTags";
+import Link from "next/link";
 
 export default async function ParentsPage() {
   const session = await getSession();
@@ -33,12 +34,12 @@ export default async function ParentsPage() {
             <h1 className="text-xl font-semibold">Parents</h1>
             <p className="text-sm text-slate-400 dark:text-slate-500">Shared across all facilities</p>
           </div>
-          <a
+          <Link
             href="/parents/new"
             className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
           >
             + New Parent
-          </a>
+          </Link>
         </div>
 
         <div className="mt-3">

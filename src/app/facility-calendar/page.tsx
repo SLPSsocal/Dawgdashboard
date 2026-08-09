@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import FacilityCalendarBoard, { type ApptCard, type Specialist } from "@/components/FacilityCalendarBoard";
+import Link from "next/link";
 
 function fmt(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -85,12 +86,12 @@ export default async function FacilityCalendarPage({
         </div>
 
         <div className="mt-3 flex items-center gap-2 text-sm">
-          <a
+          <Link
             href={`/facility-calendar?date=${prevDate}`}
             className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             ← Day
-          </a>
+          </Link>
           <span className="font-medium">
             {new Date(`${dateStr}T00:00:00`).toLocaleDateString([], {
               weekday: "short",
@@ -99,16 +100,16 @@ export default async function FacilityCalendarPage({
             })}
           </span>
           {dateStr !== todayStr && (
-            <a href="/facility-calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
+            <Link href="/facility-calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
               Today
-            </a>
+            </Link>
           )}
-          <a
+          <Link
             href={`/facility-calendar?date=${nextDate}`}
             className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             Day →
-          </a>
+          </Link>
         </div>
 
         <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">

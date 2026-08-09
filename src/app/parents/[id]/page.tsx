@@ -12,6 +12,7 @@ import SendWaiverLink from "@/components/SendWaiverLink";
 import { getProfileTagCatalog, getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagEditor from "@/components/ProfileTagEditor";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import Link from "next/link";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -140,26 +141,26 @@ export default async function ParentDetailPage({
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <PageQuickActions session={session!} />
 
-        <a href="/parents" className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/parents" className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500">
           ← Parents
-        </a>
+        </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold">
             {parent.first_name} {parent.last_name}
           </h1>
           <ProfileTagBadges tags={assignedTags} variant="chip" />
-          <a
+          <Link
             href={`/parents/${id}/reservations`}
             className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             📋 Reservation History
-          </a>
-          <a
+          </Link>
+          <Link
             href={`/parents/${id}/invoices`}
             className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             🧾 Invoice History
-          </a>
+          </Link>
           {parent.email_opt_out && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               📧 Email opt-out
@@ -187,12 +188,12 @@ export default async function ParentDetailPage({
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Animals</h2>
-            <a
+            <Link
               href={`/animals/new?parent_id=${id}`}
               className="text-sm font-medium text-slate-900 underline dark:text-slate-100"
             >
               + Add Animal
-            </a>
+            </Link>
           </div>
           {(!animals || animals.length === 0) && (
             <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">No animals linked yet.</p>
@@ -203,20 +204,20 @@ export default async function ParentDetailPage({
                 key={a.id}
                 className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
               >
-                <a
+                <Link
                   href={`/animals/${a.id}`}
                   className="min-w-0 flex-1 underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600"
                 >
                   <span className="font-medium">{a.name}</span>{" "}
                   {a.alert_note && <span title={`Alert: ${a.alert_note}`}>❗</span>}{" "}
                   <span className="text-slate-400 dark:text-slate-500">{a.breed ?? ""}</span>
-                </a>
-                <a
+                </Link>
+                <Link
                   href={`/reservations/new?animal_id=${a.id}`}
                   className="ml-2 shrink-0 rounded-full border border-slate-300 px-2 py-1 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
                 >
                   📅 Book
-                </a>
+                </Link>
               </div>
             ))}
           </div>
@@ -251,9 +252,9 @@ export default async function ParentDetailPage({
           ) : (
             <p className="mt-2 text-sm text-slate-400 dark:text-slate-500">
               No active waiver set up for {session!.facilityName} yet —{" "}
-              <a href="/waivers" className="underline">
+              <Link href="/waivers" className="underline">
                 add one
-              </a>
+              </Link>
               .
             </p>
           )}
@@ -394,7 +395,7 @@ export default async function ParentDetailPage({
             ) : (
               <div className="mt-2 flex flex-col gap-1.5">
                 {invoiceRows.map((inv) => (
-                  <a
+                  <Link
                     key={inv.id}
                     href={`/invoices/${inv.id}`}
                     className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
@@ -415,7 +416,7 @@ export default async function ParentDetailPage({
                       </span>
                       <span className="font-medium">{money(Number(inv.total))}</span>
                     </span>
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}

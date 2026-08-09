@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 // Layout primitives shared by the admin/settings pages, so spacing, radii,
 // borders and type scale come from one place instead of each page inventing
@@ -44,12 +45,12 @@ export function PageHeader({
   return (
     <div className="mb-5">
       {backHref && (
-        <a
+        <Link
           href={backHref}
           className="mb-2 inline-block text-[13px] text-slate-500 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
         >
           ← {backLabel ?? "Back"}
-        </a>
+        </Link>
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import ReservationActionsMenu from "@/components/ReservationActionsMenu";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import Link from "next/link";
 
 export type CheckInRow = {
   id: string;
@@ -165,9 +166,9 @@ export default function CheckInBoard({
                 >
                   <td className="px-3 py-1.5">
                     <span className="inline-flex items-center gap-1.5">
-                      <a href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                      <Link href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                         {r.animalName}
-                      </a>
+                      </Link>
                       {r.alertNote && <span title={`Alert: ${r.alertNote}`}>❗</span>}
                       <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />
                     </span>
@@ -176,9 +177,9 @@ export default function CheckInBoard({
                   <td className="px-3 py-1.5 text-slate-600 dark:text-slate-300">
                     <span className="inline-flex items-center gap-1.5">
                       {r.parentId ? (
-                        <a href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                        <Link href={`/parents/${r.parentId}`} className="underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                           {r.parentName ?? "—"}
-                        </a>
+                        </Link>
                       ) : (
                         r.parentName ?? "—"
                       )}
@@ -192,12 +193,12 @@ export default function CheckInBoard({
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1.5">
                       {r.status === "checked_in" && (
-                        <a
+                        <Link
                           href={`/reservations/${r.id}/checkout`}
                           className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2 py-1 text-xs font-medium text-white dark:bg-slate-100 dark:text-slate-900"
                         >
                           Check Out
-                        </a>
+                        </Link>
                       )}
                       <ReservationActionsMenu
                         reservationId={r.id}

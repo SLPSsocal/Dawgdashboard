@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import LodgingCalendar, { type CalArea, type CalReservation } from "@/components/LodgingCalendar";
 import { createLodgingArea } from "@/app/lodging/actions";
+import Link from "next/link";
 
 function fmt(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -174,24 +175,24 @@ export default async function LodgingCalendarPage({
         </details>
 
         <div className="mt-3 flex items-center gap-2 text-sm">
-          <a
+          <Link
             href={`/lodging/calendar?week=${prevWeek}`}
             className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             ← Week
-          </a>
+          </Link>
           <span className="font-medium">{weekLabel}</span>
           {!thisWeek && (
-            <a href="/lodging/calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
+            <Link href="/lodging/calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
               This Week
-            </a>
+            </Link>
           )}
-          <a
+          <Link
             href={`/lodging/calendar?week=${nextWeek}`}
             className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             Week →
-          </a>
+          </Link>
         </div>
 
         <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">

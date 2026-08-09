@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import QuickCheckInDialog from "@/components/QuickCheckInDialog";
 import type { CheckInCandidate } from "@/components/QuickCheckInDialog";
+import { fetchCheckInCandidates } from "@/app/reservations/candidates-action";
+import Link from "next/link";
 
 // One nav for the whole app, living in the header rather than as a block of
 // pills inside each page's content. 12 flat destinations collapse into 5
@@ -75,7 +77,7 @@ function NavMenu({
       {open && (
         <div className="absolute left-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           {items.map((i) => (
-            <a
+            <Link
               key={i.href}
               href={i.href}
               className={`block px-3 py-2 text-[13px] transition-colors ${
@@ -85,7 +87,7 @@ function NavMenu({
               }`}
             >
               {i.name}
-            </a>
+            </Link>
           ))}
         </div>
       )}
@@ -93,19 +95,26 @@ function NavMenu({
   );
 }
 
-export default function AppNav({ candidates }: { candidates: CheckInCandidate[] }) {
+export default function AppNav() {
   const pathname = usePathname();
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const [candidates, setCandidates] = useState<CheckInCandidate[]>([]);
+
+  // Load the arrivals list only when the dialog is actually opened.
+  function openCheckIn() {
+    setCheckInOpen(true);
+    fetchCheckInCandidates().then(setCandidates).catch(() => setCandidates([]));
+  }
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <>
       {/* Desktop nav */}
       <nav className="hidden items-center gap-0.5 md:flex">
-        <a href="/reservations" className={itemClass(pathname === "/reservations")}>
+        <Link href="/reservations" className={itemClass(pathname === "/reservations")}>
           Check-in Board
-        </a>
-        <button type="button" onClick={() => setCheckInOpen(true)} className={itemClass(false)}>
+        </Link>
+        <button type="button" onClick={openCheckIn} className={itemClass(false)}>
           Quick Check-in
         </button>
         {ALL_GROUPS.map((g) => (
@@ -142,14 +151,14 @@ export default function AppNav({ candidates }: { candidates: CheckInCandidate[] 
               </button>
             </div>
 
-            <a href="/reservations" className={`mb-0.5 block ${itemClass(pathname === "/reservations")} w-full`}>
+            <Link href="/reservations" className={`mb-0.5 block ${itemClass(pathname === "/reservations")} w-full`}>
               Check-in Board
-            </a>
+            </Link>
             <button
               type="button"
               onClick={() => {
                 setDrawerOpen(false);
-                setCheckInOpen(true);
+                openCheckIn();
               }}
               className={`mb-2 w-full justify-start ${itemClass(false)}`}
             >
@@ -162,9 +171,9 @@ export default function AppNav({ candidates }: { candidates: CheckInCandidate[] 
                   {g.label}
                 </div>
                 {g.items.map((i) => (
-                  <a key={i.href} href={i.href} className={`block w-full ${itemClass(pathname === i.href)}`}>
+                  <Link key={i.href} href={i.href} className={`block w-full ${itemClass(pathname === i.href)}`}>
                     {i.name}
-                  </a>
+                  </Link>
                 ))}
               </div>
             ))}

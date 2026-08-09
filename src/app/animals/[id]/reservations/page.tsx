@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import Link from "next/link";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
@@ -51,9 +52,9 @@ export default async function AnimalReservationHistoryPage({ params }: { params:
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href={`/animals/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href={`/animals/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
           ← {animal.name}
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Visit History — {animal.name}</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">Every reservation for this dog, across all facilities.</p>
 
@@ -72,9 +73,9 @@ export default async function AnimalReservationHistoryPage({ params }: { params:
               {reservations.map((r) => (
                 <tr key={r.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                   <td className="px-3 py-2">
-                    <a href={`/reservations/${r.id}`} className="font-medium underline">
+                    <Link href={`/reservations/${r.id}`} className="font-medium underline">
                       {r.reservation_types?.name ?? "—"}
-                    </a>
+                    </Link>
                   </td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{r.facilities?.name ?? "—"}</td>
                   <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{fmtDate(r.start_date)}</td>

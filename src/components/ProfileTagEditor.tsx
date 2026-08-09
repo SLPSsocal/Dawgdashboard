@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { assignProfileTag, removeProfileTagAssignment, updateProfileTagNote } from "@/app/profile-tags/actions";
+import Link from "next/link";
 
 type Catalog = { id: string; icon: string; name: string; description: string | null };
 type Assigned = { assignmentId: string; tagId: string; icon: string; name: string; note: string | null };
@@ -59,7 +60,7 @@ export default function ProfileTagEditor({
   if (catalog.length === 0) {
     return (
       <p className="text-xs text-slate-400 dark:text-slate-500">
-        No tags set up yet — <a href="/profile-tags" className="underline">add some</a>.
+        No tags set up yet — <Link href="/profile-tags" className="underline">add some</Link>.
       </p>
     );
   }

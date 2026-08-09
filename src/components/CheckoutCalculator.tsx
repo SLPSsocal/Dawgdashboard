@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { completeCheckout, type CheckoutLineItem } from "@/app/reservations/checkout-actions";
 import { chargeSavedCard } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
+import Link from "next/link";
 
 type SavedCard = { id: string; card_brand: string | null; last4: string | null };
 
@@ -429,7 +430,7 @@ export default function CheckoutCalculator({
         <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
           <span className="font-medium text-slate-700 dark:text-slate-200">Items for Sale</span> — nothing in the
           catalog yet.{" "}
-          <a href="/retail" className="text-indigo-600 underline dark:text-indigo-400">Add items</a>{" "}
+          <Link href="/retail" className="text-indigo-600 underline dark:text-indigo-400">Add items</Link>{" "}
           and they&apos;ll be sellable here.
         </div>
       ) : (

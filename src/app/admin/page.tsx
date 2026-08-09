@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { isOwnerUnlocked } from "@/lib/ownerGate";
 import FacilityHeader from "@/components/FacilityHeader";
 import AdminGate from "@/components/AdminGate";
+import Link from "next/link";
 
 const REPORTS = [
   {
@@ -76,14 +77,14 @@ export default async function AdminIndexPage({
             </h2>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {REPORTS.map((r) => (
-                <a
+                <Link
                   key={r.href}
                   href={r.href}
                   className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
                 >
                   <div className="text-[14px] font-semibold">{r.title}</div>
                   <p className="mt-1 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{r.blurb}</p>
-                </a>
+                </Link>
               ))}
             </div>
 
@@ -92,14 +93,14 @@ export default async function AdminIndexPage({
             </h2>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {TOOLS.map((r) => (
-                <a
+                <Link
                   key={r.href}
                   href={r.href}
                   className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
                 >
                   <div className="text-[14px] font-semibold">{r.title}</div>
                   <p className="mt-1 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{r.blurb}</p>
-                </a>
+                </Link>
               ))}
             </div>
 

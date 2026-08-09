@@ -7,6 +7,7 @@ import AdminGate from "@/components/AdminGate";
 import AdminReportControls from "@/components/AdminReportControls";
 import { getFacilities, getTipRows, summarizeTipsBySpecialist } from "@/lib/reports";
 import { saveTipAllocation } from "../actions";
+import Link from "next/link";
 
 function money(n: number) {
   return `$${n.toFixed(2)}`;
@@ -65,9 +66,9 @@ export default async function AdminTipsPage({
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/admin" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/admin" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Admin Reports
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">💵 Tips</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Gratuity earned per groomer for a date range, across one or all locations.
@@ -168,9 +169,9 @@ export default async function AdminTipsPage({
                     <div className="min-w-0">
                       <span className="font-medium">
                         {r.animalId ? (
-                          <a href={`/animals/${r.animalId}`} className="underline">
+                          <Link href={`/animals/${r.animalId}`} className="underline">
                             {r.animalName ?? "—"}
-                          </a>
+                          </Link>
                         ) : (
                           r.animalName ?? "Walk-in / no animal"
                         )}

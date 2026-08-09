@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import WalkInSaleForm from "@/components/WalkInSaleForm";
 import { getRetailCatalogForFacility } from "@/lib/retailPricing";
+import Link from "next/link";
 
 export default async function NewSalePage() {
   const session = await getSession();
@@ -28,9 +29,9 @@ export default async function NewSalePage() {
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Walk-in Sale</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">
           Ring up retail items on their own, no dog check-in required — {session!.facilityName}.

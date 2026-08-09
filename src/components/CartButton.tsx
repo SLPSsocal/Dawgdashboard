@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/lib/cart";
+import Link from "next/link";
 
 export default function CartButton() {
   const { items, remove, clear, distinctParentCount } = useCart();
@@ -64,10 +65,10 @@ export default function CartButton() {
               <div className="mt-2 flex flex-col gap-1">
                 {items.map((i) => (
                   <div key={i.reservationId} className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
-                    <a href={`/reservations/${i.reservationId}/checkout`} className="min-w-0 flex-1">
+                    <Link href={`/reservations/${i.reservationId}/checkout`} className="min-w-0 flex-1">
                       <div className="truncate font-medium">{i.animalName}</div>
                       <div className="truncate text-xs text-slate-400 dark:text-slate-500">{i.parentName ?? "No parent on file"}</div>
-                    </a>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => remove(i.reservationId)}
@@ -86,12 +87,12 @@ export default function CartButton() {
           )}
 
           <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 dark:border-slate-800">
-            <a href="/sale/new" className="text-xs font-medium text-indigo-600 underline dark:text-indigo-400">
+            <Link href="/sale/new" className="text-xs font-medium text-indigo-600 underline dark:text-indigo-400">
               🛍️ Walk-in Sale
-            </a>
-            <a href="/retail" className="text-xs font-medium text-slate-400 underline hover:text-slate-600 dark:hover:text-slate-200">
+            </Link>
+            <Link href="/retail" className="text-xs font-medium text-slate-400 underline hover:text-slate-600 dark:hover:text-slate-200">
               Manage Items
-            </a>
+            </Link>
           </div>
         </div>
       )}

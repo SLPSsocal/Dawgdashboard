@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import { addPricingRule, retirePricingRule } from "../actions";
+import Link from "next/link";
 
 // Admin-only screen for creating, editing, and retiring pricing rules — the
 // main Pricing page only shows a plain-language reference list of what's
@@ -32,9 +33,9 @@ export default async function PricingRulesPage() {
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">Pricing Rules — {session!.facilityName}</h1>
-          <a href="/pricing" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+          <Link href="/pricing" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
             ← Back to Pricing
-          </a>
+          </Link>
         </div>
 
         <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 type ParentDefaults = {
   first_name?: string | null;
   last_name?: string | null;
@@ -161,7 +162,7 @@ export default function ParentForm({
           </select>
           {options.length === 0 && (
             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              No referral sources set up yet — <a href="/referral-sources" className="underline">add some</a>.
+              No referral sources set up yet — <Link href="/referral-sources" className="underline">add some</Link>.
             </p>
           )}
         </label>

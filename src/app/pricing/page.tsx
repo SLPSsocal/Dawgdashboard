@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import { addRate, addGroomingMenuItem, deleteGroomingMenuItem } from "./actions";
+import Link from "next/link";
 
 // Plain-language summary for the reference-only list on this page — actual
 // creating/editing/retiring of rules happens on the separate Pricing Rules
@@ -123,9 +124,9 @@ export default async function PricingPage() {
         <div className="mt-4 rounded-xl border border-slate-300 bg-white p-4 shadow-sm sm:p-5 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Discount & Fee Rules</h2>
-            <a href="/pricing/rules" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+            <Link href="/pricing/rules" className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
               Manage Pricing Rules →
-            </a>
+            </Link>
           </div>
           <div className="mt-3 flex flex-col gap-2">
             {(rules ?? []).map((r) => (

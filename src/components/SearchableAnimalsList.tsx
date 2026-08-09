@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { overallVaccineStatus, vaccineShield } from "@/lib/vaccines";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import Link from "next/link";
 
 type Animal = {
   id: string;
@@ -85,7 +86,7 @@ export default function SearchableAnimalsList({
 
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {filtered.map((a) => (
-          <a
+          <Link
             key={a.id}
             href={`/animals/${a.id}`}
             className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
@@ -125,7 +126,7 @@ export default function SearchableAnimalsList({
                 {a.parents ? `${a.parents.first_name} ${a.parents.last_name}` : "No parent linked"}
               </div>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

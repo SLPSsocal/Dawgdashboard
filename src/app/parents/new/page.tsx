@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import ParentForm from "@/components/ParentForm";
 import { createParent } from "../actions";
+import Link from "next/link";
 
 export default async function NewParentPage({
   searchParams,
@@ -27,9 +28,9 @@ export default async function NewParentPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/parents" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/parents" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Parents
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">New Parent</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">Shared across all facilities</p>
 

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import { createIncident } from "../../../actions";
+import Link from "next/link";
 
 export default async function NewIncidentPage({
   params,
@@ -31,9 +32,9 @@ export default async function NewIncidentPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-lg px-4 py-6 sm:px-6 sm:py-8">
-        <a href={`/reservations/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href={`/reservations/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Back
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">New Incident — {animal?.name ?? "Animal"}</h1>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">

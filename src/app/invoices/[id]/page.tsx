@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import Link from "next/link";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -69,9 +70,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         {parent && (
-          <a href={`/parents/${parent.id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
+          <Link href={`/parents/${parent.id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
             ← {parent.first_name} {parent.last_name}
-          </a>
+          </Link>
         )}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">Invoice</h1>
@@ -96,14 +97,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         {reservation && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {reservation.animals && (
-              <a href={`/animals/${reservation.animals.id}`} className="underline">
+              <Link href={`/animals/${reservation.animals.id}`} className="underline">
                 {reservation.animals.name}
-              </a>
+              </Link>
             )}{" "}
             {reservation.reservation_types?.name && `· ${reservation.reservation_types.name}`}{" "}
-            <a href={`/reservations/${reservation.id}`} className="ml-1 text-xs underline text-slate-400 dark:text-slate-500">
+            <Link href={`/reservations/${reservation.id}`} className="ml-1 text-xs underline text-slate-400 dark:text-slate-500">
               View reservation →
-            </a>
+            </Link>
           </p>
         )}
 

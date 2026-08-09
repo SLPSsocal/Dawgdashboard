@@ -7,6 +7,7 @@ import AdminGate from "@/components/AdminGate";
 import AdminReportControls from "@/components/AdminReportControls";
 import { getFacilities, getTipRows } from "@/lib/reports";
 import { saveCommissionSettings } from "../actions";
+import Link from "next/link";
 
 function money(n: number) {
   return `$${n.toFixed(2)}`;
@@ -240,17 +241,17 @@ export default async function AdminCommissionPage({
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/admin" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/admin" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Admin Reports
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">✂️ Groomer Commission</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Commission = service revenue × {retentionPct}% × that groomer&apos;s split for the bucket.
           Card tickets carry a {cardFeePct}% processing fee on commission + tips. Tips pass through in
           full.{" "}
-          <a href="/grooming-commission" className="text-indigo-600 underline dark:text-indigo-400">
+          <Link href="/grooming-commission" className="text-indigo-600 underline dark:text-indigo-400">
             Edit splits →
-          </a>
+          </Link>
         </p>
 
         <AdminReportControls

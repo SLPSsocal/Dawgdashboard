@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import BookingForm from "@/components/BookingForm";
 import type { AnimalOption } from "@/components/AnimalPicker";
+import Link from "next/link";
 
 export default async function NewReservationPage({
   searchParams,
@@ -88,9 +89,9 @@ export default async function NewReservationPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">New Booking</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">
           Creates a booked reservation at {session!.facilityName} — it shows up in Quick Check-in right after you

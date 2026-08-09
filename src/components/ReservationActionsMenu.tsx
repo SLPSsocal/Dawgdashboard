@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   checkInReservation,
@@ -55,13 +56,13 @@ export default function ReservationActionsMenu({
 
   function LinkItem({ href, icon, label }: { href: string; icon: string; label: string }) {
     return (
-      <a
+      <Link
         href={href}
         className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
       >
         <span>{icon}</span>
         {label}
-      </a>
+      </Link>
     );
   }
 

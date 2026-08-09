@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
+import Link from "next/link";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -49,9 +50,9 @@ export default async function AnimalInvoiceHistoryPage({ params }: { params: Pro
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href={`/animals/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href={`/animals/${id}`} className="text-sm text-slate-400 underline dark:text-slate-500">
           ← {animal.name}
-        </a>
+        </Link>
         <h1 className="mt-2 text-xl font-semibold">Receipts — {animal.name}</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">
           {invoices.length} invoice{invoices.length === 1 ? "" : "s"} · {money(totalBilled)} billed total
@@ -60,7 +61,7 @@ export default async function AnimalInvoiceHistoryPage({ params }: { params: Pro
 
         <div className="mt-6 flex flex-col gap-2">
           {invoices.map((inv) => (
-            <a
+            <Link
               key={inv.id}
               href={`/invoices/${inv.id}`}
               className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
@@ -81,7 +82,7 @@ export default async function AnimalInvoiceHistoryPage({ params }: { params: Pro
                 </span>
                 <span className="font-medium">{money(Number(inv.total))}</span>
               </span>
-            </a>
+            </Link>
           ))}
           {invoices.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">No invoices yet.</p>}
         </div>

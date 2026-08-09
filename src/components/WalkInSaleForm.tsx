@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import ParentPicker, { type ParentOption } from "@/components/ParentPicker";
@@ -243,7 +244,7 @@ export default function WalkInSaleForm({
         <div className="mt-2 flex flex-col gap-2">
           {rows.length === 0 && (
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              No items in the catalog yet — <a href="/retail" className="underline">add one first</a>.
+              No items in the catalog yet — <Link href="/retail" className="underline">add one first</Link>.
             </p>
           )}
           {rows.map((row, i) => {

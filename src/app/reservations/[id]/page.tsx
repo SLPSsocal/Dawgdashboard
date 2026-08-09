@@ -11,6 +11,7 @@ import SendPrecheckinLink from "@/components/SendPrecheckinLink";
 import GroomingNoteForm from "@/components/GroomingNoteForm";
 import CareLogForm from "@/components/CareLogForm";
 import { getCareLogsForReservation } from "@/app/care-logs/actions";
+import Link from "next/link";
 
 function toLocalInput(iso: string) {
   // yyyy-MM-ddThh:mm for <input type="datetime-local">
@@ -149,9 +150,9 @@ export default async function ReservationDetailPage({
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <a href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
+        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
           ← Check-in Board
-        </a>
+        </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold">{animal?.name ?? "Unknown"}&apos;s Reservation</h1>
           {reservation.status === "cancelled" && (
@@ -192,9 +193,9 @@ export default async function ReservationDetailPage({
             <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🐾</span>
-                <a href={`/animals/${animal.id}`} className="font-medium underline">
+                <Link href={`/animals/${animal.id}`} className="font-medium underline">
                   {animal.name}
-                </a>
+                </Link>
                 <ProfileTagBadges tags={animalProfileTags} variant="chip" />
               </div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -212,9 +213,9 @@ export default async function ReservationDetailPage({
             <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center gap-2">
                 <span className="text-lg">👤</span>
-                <a href={`/parents/${animal.parents.id}`} className="font-medium underline">
+                <Link href={`/parents/${animal.parents.id}`} className="font-medium underline">
                   {animal.parents.first_name} {animal.parents.last_name}
-                </a>
+                </Link>
                 <ProfileTagBadges tags={parentProfileTags} variant="chip" />
               </div>
               <div className="mt-1 text-xs">
@@ -252,9 +253,9 @@ export default async function ReservationDetailPage({
               <span key={s.id}>
                 {i > 0 && ", "}
                 {s.animalId ? (
-                  <a href={`/reservations/${s.id}`} className="underline">
+                  <Link href={`/reservations/${s.id}`} className="underline">
                     {s.animalName}
-                  </a>
+                  </Link>
                 ) : (
                   s.animalName
                 )}
@@ -272,37 +273,37 @@ export default async function ReservationDetailPage({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <a
+          <Link
             href={`/reservations/${id}/run-card`}
             target="_blank"
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             🖨️ Print Run Card
-          </a>
+          </Link>
           {/* Same page, same layout — just opened in-tab without the print
               dialog, so it can be inspected on screen (and by QA agents,
               which can't dismiss a native print dialog). */}
-          <a
+          <Link
             href={`/reservations/${id}/run-card`}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
           >
             👁️ Preview Run Card
-          </a>
+          </Link>
           {animal && (
-            <a
+            <Link
               href={`/reservations/${id}/incidents/new`}
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
             >
               ⚠️ New Incident
-            </a>
+            </Link>
           )}
           {animal && (
-            <a
+            <Link
               href={`/reservations/${id}/report-card/new`}
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
             >
               ❤️ New Report Card
-            </a>
+            </Link>
           )}
         </div>
 
