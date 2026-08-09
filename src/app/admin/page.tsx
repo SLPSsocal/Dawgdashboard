@@ -18,6 +18,12 @@ const REPORTS = [
     blurb: "Boarding, daycare, grooming, retail, fees and tips broken out per location.",
   },
   {
+    href: "/admin/sales-tax",
+    title: "Sales Tax",
+    blurb:
+      "Taxable sales and tax collected for a period, per location. Only retail flagged taxable counts.",
+  },
+  {
     href: "/admin/commission",
     title: "Groomer Commission",
     blurb:
@@ -27,6 +33,11 @@ const REPORTS = [
 
 // Setup + QA screens that used to sit as top-level nav pills on every page.
 const TOOLS = [
+  {
+    href: "/admin/account-codes",
+    title: "Account Codes",
+    blurb: "Revenue buckets every service and item rolls up into. Drag items between codes.",
+  },
   {
     href: "/support",
     title: "Reported Issues",
