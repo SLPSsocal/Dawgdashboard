@@ -48,7 +48,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     .select(
       `*, animals ( id, name, breed, size, sex, fixed, birthdate, photo_url,
          medical_notes, medications, behavioral_notes, grooming_notes, alert_note,
-         feeding_instructions,
+         feeding_instructions, vet_name, vet_phone,
          parents ( first_name, last_name, phone, emergency_contact_name, emergency_contact_phone ) ),
        lodging_areas ( name ), reservation_types ( name )`
     )
@@ -71,6 +71,8 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     grooming_notes: string | null;
     alert_note: string | null;
     feeding_instructions: string | null;
+    vet_name: string | null;
+    vet_phone: string | null;
     parents: {
       first_name: string;
       last_name: string;
@@ -245,6 +247,12 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
         <div className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-400">
           Emergency Contact: {parent?.emergency_contact_name ?? "—"}
           {parent?.emergency_contact_phone && ` · ${parent.emergency_contact_phone}`}
+          {animal?.vet_name && (
+            <>
+              {" "}· Vet: {animal.vet_name}
+              {animal.vet_phone && ` (${animal.vet_phone})`}
+            </>
+          )}
         </div>
       </div>
     </main>

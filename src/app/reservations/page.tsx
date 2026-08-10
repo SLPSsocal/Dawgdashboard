@@ -7,6 +7,7 @@ import CheckInBoard, { type CheckInRow } from "@/components/CheckInBoard";
 import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
+import { todayLocal, ymdLocal } from "@/lib/dates";
 
 type Row = {
   id: string;
@@ -58,7 +59,9 @@ export default async function ReservationsPage() {
        lodging_areas ( name ),
        reservation_types ( name )`;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Facility-local day, NOT UTC — 5pm PT is already "tomorrow" in UTC, which
+  // misclassified evening daycare departures as overnight stays.
+  const todayStr = todayLocal();
 
   const [{ data, error }, { data: checkedOutData }, { data: allTypes }] = await Promise.all([
     supabase
@@ -113,16 +116,16 @@ export default async function ReservationsPage() {
   const animalTagsObj = Object.fromEntries(animalTags);
   const parentTagsObj = Object.fromEntries(parentTags);
 
-  const expectedTodayCount = boardRows.filter((r) => r.status === "booked" && r.startDate.slice(0, 10) === todayStr).length;
+  const expectedTodayCount = boardRows.filter((r) => r.status === "booked" && ymdLocal(r.startDate) === todayStr).length;
   const checkedInCount = boardRows.filter((r) => r.status === "checked_in").length;
-  const overnightCount = boardRows.filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr).length;
+  const overnightCount = boardRows.filter((r) => r.status === "checked_in" && ymdLocal(r.endDate) > todayStr).length;
   const checkedOutTodayCount = checkedOutRows.length;
 
   // "Overnight: 2" on its own doesn't tell you which nights are being billed.
   // List each staying dog with the night it's covering, so the count can be
   // reconciled against an invoice instead of taken on faith.
   const overnightRows = boardRows
-    .filter((r) => r.status === "checked_in" && r.endDate.slice(0, 10) > todayStr)
+    .filter((r) => r.status === "checked_in" && ymdLocal(r.endDate) > todayStr)
     .map((r) => ({
       animalName: r.animalName,
       // The night worked tonight runs today -> tomorrow.

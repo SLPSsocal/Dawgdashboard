@@ -75,21 +75,22 @@ export default function CheckInBoard({
     });
   }, [allRows, query, sortKey, sortDir]);
 
-  // Same date-slicing convention used everywhere else in this app (e.g. the
-  // Expected Today stat count on the page above) — compares the ISO date
-  // portion directly rather than converting to local time.
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Facility-local (Pacific) days, NOT UTC slices — a 5pm PT departure is
+  // already "tomorrow" in UTC, which put evening rows in the wrong section.
+  const ymdPT = (iso: string) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date(iso));
+  const todayStr = ymdPT(new Date().toISOString());
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const tomorrowStr = ymdPT(tomorrow.toISOString());
 
   const checkedIn = filtered.filter((r) => r.status === "checked_in");
   const expected = filtered.filter((r) => r.status === "booked");
   // "Today" also catches anything overdue (booked for a past date that
   // never got checked in) instead of silently hiding it.
-  const expectedToday = expected.filter((r) => r.startDate.slice(0, 10) <= todayStr);
-  const expectedTomorrow = expected.filter((r) => r.startDate.slice(0, 10) === tomorrowStr);
-  const expectedFuture = expected.filter((r) => r.startDate.slice(0, 10) > tomorrowStr);
+  const expectedToday = expected.filter((r) => ymdPT(r.startDate) <= todayStr);
+  const expectedTomorrow = expected.filter((r) => ymdPT(r.startDate) === tomorrowStr);
+  const expectedFuture = expected.filter((r) => ymdPT(r.startDate) > tomorrowStr);
   const checkedOut = filtered.filter((r) => r.status === "checked_out");
 
   function toggleSort(key: SortKey) {

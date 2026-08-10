@@ -22,6 +22,10 @@ function todayPT() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
 }
 
+function ymdPT(iso: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date(iso));
+}
+
 export default async function FeedingPage({
   searchParams,
 }: {
@@ -83,9 +87,11 @@ export default async function FeedingPage({
       medications: a.medications ? stripHtml(a.medications) : null,
       alertNote: a.alert_note,
       typeName: r.reservation_types?.name ?? null,
-      isOvernight: r.end_date.slice(0, 10) > r.start_date.slice(0, 10),
-      startYmd: r.start_date.slice(0, 10),
-      endYmd: r.end_date.slice(0, 10),
+      // Local-day comparison — a 5pm PT daycare pickup is past midnight UTC
+      // and must not read as an overnight stay.
+      isOvernight: ymdPT(r.end_date) > ymdPT(r.start_date),
+      startYmd: ymdPT(r.start_date),
+      endYmd: ymdPT(r.end_date),
     });
   }
   rows.sort((x, y) => x.name.localeCompare(y.name));
