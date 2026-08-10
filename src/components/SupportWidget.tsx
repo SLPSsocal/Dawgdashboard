@@ -11,6 +11,7 @@ import {
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { submitSupportTicket } from "@/app/support/actions";
+import GroomingEstimator from "@/components/GroomingEstimator";
 
 type Point = { x: number; y: number };
 
@@ -31,6 +32,7 @@ export default function SupportWidget({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"estimate" | "issue">("estimate");
   const [name, setName] = useState(staffName);
   const [message, setMessage] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -234,7 +236,9 @@ export default function SupportWidget({
             className="flex max-h-[92vh] w-full flex-col overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 shadow-xl sm:max-w-md sm:rounded-2xl sm:p-6 dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">🐾 Report an Issue</h2>
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                {tab === "estimate" ? "🐾 Grooming Price Estimator" : "🐾 Report an Issue"}
+              </h2>
               <button
                 type="button"
                 onClick={() => {
@@ -247,16 +251,45 @@ export default function SupportWidget({
                 ✕
               </button>
             </div>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              Something broken or confusing? Let us know — this goes straight to the team.
-            </p>
 
-            {done ? (
+            <div className="mt-3 flex gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={() => setTab("estimate")}
+                className={`flex-1 rounded-md px-3 py-1.5 ${
+                  tab === "estimate"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                💲 Price Estimator
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("issue")}
+                className={`flex-1 rounded-md px-3 py-1.5 ${
+                  tab === "issue"
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                🛠 Report an Issue
+              </button>
+            </div>
+
+            {tab === "estimate" ? (
+              <div className="mt-4">
+                <GroomingEstimator />
+              </div>
+            ) : done ? (
               <div className="mt-6 rounded-lg bg-green-50 px-4 py-6 text-center text-sm font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400">
                 ✅ Thanks — we&apos;ve got it and will follow up if needed.
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+                <p className="-mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  Something broken or confusing? Let us know — this goes straight to the team.
+                </p>
                 {error && (
                   <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
                     {error}

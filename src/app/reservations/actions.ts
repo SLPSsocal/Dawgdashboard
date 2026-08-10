@@ -197,13 +197,16 @@ export async function createReservation(payload: {
 }
 
 // Looks up what's remembered for this animal + grooming service combo —
-// how long it took last time and who groomed them — so a new booking can
-// prefill both instead of starting from the service's generic default.
+// how long it took last time, who groomed them, and what was actually
+// charged — so a new booking can prefill/prompt all three instead of
+// starting from the service's generic default. (e.g. if Feeny's haircut
+// was $55 last month, the booking form should prompt $55 for the next
+// haircut — while her bath keeps its own separate remembered price.)
 export async function getGroomingMemory(animalId: string, serviceName: string) {
   const supabase = createClient();
   const { data } = await supabase
     .from("grooming_service_prices")
-    .select("duration_minutes, last_specialist_id")
+    .select("duration_minutes, last_specialist_id, price, updated_at")
     .eq("animal_id", animalId)
     .eq("service_name", serviceName)
     .maybeSingle();
@@ -233,14 +236,38 @@ export async function getSpecialistConflicts(
 
   if (excludeReservationId) query = query.neq("id", excludeReservationId);
 
-  const { data } = await query;
+  // Blackout windows count as conflicts too — a groomer on vacation isn't
+  // less busy than one with another dog on the table.
+  const blocksQuery = supabase
+    .from("availability_blocks")
+    .select("id, start_at, end_at, reason")
+    .eq("facility_id", facilityId)
+    .eq("block_type", "specialist")
+    .eq("specialist_id", specialistId)
+    .lt("start_at", endISO)
+    .gt("end_at", startISO);
+
+  const [{ data }, { data: blockData }] = await Promise.all([query, blocksQuery]);
   type Row = { id: string; start_date: string; end_date: string; animals: { name: string } | null };
-  return ((data as unknown as Row[]) ?? []).map((r) => ({
-    id: r.id,
-    animalName: r.animals?.name ?? "Unknown",
-    startDate: r.start_date,
-    endDate: r.end_date,
-  }));
+  type BlockRow = { id: string; start_at: string; end_at: string; reason: string | null };
+  return [
+    ...((data as unknown as Row[]) ?? []).map((r) => ({
+      id: r.id,
+      animalName: r.animals?.name ?? "Unknown",
+      startDate: r.start_date,
+      endDate: r.end_date,
+      isBlock: false,
+      reason: null as string | null,
+    })),
+    ...((blockData as BlockRow[]) ?? []).map((b) => ({
+      id: b.id,
+      animalName: "",
+      startDate: b.start_at,
+      endDate: b.end_at,
+      isBlock: true,
+      reason: b.reason,
+    })),
+  ];
 }
 
 export async function deleteReservation(reservationId: string) {

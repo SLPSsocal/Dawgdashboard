@@ -2,12 +2,21 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { assignLodging } from "@/app/lodging/actions";
+import { deleteAvailabilityBlock } from "@/app/blocks/actions";
 
 export type CalArea = {
   id: string;
   name: string;
   area_type: string;
   capacity: number;
+};
+
+export type LodgingBlock = {
+  id: string;
+  lodgingAreaId: string;
+  startDate: string; // ISO
+  endDate: string; // ISO
+  reason: string | null;
 };
 
 export type CalReservation = {
@@ -48,14 +57,22 @@ function occupiesDay(r: CalReservation, dayIso: string) {
   return day >= start && day < end;
 }
 
+// Blocks are stored start-of-first-day .. end-of-last-day, so the end date
+// itself IS blocked (unlike reservations, where checkout day is free).
+function blockCoversDay(b: LodgingBlock, dayIso: string) {
+  return dayIso >= b.startDate.slice(0, 10) && dayIso <= b.endDate.slice(0, 10);
+}
+
 export default function LodgingCalendar({
   areas,
   days,
   initialReservations,
+  blocks = [],
 }: {
   areas: CalArea[];
   days: string[];
   initialReservations: CalReservation[];
+  blocks?: LodgingBlock[];
 }) {
   const [reservations, setReservations] = useState(initialReservations);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -64,6 +81,25 @@ export default function LodgingCalendar({
   const [, startTransition] = useTransition();
 
   function move(reservationId: string, areaId: string | null) {
+    if (areaId) {
+      const r = reservations.find((x) => x.id === reservationId);
+      const clash = r
+        ? blocks.find(
+            (b) =>
+              b.lodgingAreaId === areaId &&
+              r.startDate.slice(0, 10) <= b.endDate.slice(0, 10) &&
+              r.endDate.slice(0, 10) > b.startDate.slice(0, 10)
+          )
+        : undefined;
+      if (
+        clash &&
+        !window.confirm(
+          `This suite is blocked (${clash.reason ?? "no reason given"}) during ${r?.animalName}'s stay. Assign anyway?`
+        )
+      ) {
+        return;
+      }
+    }
     setReservations((prev) =>
       prev.map((r) => (r.id === reservationId ? { ...r, lodgingAreaId: areaId } : r))
     );
@@ -136,6 +172,9 @@ export default function LodgingCalendar({
     };
 
     const cellsHere = days.map((d) => reservations.filter((r) => r.lodgingAreaId === areaId && occupiesDay(r, d)));
+    const rowBlocks = areaId ? blocks.filter((b) => b.lodgingAreaId === areaId) : [];
+    const blocksByDay = days.map((d) => rowBlocks.filter((b) => blockCoversDay(b, d)));
+    const hasBlock = rowBlocks.length > 0;
     const maxHere = Math.max(0, ...cellsHere.map((c) => c.length));
     const overCapacity = capacity != null && maxHere > capacity;
 
@@ -147,7 +186,10 @@ export default function LodgingCalendar({
             isOver ? "bg-slate-100 dark:bg-slate-800" : ""
           } ${selectedId ? "cursor-pointer" : ""} ${areaId === null ? "text-amber-600 dark:text-amber-400" : ""}`}
         >
-          <span className="truncate">{label}</span>
+          <span className="truncate">
+            {hasBlock && "🔧 "}
+            {label}
+          </span>
           {capacity != null && (
             <span className={overCapacity ? "font-semibold text-red-500 dark:text-red-400" : "text-slate-400 dark:text-slate-500"}>
               {maxHere}/{capacity}
@@ -162,6 +204,22 @@ export default function LodgingCalendar({
               isOver ? "bg-slate-100 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
             } ${selectedId ? "cursor-pointer" : ""}`}
           >
+            {blocksByDay[i].map((b) => (
+              <div
+                key={b.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!window.confirm(`Remove this block${b.reason ? ` (${b.reason})` : ""}?`)) return;
+                  startTransition(() => {
+                    deleteAvailabilityBlock(b.id).catch(() => {});
+                  });
+                }}
+                title={`Blocked: ${b.reason ?? "no reason given"} — click to remove`}
+                className="cursor-pointer truncate rounded-md border border-slate-300 bg-slate-200/80 px-1.5 py-1 text-[11px] font-medium text-slate-600 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(100,116,139,0.18)_5px,rgba(100,116,139,0.18)_10px)] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                🔧 {b.reason ?? "Blocked"}
+              </div>
+            ))}
             {cellsHere[i].map((r) => (
               <Chip key={r.id} r={r} />
             ))}

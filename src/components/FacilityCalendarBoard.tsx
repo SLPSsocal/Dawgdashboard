@@ -2,8 +2,17 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { assignSpecialist } from "@/app/facility-calendar/actions";
+import { deleteAvailabilityBlock } from "@/app/blocks/actions";
 
 export type Specialist = { id: string; name: string };
+
+export type SpecialistBlock = {
+  id: string;
+  specialistId: string;
+  startAt: string; // ISO
+  endAt: string; // ISO
+  reason: string | null;
+};
 
 export type ApptCard = {
   id: string;
@@ -85,9 +94,11 @@ function fmtHourMark(min: number) {
 export default function FacilityCalendarBoard({
   specialists,
   cards: initialCards,
+  blocks = [],
 }: {
   specialists: Specialist[];
   cards: ApptCard[];
+  blocks?: SpecialistBlock[];
 }) {
   const [cards, setCards] = useState(initialCards);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -122,6 +133,45 @@ export default function FacilityCalendarBoard({
     }
     return { rangeStart: start, rangeEnd: end };
   }, [cards]);
+
+  // Blackout overlay for a lane. Clamped to the visible range — an all-day
+  // block starting at 00:00 shouldn't stretch the grid to midnight.
+  function BlockOverlay({ b }: { b: SpecialistBlock }) {
+    const startMin = Math.max(minutesOfDay(b.startAt), rangeStart);
+    const endMinRaw = minutesOfDay(b.endAt);
+    // end at 23:59 (all-day) clamps to bottom of visible range
+    const endMin = Math.min(endMinRaw <= startMin ? rangeEnd : endMinRaw, rangeEnd);
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: (startMin - rangeStart) * PX_PER_MIN,
+          height: Math.max((endMin - startMin) * PX_PER_MIN, 24),
+          left: 2,
+          right: 2,
+        }}
+        title={b.reason ?? "Blocked"}
+        className="z-[1] flex items-start justify-between gap-1 overflow-hidden rounded-md border border-slate-300 bg-slate-200/80 px-2 py-1 text-[11px] text-slate-600 [background-image:repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(100,116,139,0.15)_6px,rgba(100,116,139,0.15)_12px)] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300"
+      >
+        <span className="truncate font-medium">🚫 {b.reason ?? "Blocked"}</span>
+        <button
+          type="button"
+          title="Remove block"
+          aria-label="Remove block"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!window.confirm("Remove this block?")) return;
+            startTransition(() => {
+              deleteAvailabilityBlock(b.id).catch(() => {});
+            });
+          }}
+          className="shrink-0 rounded px-1 text-slate-400 hover:bg-slate-300/60 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
 
   const gridHeight = (rangeEnd - rangeStart) * PX_PER_MIN;
   const hourMarks = useMemo(() => {
@@ -228,6 +278,7 @@ export default function FacilityCalendarBoard({
     return (
       <div className="flex shrink-0 flex-col" style={{ width: LANE_WIDTH }}>
         <div className="sticky top-0 z-10 truncate rounded-t-lg border border-b-0 border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900">
+          {colId !== null && blocks.some((b) => b.specialistId === colId) && "🚫 "}
           {name} <span className="font-normal text-slate-400 dark:text-slate-500">({items.length})</span>
         </div>
         <div
@@ -271,6 +322,11 @@ export default function FacilityCalendarBoard({
               className="absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800/70"
             />
           ))}
+          {colId !== null &&
+            droppable &&
+            blocks
+              .filter((b) => b.specialistId === colId)
+              .map((b) => <BlockOverlay key={b.id} b={b} />)}
           {positioned.map(({ c, col, of, overlap }) => (
             <TimeCard key={c.id} c={c} draggable={droppable} col={col} of={of} overlap={overlap} warnOnOverlap={warnOnOverlap} />
           ))}

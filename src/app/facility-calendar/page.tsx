@@ -3,7 +3,8 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
-import FacilityCalendarBoard, { type ApptCard, type Specialist } from "@/components/FacilityCalendarBoard";
+import FacilityCalendarBoard, { type ApptCard, type Specialist, type SpecialistBlock } from "@/components/FacilityCalendarBoard";
+import SpecialistBlockForm from "@/components/SpecialistBlockForm";
 import Link from "next/link";
 
 function fmt(d: Date) {
@@ -44,6 +45,15 @@ export default async function FacilityCalendarPage({
     .eq("active", true)
     .order("full_name");
 
+  // Blackouts overlapping this day (vacation, sick day, lunch, etc.).
+  const { data: blockRows } = await supabase
+    .from("availability_blocks")
+    .select("id, specialist_id, start_at, end_at, reason")
+    .eq("facility_id", session!.facilityId)
+    .eq("block_type", "specialist")
+    .lt("start_at", `${nextDate}T00:00:00`)
+    .gt("end_at", `${dateStr}T00:00:00`);
+
   const { data: resData } = await supabase
     .from("reservations")
     .select(
@@ -72,6 +82,20 @@ export default async function FacilityCalendarPage({
   }));
 
   const specialists: Specialist[] = (specialistRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
+
+  const blocks: SpecialistBlock[] = ((blockRows as {
+    id: string;
+    specialist_id: string;
+    start_at: string;
+    end_at: string;
+    reason: string | null;
+  }[]) ?? []).map((b) => ({
+    id: b.id,
+    specialistId: b.specialist_id,
+    startAt: b.start_at,
+    endAt: b.end_at,
+    reason: b.reason,
+  }));
 
   return (
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
@@ -119,7 +143,9 @@ export default async function FacilityCalendarPage({
           <span className="text-red-500 dark:text-red-400">red ⚠️ warning</span> so it doesn&apos;t go unnoticed.
         </p>
 
-        <FacilityCalendarBoard specialists={specialists} cards={cards} />
+        <SpecialistBlockForm specialists={specialists} date={dateStr} />
+
+        <FacilityCalendarBoard specialists={specialists} cards={cards} blocks={blocks} />
       </div>
     </main>
   );

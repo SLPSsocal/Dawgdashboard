@@ -81,7 +81,8 @@ export default function BookingForm({
   const [belongings, setBelongings] = useState("");
   const [notes, setNotes] = useState("");
   const [lastGroomedNote, setLastGroomedNote] = useState<string | null>(null);
-  const [conflicts, setConflicts] = useState<{ id: string; animalName: string; startDate: string; endDate: string }[]>([]);
+  const [lastPriceNote, setLastPriceNote] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<{ id: string; animalName: string; startDate: string; endDate: string; isBlock?: boolean; reason?: string | null }[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -134,6 +135,7 @@ export default function BookingForm({
     setDurationMinutes(svc?.defaultDurationMinutes ?? FALLBACK_DURATION);
     setDurationTouched(false);
     setLastGroomedNote(null);
+    setLastPriceNote(null);
   }, [serviceName, isGrooming, groomingServices]);
 
   // Once both a dog and a service are picked, look up what's remembered —
@@ -151,6 +153,16 @@ export default function BookingForm({
         setSpecialistId(mem.last_specialist_id);
         const name = specialists.find((s) => s.id === mem.last_specialist_id)?.name;
         setLastGroomedNote(name ? `Last groomed by ${name}` : null);
+      }
+      // Per-animal per-service price memory: what this dog's last
+      // <serviceName> actually cost, so staff can quote it up front.
+      // Checkout pre-fills the same number; a different service (e.g. bath
+      // vs haircut) keeps its own remembered price.
+      if (mem.price != null) {
+        const when = mem.updated_at
+          ? ` (${new Date(mem.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })})`
+          : "";
+        setLastPriceNote(`${animal.name}'s last ${serviceName}: $${Number(mem.price)}${when}`);
       }
     });
   }, [animal, serviceName, isGrooming, specialists]);
@@ -318,6 +330,11 @@ export default function BookingForm({
                     </option>
                   ))}
                 </select>
+                {lastPriceNote && (
+                  <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-400">
+                    💲 {lastPriceNote} — expect the same unless the coat&apos;s condition changed.
+                  </p>
+                )}
               </label>
             )}
             {isGrooming && (
@@ -396,11 +413,22 @@ export default function BookingForm({
             )}
           </div>
 
-          {conflicts.length > 0 && (
+          {conflicts.some((c) => c.isBlock) && (
+            <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-400">
+              🚫 {specialists.find((s) => s.id === specialistId)?.name ?? "This specialist"} is blocked out during
+              this window
+              {(() => {
+                const b = conflicts.find((c) => c.isBlock);
+                return b?.reason ? ` (${b.reason})` : "";
+              })()}
+              . You can still book it, but someone should double-check they&apos;ll actually be here.
+            </div>
+          )}
+          {conflicts.some((c) => !c.isBlock) && (
             <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
               ⚠️ {specialists.find((s) => s.id === specialistId)?.name ?? "This specialist"} already has{" "}
-              {conflicts.map((c) => c.animalName).join(", ")} booked during this window — you can still create this,
-              it'll just double-book them.
+              {conflicts.filter((c) => !c.isBlock).map((c) => c.animalName).join(", ")} booked during this window —
+              you can still create this, it&apos;ll just double-book them.
             </div>
           )}
         </div>

@@ -3,7 +3,8 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
-import LodgingCalendar, { type CalArea, type CalReservation } from "@/components/LodgingCalendar";
+import LodgingCalendar, { type CalArea, type CalReservation, type LodgingBlock } from "@/components/LodgingCalendar";
+import LodgingBlockForm from "@/components/LodgingBlockForm";
 import { createLodgingArea } from "@/app/lodging/actions";
 import Link from "next/link";
 
@@ -72,6 +73,14 @@ export default async function LodgingCalendarPage({
     .eq("active", true)
     .order("name");
 
+  const { data: blockRows } = await supabase
+    .from("availability_blocks")
+    .select("id, lodging_area_id, start_at, end_at, reason")
+    .eq("facility_id", session!.facilityId)
+    .eq("block_type", "lodging")
+    .lt("start_at", `${weekEndExclusive}T00:00:00`)
+    .gt("end_at", `${weekStart}T00:00:00`);
+
   const { data: reservationData } = await supabase
     .from("reservations")
     .select(
@@ -98,6 +107,20 @@ export default async function LodgingCalendarPage({
       startDate: r.start_date,
       endDate: r.end_date,
     }));
+
+  const blocks: LodgingBlock[] = ((blockRows as {
+    id: string;
+    lodging_area_id: string;
+    start_at: string;
+    end_at: string;
+    reason: string | null;
+  }[]) ?? []).map((b) => ({
+    id: b.id,
+    lodgingAreaId: b.lodging_area_id,
+    startDate: b.start_at,
+    endDate: b.end_at,
+    reason: b.reason,
+  }));
 
   const calAreas: CalArea[] = (areas ?? []).map((a) => ({
     id: a.id,
@@ -205,7 +228,14 @@ export default async function LodgingCalendarPage({
             No lodging areas set up yet for {session!.facilityName}.
           </p>
         ) : (
-          <LodgingCalendar areas={calAreas} days={days} initialReservations={reservations} />
+          <>
+            <LodgingBlockForm
+              areas={calAreas.map((a) => ({ id: a.id, name: a.name }))}
+              week={weekStart}
+              defaultDate={todayStr >= weekStart && todayStr <= days[6] ? todayStr : weekStart}
+            />
+            <LodgingCalendar areas={calAreas} days={days} initialReservations={reservations} blocks={blocks} />
+          </>
         )}
       </div>
     </main>
