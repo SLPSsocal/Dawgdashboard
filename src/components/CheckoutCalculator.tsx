@@ -144,11 +144,24 @@ export default function CheckoutCalculator({
       lines.push({ description: bestMultiDayRule.label, quantity: 1, unitPrice: discount, lineTotal: discount, lineKind: "discount" });
     }
 
-    // Each additional dog beyond the first gets its own discount tier.
-    for (let i = 0; i < Math.min(numDogs - 1, additionalDogRules.length); i++) {
-      const rule = additionalDogRules[i];
-      const amt = rule.method === "percent" ? baseRate * effUnits * (rule.amount / 100) : rule.amount;
-      lines.push({ description: rule.label, quantity: 1, unitPrice: amt, lineTotal: amt, lineKind: "discount" });
+    // Each dog checks out on its own ticket; if THIS dog is the household's
+    // 2nd/3rd/4th, apply exactly that tier's discount. Dollar tiers are
+    // per-night/per-day amounts (e.g. -$25 turns a $65 night into the $40
+    // additional-dog rate), so they scale by the billed units — applying
+    // them once flat undercharged every multi-night multi-dog stay (QA-016).
+    if (numDogs > 1) {
+      const rule = additionalDogRules[Math.min(numDogs - 2, additionalDogRules.length - 1)];
+      if (rule) {
+        const amt =
+          rule.method === "percent" ? baseRate * effUnits * (rule.amount / 100) : rule.amount * effUnits;
+        lines.push({
+          description: `${rule.label} (${effUnits} × $${Math.abs(rule.amount).toFixed(2)})`,
+          quantity: 1,
+          unitPrice: amt,
+          lineTotal: amt,
+          lineKind: "discount",
+        });
+      }
     }
 
     for (const rule of flatFeeRules) {
@@ -401,15 +414,20 @@ export default function CheckoutCalculator({
       {additionalDogRules.length > 0 && (
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Total dogs in this booking (same household)
+            This dog is # ___ of the household&apos;s dogs here today
           </span>
           <input
             type="number"
             min={1}
+            max={additionalDogRules.length + 1}
             value={numDogs}
             onChange={(e) => setNumDogs(Math.max(1, Number(e.target.value)))}
             className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            1 = first dog (full price). 2+ applies that dog&apos;s additional-dog rate to this ticket —
+            each dog checks out on its own reservation.
+          </p>
         </label>
       )}
 
