@@ -4,3 +4,8 @@ node_modules
 .env
 .DS_Store
 *.log
+
+# Playwright / QA
+test-results/
+playwright-report/
+.env.qa.local
