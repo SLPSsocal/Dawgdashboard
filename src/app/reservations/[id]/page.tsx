@@ -47,7 +47,7 @@ export default async function ReservationDetailPage({
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      `*, animals ( id, name, breed, species, sex, fixed, alert_note,
+      `*, animals ( id, name, breed, species, sex, fixed, alert_note, preferred_groomer,
          rabies_expiration, distemper_expiration, bordetella_expiration,
          parent_id, parents ( id, first_name, last_name, phone, email ) )`
     )
@@ -63,6 +63,7 @@ export default async function ReservationDetailPage({
     sex: string | null;
     fixed: boolean | null;
     alert_note: string | null;
+    preferred_groomer: string | null;
     rabies_expiration: string | null;
     distemper_expiration: string | null;
     bordetella_expiration: string | null;
@@ -114,7 +115,7 @@ export default async function ReservationDetailPage({
         : Promise.resolve({ data: null }),
       supabase
         .from("grooming_records")
-        .select("id, notes, photo_url, groomer_name, created_at")
+        .select("id, notes, photo_url, groomer_name, services, time_needed, parent_notes, created_at")
         .eq("reservation_id", id)
         .order("created_at", { ascending: false }),
       supabase
@@ -124,6 +125,16 @@ export default async function ReservationDetailPage({
         .eq("active", true)
         .order("name"),
     ]);
+
+  // Specialist names feed the groomer + preferred-groomer selects.
+  const { data: specialistRows } = await supabase
+    .from("staff")
+    .select("full_name")
+    .eq("facility_id", session!.facilityId)
+    .eq("is_specialist", true)
+    .eq("active", true)
+    .order("full_name");
+  const groomerNames = (specialistRows ?? []).map((s) => s.full_name).filter(Boolean);
 
   const [animalProfileTags, parentProfileTags, careLogs] = await Promise.all([
     animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
@@ -467,15 +478,35 @@ export default async function ReservationDetailPage({
           </div>
         )}
 
-        {isGrooming && animal && (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">✂️ Grooming Notes</h2>
+        {animal && (
+          // Reachable from the ⋮ menu on any reservation (not just grooming
+          // appointments) — boarders get baths too. Open by default only when
+          // this IS a grooming appointment.
+          <details
+            id="grooming"
+            open={isGrooming || (groomingRecords?.length ?? 0) > 0}
+            className="group mt-4 scroll-mt-20 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <summary className="flex cursor-pointer select-none list-none items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                ✂️ Grooming Notes
+                {animal.preferred_groomer && (
+                  <span className="ml-2 font-normal text-slate-400 dark:text-slate-500">
+                    prefers {animal.preferred_groomer}
+                  </span>
+                )}
+              </h2>
+              <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
+            </summary>
             <div className="mt-3">
               <GroomingNoteForm
                 reservationId={id}
                 animalId={animal.id}
                 facilityId={reservation.facility_id}
                 staffName={session!.staffName}
+                serviceOptions={(groomingServices ?? []).map((s) => s.name)}
+                groomerOptions={groomerNames}
+                preferredGroomer={animal.preferred_groomer}
               />
             </div>
             {(groomingRecords?.length ?? 0) > 0 && (
@@ -490,17 +521,29 @@ export default async function ReservationDetailPage({
                         className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover dark:border-slate-700"
                       />
                     )}
-                    <div>
+                    <div className="min-w-0">
+                      {(g.services?.length ?? 0) > 0 && (
+                        <div className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                          {g.services!.join(" · ")}
+                        </div>
+                      )}
                       {g.notes && <div className="text-slate-600 dark:text-slate-300">{g.notes}</div>}
+                      {g.parent_notes && (
+                        <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          For parent: {g.parent_notes}
+                        </div>
+                      )}
                       <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                        {g.groomer_name ?? "Unknown"} · {new Date(g.created_at).toLocaleString()}
+                        {g.groomer_name ?? "Unknown"}
+                        {g.time_needed ? ` · needs ${g.time_needed}` : ""} ·{" "}
+                        {new Date(g.created_at).toLocaleString()}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </details>
         )}
 
         {(incidents?.length ?? 0) > 0 && (

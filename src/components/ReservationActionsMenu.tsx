@@ -119,6 +119,8 @@ export default function ReservationActionsMenu({
           {parentId && <LinkItem href={`/parents/${parentId}`} icon="👤" label="Edit Parent" />}
 
           <Divider />
+          <LinkItem href={`/reservations/${reservationId}#grooming`} icon="✂️" label="Grooming Notes" />
+          <LinkItem href="/feeding" icon="🍽️" label="Feeding Log" />
           <StubItem icon="💲" label="Buy Store Credit" reason="Needs Helcim payment integration — not built yet" />
           <LinkItem href={`/animals/${animalId}`} icon="🛡️" label="Manage Immunizations" />
           <LinkItem href={`/reservations/${reservationId}/incidents/new`} icon="⚠️" label="New Incident" />

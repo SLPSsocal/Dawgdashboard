@@ -15,6 +15,7 @@ type Item = { name: string; href: string };
 const CALENDAR: Item[] = [
   { name: "Lodging Calendar", href: "/lodging/calendar" },
   { name: "Facility Calendar", href: "/facility-calendar" },
+  { name: "Feeding Log", href: "/feeding" },
 ];
 const CUSTOMERS: Item[] = [
   { name: "Parents", href: "/parents" },
@@ -33,7 +34,7 @@ const ADMIN: Item[] = [
 ];
 
 const ALL_GROUPS: { label: string; items: Item[] }[] = [
-  { label: "Calendar", items: CALENDAR },
+  { label: "Daily Ops", items: CALENDAR },
   { label: "Customers", items: CUSTOMERS },
   { label: "More", items: MORE },
   { label: "Admin", items: ADMIN },

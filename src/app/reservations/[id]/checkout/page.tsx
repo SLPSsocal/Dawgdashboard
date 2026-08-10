@@ -15,7 +15,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      `*, animals ( id, name, parent_id, parents ( id, first_name, last_name ) ),
+      `*, animals ( id, name, parent_id, gingr_animal_id, parents ( id, first_name, last_name ) ),
        reservation_types ( id, name, base_rate, rate_unit )`
     )
     .eq("id", id)
@@ -26,6 +26,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     id: string;
     name: string;
     parent_id: string;
+    gingr_animal_id: number | string | null;
     parents: { id: string; first_name: string; last_name: string } | null;
   } | null;
   const type = reservation.reservation_types as unknown as {
@@ -79,6 +80,49 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const currentRate = rateHistory && rateHistory.length > 0 ? Number(rateHistory[0].rate) : Number(type?.base_rate ?? 0);
   const taxRate = Number(facilityRow?.tax_rate ?? 0);
 
+  // Feeding-log charges: house fresh food / CBD logged during the stay (in
+  // this dashboard or the PawFeed tablet app — same table) pre-fill as retail
+  // lines so they actually land on the tab instead of relying on memory.
+  const petKeys = animal ? [animal.id, ...(animal.gingr_animal_id != null ? [String(animal.gingr_animal_id)] : [])] : [];
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const { data: feedRows } = petKeys.length
+    ? await supabase
+        .from("feeding_logs")
+        .select("date, meal_time, fresh_food, fresh_food_items")
+        .in("pet_id", petKeys)
+        .gte("date", stayDateStr)
+        .lte("date", todayYmd)
+    : { data: [] };
+
+  let houseFoodMeals = 0;
+  let cbdCount = 0;
+  let topperCount = 0;
+  for (const f of feedRows ?? []) {
+    if (f.fresh_food) houseFoodMeals++;
+    const items = String(f.fresh_food_items ?? "").toLowerCase();
+    if (items.includes("cbd")) cbdCount++;
+    if (items.includes("topper")) topperCount++;
+  }
+  const houseFoodItem = retailCatalog.find((r) => r.name.toLowerCase().includes("house food"));
+  const cbdItem = retailCatalog.find((r) => r.name.toLowerCase().includes("cbd"));
+  const initialRetailRows: { itemId: string; qty: number }[] = [];
+  const careParts: string[] = [];
+  if (houseFoodMeals > 0) {
+    if (houseFoodItem) initialRetailRows.push({ itemId: houseFoodItem.id, qty: houseFoodMeals });
+    careParts.push(`house fresh food ×${houseFoodMeals} meal${houseFoodMeals === 1 ? "" : "s"}`);
+  }
+  if (cbdCount > 0) {
+    if (cbdItem) initialRetailRows.push({ itemId: cbdItem.id, qty: cbdCount });
+    careParts.push(`CBD ×${cbdCount}`);
+  }
+  if (topperCount > 0) {
+    careParts.push(`topper ×${topperCount} (no retail item configured — add one under Items for Sale to bill it)`);
+  }
+  const careNote =
+    careParts.length > 0
+      ? `From the feeding log this stay: ${careParts.join(", ")} — pre-filled below, adjust if needed.`
+      : null;
+
   const start = new Date(reservation.start_date);
   const end = new Date(reservation.end_date);
   const units = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
@@ -126,6 +170,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             savedCards={savedCardRows ?? []}
             retailItems={retailCatalog.map((r) => ({ id: r.id, name: r.name, price: r.price, taxable: r.taxable }))}
             taxRate={taxRate}
+            initialRetailRows={initialRetailRows}
+            careNote={careNote}
           />
         </div>
       </div>

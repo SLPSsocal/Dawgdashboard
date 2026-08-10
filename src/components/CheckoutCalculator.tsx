@@ -53,6 +53,8 @@ export default function CheckoutCalculator({
   savedCards,
   retailItems,
   taxRate,
+  initialRetailRows,
+  careNote,
 }: {
   reservationId: string;
   facilityId: string;
@@ -70,11 +72,14 @@ export default function CheckoutCalculator({
   savedCards: SavedCard[];
   retailItems: RetailItem[];
   taxRate: number;
+  /** Pre-filled from the feeding log (house fresh food, CBD, …) — staff can adjust. */
+  initialRetailRows?: { itemId: string; qty: number }[];
+  careNote?: string | null;
 }) {
   const [numDogs, setNumDogs] = useState(1);
   const [checkedFees, setCheckedFees] = useState<Set<string>>(new Set());
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
-  const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>([]);
+  const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>(initialRetailRows ?? []);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
   const [openType, setOpenType] = useState<OpenItemType>("Tip");
   const [openDesc, setOpenDesc] = useState("");
@@ -482,6 +487,11 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
+      {careNote && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+          🍽️ {careNote}
+        </p>
+      )}
       {retailItems.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
           <span className="font-medium text-slate-700 dark:text-slate-200">Items for Sale</span> — nothing in the
