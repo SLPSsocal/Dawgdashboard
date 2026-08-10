@@ -82,25 +82,53 @@ export async function submitPrecheckin(token: string, formData: FormData) {
     .maybeSingle();
   if (!animal) throw new Error("Could not find this dog's record.");
 
+  // The form varies by visit type (grooming forms have no feeding fields,
+  // stay forms have no style fields). Only fields actually PRESENT in the
+  // submission may change the record — otherwise a grooming submit would
+  // silently wipe the feeding instructions saved from a boarding visit.
+  const hasFeeding = formData.has("eating_am");
   const eatingAm = String(formData.get("eating_am") ?? "").trim();
   const eatingLunch = String(formData.get("eating_lunch") ?? "").trim();
   const eatingPm = String(formData.get("eating_pm") ?? "").trim();
+  const eatingOther = String(formData.get("eating_other") ?? "").trim();
   const feedingParts = [
     eatingAm && `AM: ${eatingAm}`,
     eatingLunch && `Lunch: ${eatingLunch}`,
     eatingPm && `PM: ${eatingPm}`,
+    eatingOther,
   ].filter(Boolean);
-  const newFeeding = feedingParts.length ? feedingParts.join("\n") : null;
+  const newFeeding = hasFeeding ? (feedingParts.length ? feedingParts.join("\n") : null) : animal.feeding_instructions;
 
-  const newMedications = String(formData.get("medications") ?? "").trim() || null;
-  const newGroomingNotes = String(formData.get("grooming_notes") ?? "").trim() || null;
+  const hasMedications = formData.has("medications");
+  const newMedications = hasMedications
+    ? String(formData.get("medications") ?? "").trim() || null
+    : animal.medications;
+  const hasGroomingNotes = formData.has("grooming_notes");
+  const newGroomingNotes = hasGroomingNotes
+    ? String(formData.get("grooming_notes") ?? "").trim() || null
+    : animal.grooming_notes;
   const groomingPhotoUrl = String(formData.get("grooming_photo_url") ?? "").trim() || null;
 
-  const belongings = String(formData.get("belongings") ?? "").trim() || null;
+  const belongingsText = String(formData.get("belongings") ?? "").trim();
+  const belongingsCount = String(formData.get("belongings_count") ?? "").trim();
+  // Quantity folds into the text so checkout staff see "3 items — ..." at a
+  // glance without a separate column anywhere.
+  const belongings = belongingsText
+    ? belongingsCount
+      ? `${belongingsCount} item${belongingsCount === "1" ? "" : "s"} — ${belongingsText}`
+      : belongingsText
+    : null;
   const belongingsPhotoUrl = String(formData.get("belongings_photo_url") ?? "").trim() || null;
 
   const parentName = String(formData.get("submitted_by") ?? "").trim();
   const changedBy = parentName ? `${parentName} (Parent)` : "Parent (pre-check-in)";
+
+  // Visit-type extras --------------------------------------------------------
+  const animalPhotoUrl = String(formData.get("animal_photo_url") ?? "").trim() || null;
+  const addOns = formData.getAll("addons").map(String).filter(Boolean);
+  const ecName = String(formData.get("emergency_contact_name") ?? "").trim();
+  const ecPhone = String(formData.get("emergency_contact_phone") ?? "").trim();
+  const dropoffTime = String(formData.get("dropoff_time") ?? "").trim(); // HH:MM
 
   await Promise.all([
     logAnimalFieldChange(req.animal_id, "feeding_instructions", animal.feeding_instructions, newFeeding, changedBy),
@@ -115,14 +143,63 @@ export async function submitPrecheckin(token: string, formData: FormData) {
       medications: newMedications,
       grooming_notes: newGroomingNotes,
       ...(groomingPhotoUrl ? { grooming_photo_url: groomingPhotoUrl } : {}),
+      ...(animalPhotoUrl ? { photo_url: animalPhotoUrl } : {}),
     })
     .eq("id", req.animal_id);
   if (animalError) throw new Error(animalError.message);
 
+  // Emergency contact updates live on the parent record.
+  if (req.parent_id && (ecName || ecPhone)) {
+    await supabase
+      .from("parents")
+      .update({
+        ...(ecName ? { emergency_contact_name: ecName } : {}),
+        ...(ecPhone ? { emergency_contact_phone: ecPhone } : {}),
+      })
+      .eq("id", req.parent_id);
+  }
+
+  // Parent-stated drop-off time adjusts the reservation's arrival time (same
+  // date, new time) so the check-in board sorts by when they'll actually show.
+  if (dropoffTime && /^\d{2}:\d{2}$/.test(dropoffTime)) {
+    const { data: resRow } = await supabase
+      .from("reservations")
+      .select("start_date")
+      .eq("id", req.reservation_id)
+      .maybeSingle();
+    if (resRow?.start_date) {
+      const d = new Date(resRow.start_date);
+      const [hh, mm] = dropoffTime.split(":").map(Number);
+      d.setHours(hh, mm, 0, 0);
+      await supabase.from("reservations").update({ start_date: d.toISOString() }).eq("id", req.reservation_id);
+      await supabase.from("reservation_history").insert({
+        reservation_id: req.reservation_id,
+        action: "modified",
+        details: `Drop-off time set to ${dropoffTime} by parent (pre-check-in)`,
+        performed_by: changedBy,
+      });
+    }
+  }
+
+  // Requested grooming add-ons append to the reservation notes so the groomer
+  // and the checkout screen both see them.
+  if (addOns.length > 0) {
+    const { data: resRow } = await supabase
+      .from("reservations")
+      .select("notes")
+      .eq("id", req.reservation_id)
+      .maybeSingle();
+    const addOnLine = `Requested add-ons: ${addOns.join(", ")}`;
+    const existing = resRow?.notes?.trim();
+    const newNotes = existing && !existing.includes(addOnLine) ? `${existing}\n${addOnLine}` : existing ? existing : addOnLine;
+    await supabase.from("reservations").update({ notes: newNotes }).eq("id", req.reservation_id);
+  }
+
+  const hasBelongings = formData.has("belongings");
   const { error: resError } = await supabase
     .from("reservations")
     .update({
-      belongings,
+      ...(hasBelongings ? { belongings } : {}),
       ...(belongingsPhotoUrl ? { belongings_photo_url: belongingsPhotoUrl } : {}),
     })
     .eq("id", req.reservation_id);
@@ -131,9 +208,13 @@ export async function submitPrecheckin(token: string, formData: FormData) {
   await supabase.from("reservation_history").insert({
     reservation_id: req.reservation_id,
     action: "precheckin_submitted",
-    details: belongings
-      ? `Belongings: ${belongings}${belongingsPhotoUrl ? " (photo attached)" : ""}`
-      : "Pre-check-in submitted",
+    details: [
+      belongings ? `Belongings: ${belongings}${belongingsPhotoUrl ? " (photo attached)" : ""}` : null,
+      addOns.length > 0 ? `Add-ons: ${addOns.join(", ")}` : null,
+      dropoffTime ? `Drop-off: ${dropoffTime}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Pre-check-in submitted",
     performed_by: changedBy,
   });
 

@@ -25,6 +25,8 @@ type Row = {
   reservation_types: { name: string } | null;
 };
 
+let precheckinByReservation = new Map<string, string>();
+
 function toRow(r: Row): CheckInRow {
   return {
     id: r.id,
@@ -39,6 +41,8 @@ function toRow(r: Row): CheckInRow {
     lodgingName: r.lodging_areas?.name ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
+    phone: r.animals?.parents?.phone ?? null,
+    precheckinStatus: precheckinByReservation.get(r.id) ?? null,
   };
 }
 
@@ -82,6 +86,22 @@ export default async function ReservationsPage() {
   ]);
 
   const rows = (data as unknown as Row[]) ?? [];
+
+  // Latest pre-check-in status per reservation ("submitted" wins) so the
+  // board can show a done-marker instead of another Send button.
+  const allIds = [...rows.map((r) => r.id), ...(((checkedOutData as unknown as Row[]) ?? []).map((r) => r.id))];
+  precheckinByReservation = new Map();
+  if (allIds.length > 0) {
+    const { data: pcRows } = await supabase
+      .from("precheckin_requests")
+      .select("reservation_id, status")
+      .in("reservation_id", allIds);
+    for (const pc of pcRows ?? []) {
+      const cur = precheckinByReservation.get(pc.reservation_id);
+      if (cur !== "submitted") precheckinByReservation.set(pc.reservation_id, pc.status);
+    }
+  }
+
   const boardRows: CheckInRow[] = rows.map(toRow);
   const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
 
@@ -201,6 +221,7 @@ export default async function ReservationsPage() {
               rows={boardRows}
               checkedOutToday={checkedOutRows}
               staffName={session!.staffName}
+              facilityId={session!.facilityId}
               animalTags={animalTagsObj}
               parentTags={parentTagsObj}
             />

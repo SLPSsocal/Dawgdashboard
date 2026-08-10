@@ -35,9 +35,43 @@ export async function completeCheckout(
     lineItems: CheckoutLineItem[];
     markPaid: boolean;
     taxAmount?: number;
+    /** Set when staff corrected the stay window at checkout (YYYY-MM-DD). */
+    adjustedStartDate?: string;
+    adjustedEndDate?: string;
   }
 ) {
   const supabase = createClient();
+
+  // An early/late checkout adjusts the reservation itself, so the calendar,
+  // board, and history all agree with what was actually billed.
+  if (payload.adjustedStartDate || payload.adjustedEndDate) {
+    const { data: resRow } = await supabase
+      .from("reservations")
+      .select("start_date, end_date")
+      .eq("id", reservationId)
+      .maybeSingle();
+    if (resRow) {
+      const withDate = (iso: string, ymd: string) => {
+        const d = new Date(iso);
+        const [y, m, day] = ymd.split("-").map(Number);
+        d.setFullYear(y, m - 1, day);
+        return d.toISOString();
+      };
+      const newStart = payload.adjustedStartDate ? withDate(resRow.start_date, payload.adjustedStartDate) : resRow.start_date;
+      const newEnd = payload.adjustedEndDate ? withDate(resRow.end_date, payload.adjustedEndDate) : resRow.end_date;
+      if (newStart !== resRow.start_date || newEnd !== resRow.end_date) {
+        await supabase.from("reservations").update({ start_date: newStart, end_date: newEnd }).eq("id", reservationId);
+        await supabase.from("reservation_history").insert({
+          reservation_id: reservationId,
+          action: "modified",
+          details: `Stay dates corrected at checkout: ${payload.adjustedStartDate ?? resRow.start_date.slice(0, 10)} → ${
+            payload.adjustedEndDate ?? resRow.end_date.slice(0, 10)
+          }`,
+          performed_by: "Checkout",
+        });
+      }
+    }
+  }
   const subtotal = payload.lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
   const tax = payload.taxAmount ?? 0;
 

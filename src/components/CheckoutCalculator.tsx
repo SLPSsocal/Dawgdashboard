@@ -81,6 +81,23 @@ export default function CheckoutCalculator({
   const [openAmount, setOpenAmount] = useState("");
   const [payments, setPayments] = useState<PaymentRow[]>([{ method: "", amount: "" }]);
   const [saveNewCard, setSaveNewCard] = useState(false);
+
+  // Editable stay window. Departure defaults to TODAY for per-night/per-day
+  // stays: checkout happens the day the dog leaves, and billing the booked
+  // end date instead of the real one silently over- or under-charges.
+  const isStayBilling = rateUnit === "per_night" || rateUnit === "per_day";
+  const bookedStartYmd = startDate.slice(0, 10);
+  const bookedEndYmd = endDate.slice(0, 10);
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const defaultEndYmd = isStayBilling && todayYmd > bookedStartYmd ? todayYmd : bookedEndYmd;
+  const [stayStart, setStayStart] = useState(bookedStartYmd);
+  const [stayEnd, setStayEnd] = useState(defaultEndYmd);
+  const stayUnits = Math.max(
+    1,
+    Math.ceil((new Date(`${stayEnd}T00:00:00`).getTime() - new Date(`${stayStart}T00:00:00`).getTime()) / 86400000)
+  );
+  const effUnits = isStayBilling ? stayUnits : units;
+  const datesAdjusted = isStayBilling && (stayStart !== bookedStartYmd || stayEnd !== bookedEndYmd);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // Once checkout has been submitted for the "new card" path, the reservation
@@ -96,21 +113,21 @@ export default function CheckoutCalculator({
   const flatFeeRules = rules.filter((r) => r.rule_type === "flat_fee");
 
   const bestMultiDayRule = useMemo(() => {
-    const eligible = multiDayRules.filter((r) => units >= (r.threshold ?? Infinity));
+    const eligible = multiDayRules.filter((r) => effUnits >= (r.threshold ?? Infinity));
     if (eligible.length === 0) return null;
     return eligible.reduce((best, r) => ((r.threshold ?? 0) > (best.threshold ?? 0) ? r : best));
-  }, [multiDayRules, units]);
+  }, [multiDayRules, effUnits]);
 
   const lineItems: CheckoutLineItem[] = useMemo(() => {
     const lines: CheckoutLineItem[] = [];
-    const baseTotal = baseRate * units;
+    const baseTotal = baseRate * effUnits;
     lines.push({
       // Spell out the exact dates being billed. "6 x night" alone can't be
       // checked against a calendar; "Aug 14 -> Aug 20" can.
-      description: `${animalName} — ${units} × ${rateUnit.replace("per_", "")} @ $${baseRate.toFixed(
+      description: `${animalName} — ${effUnits} × ${rateUnit.replace("per_", "")} @ $${baseRate.toFixed(
         2
-      )} (${fmtDay(startDate)} → ${fmtDay(endDate)})`,
-      quantity: units,
+      )} (${fmtDay(`${stayStart}T12:00:00`)} → ${fmtDay(`${stayEnd}T12:00:00`)})`,
+      quantity: effUnits,
       unitPrice: baseRate,
       lineTotal: baseTotal,
       lineKind: "base",
@@ -125,7 +142,7 @@ export default function CheckoutCalculator({
     // Each additional dog beyond the first gets its own discount tier.
     for (let i = 0; i < Math.min(numDogs - 1, additionalDogRules.length); i++) {
       const rule = additionalDogRules[i];
-      const amt = rule.method === "percent" ? baseRate * units * (rule.amount / 100) : rule.amount;
+      const amt = rule.method === "percent" ? baseRate * effUnits * (rule.amount / 100) : rule.amount;
       lines.push({ description: rule.label, quantity: 1, unitPrice: amt, lineTotal: amt, lineKind: "discount" });
     }
 
@@ -175,7 +192,7 @@ export default function CheckoutCalculator({
     }
 
     return lines;
-  }, [baseRate, units, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems]);
+  }, [baseRate, effUnits, stayStart, stayEnd, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems]);
 
   function addOpenItem() {
     const amount = Number(openAmount);
@@ -252,6 +269,7 @@ export default function CheckoutCalculator({
           animalId,
           lineItems,
           taxAmount,
+          ...(datesAdjusted ? { adjustedStartDate: stayStart, adjustedEndDate: stayEnd } : {}),
           // Never mark paid up front for a card path — only a real Helcim
           // approval (below, or via chargeSavedCard) should do that.
           // Only settle up front when the whole ticket is covered by
@@ -337,6 +355,44 @@ export default function CheckoutCalculator({
 
   return (
     <div className="flex flex-col gap-4">
+      {isStayBilling && (
+        <div>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">🗓️ Stay Dates (billed)</span>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={stayStart}
+              max={stayEnd}
+              onChange={(e) => setStayStart(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <span className="text-slate-400">→</span>
+            <input
+              type="date"
+              value={stayEnd}
+              min={stayStart}
+              onChange={(e) => setStayEnd(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <span className="text-sm font-semibold tabular-nums">
+              {effUnits} {rateUnit === "per_night" ? "night" : "day"}
+              {effUnits === 1 ? "" : "s"}
+            </span>
+          </div>
+          {datesAdjusted && (
+            <p className="mt-1 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Booked {fmtDay(`${bookedStartYmd}T12:00:00`)} → {fmtDay(`${bookedEndYmd}T12:00:00`)} — billing the
+              dates above instead. Completing checkout updates the reservation to match (logged in its history).
+            </p>
+          )}
+          {!datesAdjusted && (
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              Departure defaults to today so an early or late pickup bills the real stay — adjust if needed.
+            </p>
+          )}
+        </div>
+      )}
+
       {additionalDogRules.length > 0 && (
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import ReservationActionsMenu from "@/components/ReservationActionsMenu";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
+import SendFormButton from "@/components/SendFormButton";
 import Link from "next/link";
 
 export type CheckInRow = {
@@ -18,6 +19,9 @@ export type CheckInRow = {
   lodgingName: string | null;
   startDate: string;
   endDate: string;
+  phone: string | null;
+  /** null = never sent, "sent"/"pending" = link out, "submitted" = form done */
+  precheckinStatus: string | null;
 };
 
 type SortKey = "animalName" | "parentName" | "typeName" | "lodgingName" | "startDate" | "endDate";
@@ -37,12 +41,14 @@ export default function CheckInBoard({
   rows,
   checkedOutToday = [],
   staffName,
+  facilityId,
   animalTags,
   parentTags,
 }: {
   rows: CheckInRow[];
   checkedOutToday?: CheckInRow[];
   staffName?: string | null;
+  facilityId?: string;
   animalTags?: TagRecord;
   parentTags?: TagRecord;
 }) {
@@ -192,6 +198,24 @@ export default function CheckInBoard({
                   <td className="px-3 py-1.5 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1.5">
+                      {r.status === "booked" && facilityId && (
+                        r.precheckinStatus === "submitted" ? (
+                          <span
+                            title="Pre-check-in form submitted by the parent"
+                            className="whitespace-nowrap text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+                          >
+                            📋 ✓
+                          </span>
+                        ) : (
+                          <SendFormButton
+                            reservationId={r.id}
+                            facilityId={facilityId}
+                            animalId={r.animalId}
+                            parentId={r.parentId}
+                            phone={r.phone}
+                          />
+                        )
+                      )}
                       {r.status === "checked_in" && (
                         <Link
                           href={`/reservations/${r.id}/checkout`}

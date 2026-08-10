@@ -209,9 +209,24 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
             <span className="font-semibold">Medications:</span> {stripHtml(animal.medications)}
           </div>
         )}
-        {reservation.belongings && (
-          <div className="mt-2 whitespace-pre-line break-words text-sm">
-            <span className="font-semibold">Belongings:</span> {stripHtml(reservation.belongings)}
+        {/* Boxed and photo-included so checkout staff can verify every item
+            goes home — this is the "what did the dog come with" checklist. */}
+        {(reservation.belongings || reservation.belongings_photo_url) && (
+          <div className="mt-3 rounded-lg border-2 border-slate-300 p-3">
+            <div className="text-sm font-bold uppercase tracking-wide">🧳 Came With — send home at checkout</div>
+            <div className="mt-1.5 flex gap-3">
+              {reservation.belongings_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={reservation.belongings_photo_url}
+                  alt="Belongings"
+                  className="h-24 w-24 shrink-0 rounded-md border border-slate-200 object-cover"
+                />
+              )}
+              <div className="min-w-0 whitespace-pre-line break-words text-sm">
+                {stripHtml(reservation.belongings) ?? "See photo"}
+              </div>
+            </div>
           </div>
         )}
         {reservation.notes && (
