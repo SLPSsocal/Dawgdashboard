@@ -91,9 +91,13 @@ export default function CheckoutCalculator({
   // stays: checkout happens the day the dog leaves, and billing the booked
   // end date instead of the real one silently over- or under-charges.
   const isStayBilling = rateUnit === "per_night" || rateUnit === "per_day";
-  const bookedStartYmd = startDate.slice(0, 10);
-  const bookedEndYmd = endDate.slice(0, 10);
-  const todayYmd = new Date().toISOString().slice(0, 10);
+  // Facility-local dates, not UTC slices — a 5pm PT departure is "tomorrow"
+  // in UTC and was showing same-day daycare as Aug 10 → Aug 11.
+  const ymdPT = (iso: string) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date(iso));
+  const bookedStartYmd = ymdPT(startDate);
+  const bookedEndYmd = ymdPT(endDate);
+  const todayYmd = ymdPT(new Date().toISOString());
   const defaultEndYmd = isStayBilling && todayYmd > bookedStartYmd ? todayYmd : bookedEndYmd;
   const [stayStart, setStayStart] = useState(bookedStartYmd);
   const [stayEnd, setStayEnd] = useState(defaultEndYmd);
@@ -298,6 +302,12 @@ export default function CheckoutCalculator({
             !savedCardPayment &&
             effectiveAllocated > 0 &&
             Math.abs(total - nonCardTotal) < 0.005,
+          // Record HOW the money arrived — cash/store-credit/admin-credit
+          // rows were previously not written anywhere, so a "paid" invoice
+          // had no tender trail to reconcile the cash drawer against.
+          tenders: effectivePayments
+            .filter((p) => ["cash", "store_credit", "admin_credit"].includes(String(p.method)) && p.amount > 0)
+            .map((p) => ({ method: String(p.method), amount: p.amount })),
         });
 
         if (usingNewCard) {

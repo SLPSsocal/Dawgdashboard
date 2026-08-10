@@ -38,6 +38,8 @@ export async function completeCheckout(
     /** Set when staff corrected the stay window at checkout (YYYY-MM-DD). */
     adjustedStartDate?: string;
     adjustedEndDate?: string;
+    /** Non-card tenders collected now (cash / store_credit / admin_credit). */
+    tenders?: { method: string; amount: number }[];
   }
 ) {
   const supabase = createClient();
@@ -108,6 +110,25 @@ export async function completeCheckout(
       }))
     );
     if (lineError) throw new Error(lineError.message);
+  }
+
+  // Tender trail for non-card money: without these rows a cash-paid invoice
+  // said "paid" with no record of how, so end-of-day cash counts had nothing
+  // to reconcile against (QA-039 finding).
+  const validTenders = (payload.tenders ?? []).filter(
+    (t) => ["cash", "store_credit", "admin_credit"].includes(t.method) && t.amount > 0
+  );
+  if (validTenders.length > 0) {
+    await supabase.from("payments").insert(
+      validTenders.map((t) => ({
+        facility_id: payload.facilityId,
+        parent_id: payload.parentId,
+        invoice_id: invoice.id,
+        amount: t.amount,
+        status: "completed",
+        type: t.method,
+      }))
+    );
   }
 
   // Remember what was actually charged per animal per grooming service, so
