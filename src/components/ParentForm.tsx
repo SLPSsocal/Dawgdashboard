@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useFormState, useFormStatus } from "react-dom";
+import type { ParentFormState } from "@/app/parents/actions";
+
 type ParentDefaults = {
   first_name?: string | null;
   last_name?: string | null;
@@ -15,6 +20,19 @@ type ParentDefaults = {
   email_opt_out?: boolean | null;
   sms_opt_out?: boolean | null;
 };
+
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="mt-2 w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:w-fit dark:bg-slate-100 dark:text-slate-900"
+    >
+      {pending ? "Saving…" : label}
+    </button>
+  );
+}
 
 function Field({
   label,
@@ -50,15 +68,20 @@ export default function ParentForm({
   action,
   defaults,
   submitLabel,
-  error,
+  error: urlError,
   referralSources = [],
 }: {
-  action: (formData: FormData) => void;
+  action: (prev: ParentFormState, formData: FormData) => Promise<ParentFormState>;
   defaults?: ParentDefaults;
   submitLabel: string;
   error?: string;
   referralSources?: { id: string; name: string }[];
 }) {
+  // Errors come back as returned state (rendered inline, typed values kept)
+  // instead of a redirect with a query param, which the client router could
+  // drop — leaving a silently reset form (QA-004 finding).
+  const [state, formAction] = useFormState(action, {} as ParentFormState);
+  const error = state.error ?? urlError;
   // If this parent's existing referral_source isn't in the current active
   // list (renamed, disabled, or a legacy free-text value from before this
   // was a dropdown), still show it as a selectable option instead of
@@ -69,7 +92,7 @@ export default function ParentForm({
       ? [...referralSources, { id: "current", name: currentValue }]
       : referralSources;
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-4">
       {error && (
         <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
           {error === "duplicate" ? (
@@ -199,12 +222,7 @@ export default function ParentForm({
         </div>
       </div>
 
-      <button
-        type="submit"
-        className="mt-2 w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white sm:w-fit dark:bg-slate-100 dark:text-slate-900"
-      >
-        {submitLabel}
-      </button>
+      <SubmitButton label={submitLabel} />
     </form>
   );
 }

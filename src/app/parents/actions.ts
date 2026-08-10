@@ -49,7 +49,13 @@ async function findDuplicateParent(
   });
 }
 
-export async function createParent(formData: FormData) {
+// Failures RETURN state instead of redirecting: a server-action redirect back
+// to the same route can drop the query string in the client router, which
+// left staff staring at a silently reset form with no error shown (found by
+// QA-004). Returning state renders the error inline and keeps what they typed.
+export type ParentFormState = { error?: string };
+
+export async function createParent(_prev: ParentFormState, formData: FormData): Promise<ParentFormState> {
   const supabase = createClient();
 
   const first_name = str(formData, "first_name");
@@ -68,11 +74,11 @@ export async function createParent(formData: FormData) {
     !emergency_contact_name ||
     !emergency_contact_phone
   ) {
-    redirect("/parents/new?error=missing_required");
+    return { error: "missing_required" };
   }
 
   if (await findDuplicateParent(supabase, phone, email)) {
-    redirect("/parents/new?error=duplicate");
+    return { error: "duplicate" };
   }
 
   const { data, error } = await supabase
@@ -97,14 +103,18 @@ export async function createParent(formData: FormData) {
     .single();
 
   if (error || !data) {
-    redirect(`/parents/new?error=${encodeURIComponent(error?.message ?? "unknown")}`);
+    return { error: error?.message ?? "unknown" };
   }
 
   revalidatePath("/parents");
   redirect(`/parents/${data!.id}`);
 }
 
-export async function updateParent(parentId: string, formData: FormData) {
+export async function updateParent(
+  parentId: string,
+  _prev: ParentFormState,
+  formData: FormData
+): Promise<ParentFormState> {
   const supabase = createClient();
 
   const first_name = str(formData, "first_name");
@@ -123,11 +133,11 @@ export async function updateParent(parentId: string, formData: FormData) {
     !emergency_contact_name ||
     !emergency_contact_phone
   ) {
-    redirect(`/parents/${parentId}?error=missing_required`);
+    return { error: "missing_required" };
   }
 
   if (await findDuplicateParent(supabase, phone, email, parentId)) {
-    redirect(`/parents/${parentId}?error=duplicate`);
+    return { error: "duplicate" };
   }
 
   const { error } = await supabase
@@ -151,7 +161,7 @@ export async function updateParent(parentId: string, formData: FormData) {
     .eq("id", parentId);
 
   if (error) {
-    redirect(`/parents/${parentId}?error=${encodeURIComponent(error.message)}`);
+    return { error: error.message };
   }
 
   revalidatePath("/parents");
