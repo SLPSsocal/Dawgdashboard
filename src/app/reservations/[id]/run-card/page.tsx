@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
 import { getProfileTagsFor } from "@/lib/profileTags";
 import { getBookingGroupSiblings } from "../../actions";
+import { stripHtml } from "@/lib/text";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -23,12 +24,14 @@ function ageString(birthdate: string | null): string | null {
   return parts.join(", ");
 }
 
+// Compact: "Wed, Jul 15, 2:00 PM". Each rendered inside whitespace-nowrap so
+// a date can never be split across two lines — wrapping happens only at the
+// arrow between the two dates.
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString([], {
     weekday: "short",
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
+    month: "short",
+    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -131,12 +134,17 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
                 </li>
               )}
             </ul>
-            <p className="mt-2 text-base">
-              {type?.name ?? "Reservation"}
-              {reservation.grooming_service_name ? ` — ${reservation.grooming_service_name}` : ""}:{" "}
-              {fmtDateTime(reservation.start_date)} -{" "}
-              <span className="font-bold">{fmtDateTime(reservation.end_date)}</span>
-            </p>
+            <div className="mt-2">
+              <div className="text-sm font-semibold text-slate-600">
+                {type?.name ?? "Reservation"}
+                {reservation.grooming_service_name ? ` — ${reservation.grooming_service_name}` : ""}
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-2 text-base leading-snug">
+                <span className="whitespace-nowrap">{fmtDateTime(reservation.start_date)}</span>
+                <span className="text-slate-400">→</span>
+                <span className="whitespace-nowrap font-bold">{fmtDateTime(reservation.end_date)}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -149,25 +157,25 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
           {animal?.feeding_instructions && (
             <p className="whitespace-pre-line break-words text-amber-800">
               <span className="mr-1">🍽️</span>
-              <span className="font-semibold">Feeding:</span> {animal.feeding_instructions}
+              <span className="font-semibold">Feeding:</span> {stripHtml(animal.feeding_instructions)}
             </p>
           )}
           {animal?.grooming_notes && (
             <p className="mt-1 whitespace-pre-line break-words text-blue-600">
               <span className="mr-1">✂️</span>
-              <span className="font-semibold">Grooming:</span> {animal.grooming_notes}
+              <span className="font-semibold">Grooming:</span> {stripHtml(animal.grooming_notes)}
             </p>
           )}
           {animal?.behavioral_notes && (
             <p className="mt-1 whitespace-pre-line break-words text-green-700">
               <span className="mr-1">🐾</span>
-              <span className="font-semibold">Groupable:</span> {animal.behavioral_notes}
+              <span className="font-semibold">Groupable:</span> {stripHtml(animal.behavioral_notes)}
             </p>
           )}
           {animal?.alert_note && (
             <p className="mt-1 whitespace-pre-line break-words font-semibold text-slate-900">
               <span className="mr-1">❗</span>
-              Read: {animal.alert_note}
+              Read: {stripHtml(animal.alert_note)}
             </p>
           )}
           {(isPoopEater || isPeeDrinker) && (
@@ -193,22 +201,22 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
 
         {animal?.medical_notes && (
           <div className="mt-3 whitespace-pre-line break-words border-t border-slate-200 pt-3 text-sm">
-            <span className="font-semibold">Medical Notes / Allergies:</span> {animal.medical_notes}
+            <span className="font-semibold">Medical Notes / Allergies:</span> {stripHtml(animal.medical_notes)}
           </div>
         )}
         {animal?.medications && (
           <div className="mt-2 whitespace-pre-line break-words text-sm">
-            <span className="font-semibold">Medications:</span> {animal.medications}
+            <span className="font-semibold">Medications:</span> {stripHtml(animal.medications)}
           </div>
         )}
         {reservation.belongings && (
           <div className="mt-2 whitespace-pre-line break-words text-sm">
-            <span className="font-semibold">Belongings:</span> {reservation.belongings}
+            <span className="font-semibold">Belongings:</span> {stripHtml(reservation.belongings)}
           </div>
         )}
         {reservation.notes && (
           <div className="mt-2 whitespace-pre-line break-words text-sm">
-            <span className="font-semibold">Reservation Notes:</span> {reservation.notes}
+            <span className="font-semibold">Reservation Notes:</span> {stripHtml(reservation.notes)}
           </div>
         )}
 
