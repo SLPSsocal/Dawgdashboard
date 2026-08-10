@@ -28,6 +28,7 @@ const MORE: Item[] = [
 ];
 const ADMIN: Item[] = [
   { name: "Admin Reports", href: "/admin" },
+  { name: "QA Test Center", href: "/qa" },
   { name: "Referral Sources", href: "/referral-sources" },
   { name: "Profile Tags", href: "/profile-tags" },
   { name: "Reported Issues", href: "/support" },

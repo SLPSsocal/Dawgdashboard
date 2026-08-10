@@ -7,7 +7,10 @@ import { test, expect } from "@playwright/test";
 test("check-in board renders with KPI strip", async ({ page }) => {
   await page.goto("/reservations");
   await expect(page.getByRole("heading", { name: "Check-in Board" })).toBeVisible();
-  await expect(page.getByText("Checked In")).toBeVisible();
+  // "Checked In" appears in both the KPI strip and the "Currently Checked In"
+  // section heading after the dashboard redesign — assert the section, which
+  // is unique.
+  await expect(page.getByText("Currently Checked In")).toBeVisible();
   await expect(page.getByText("Service mix")).toBeVisible();
 });
 
@@ -29,12 +32,15 @@ test("animal detail shows QA seed data", async ({ page }) => {
 });
 
 test("run card preview renders without printing", async ({ page }) => {
-  // The seeded checked-in QA reservation for Ruby.
+  // Animal-name links go to the ANIMAL page; the run card lives on the
+  // reservation. Route through the row's ⋮ menu -> View Reservation Details.
   await page.goto("/reservations");
-  await page.getByRole("link", { name: /Ruby/ }).first().click();
+  const row = page.getByRole("row", { name: /Ruby/ }).first();
+  await row.getByRole("button", { name: "⋮" }).click();
+  await page.getByRole("link", { name: /View Reservation Details/ }).click();
   await page.getByRole("link", { name: /Preview Run Card/ }).click();
-  await expect(page.getByText(/Run Card/)).toBeVisible();
-  await expect(page.getByText(/Feeding:/)).toBeVisible();
+  await expect(page.getByText(/Run Card/).first()).toBeVisible();
+  await expect(page.getByText(/Feeding:/).first()).toBeVisible();
 });
 
 test("parents list has clickable phone links", async ({ page }) => {
