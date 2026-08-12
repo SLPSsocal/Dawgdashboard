@@ -75,6 +75,10 @@ export default function BookingForm({
   const [specialistId, setSpecialistId] = useState("");
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
+  // Boarding/daycare drop-off and pick-up times (Kathleen's request — bookings
+  // were date-only). Pick-up defaults to noon: that's the late-fee cutoff.
+  const [dropOffTime, setDropOffTime] = useState("09:00");
+  const [pickUpTime, setPickUpTime] = useState("12:00");
   const [startTime, setStartTime] = useState("09:00");
   const [durationMinutes, setDurationMinutes] = useState(FALLBACK_DURATION);
   const [durationTouched, setDurationTouched] = useState(false);
@@ -208,8 +212,9 @@ export default function BookingForm({
             reservationTypeId: typeId || null,
             lodgingAreaId: type?.requiresLodging ? lodgingAreaId || null : null,
             startDate,
-            startTime: usesTimeSlot ? startTime : null,
+            startTime: usesTimeSlot ? startTime : dropOffTime || null,
             endDate: usesTimeSlot ? null : endDate,
+            endTime: usesTimeSlot ? null : pickUpTime || null,
             durationMinutes: usesTimeSlot ? durationMinutes : null,
             // A shared specialist/service memory lookup only makes sense for
             // the primary dog that was actually picked via the grooming
@@ -433,7 +438,7 @@ export default function BookingForm({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <label className="block">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Start Date<span className="text-red-500"> *</span>
@@ -447,6 +452,15 @@ export default function BookingForm({
             />
           </label>
           <label className="block">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Drop-off Time</span>
+            <input
+              type="time"
+              value={dropOffTime}
+              onChange={(e) => setDropOffTime(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label className="block">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">End Date</span>
             <input
               type="date"
@@ -454,6 +468,18 @@ export default function BookingForm({
               onChange={(e) => setEndDate(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Pick-up Time</span>
+            <input
+              type="time"
+              value={pickUpTime}
+              onChange={(e) => setPickUpTime(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              Boarding pick-ups after 12:15 PM add the late fee at checkout.
+            </p>
           </label>
         </div>
       )}

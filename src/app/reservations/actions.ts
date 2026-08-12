@@ -119,8 +119,9 @@ export async function createReservation(payload: {
   reservationTypeId: string | null;
   lodgingAreaId: string | null;
   startDate: string; // "YYYY-MM-DD"
-  startTime: string | null; // "HH:MM", grooming only
+  startTime: string | null; // "HH:MM" — grooming slot, or boarding/daycare drop-off
   endDate: string | null; // "YYYY-MM-DD", boarding/daycare only
+  endTime?: string | null; // "HH:MM" — boarding/daycare pick-up
   durationMinutes: number | null; // grooming only
   specialistId: string | null;
   serviceName: string | null; // grooming service, for remembering duration/specialist
@@ -135,6 +136,14 @@ export async function createReservation(payload: {
     throw new Error("A dog and start date are required.");
   }
 
+  // Fetched once, used for both drop-off and pick-up wall-clock conversions.
+  const { data: facilityTz } = await supabase
+    .from("facilities")
+    .select("timezone")
+    .eq("id", payload.facilityId)
+    .maybeSingle();
+  const tz = facilityTz?.timezone ?? "America/New_York";
+
   let start: Date;
   if (payload.startTime) {
     // A specific time-of-day is a wall-clock time at THIS facility, not
@@ -142,8 +151,7 @@ export async function createReservation(payload: {
     // facility's own timezone or it ends up hours off (this is what caused
     // an 8:00 AM Pacific appointment to get stored — and displayed — as
     // 1:00 AM).
-    const { data: facility } = await supabase.from("facilities").select("timezone").eq("id", payload.facilityId).maybeSingle();
-    start = zonedTimeToUtc(payload.startDate, payload.startTime, facility?.timezone ?? "America/New_York");
+    start = zonedTimeToUtc(payload.startDate, payload.startTime, tz);
   } else {
     start = new Date(`${payload.startDate}T00:00:00`);
   }
@@ -151,7 +159,9 @@ export async function createReservation(payload: {
   const end =
     payload.durationMinutes != null
       ? new Date(start.getTime() + payload.durationMinutes * 60000)
-      : new Date(`${payload.endDate ?? payload.startDate}T00:00:00`);
+      : payload.endTime
+        ? zonedTimeToUtc(payload.endDate ?? payload.startDate, payload.endTime, tz)
+        : new Date(`${payload.endDate ?? payload.startDate}T00:00:00`);
 
   const { data: reservation, error } = await supabase
     .from("reservations")

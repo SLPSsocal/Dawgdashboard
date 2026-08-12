@@ -77,7 +77,35 @@ export default function CheckoutCalculator({
   careNote?: string | null;
 }) {
   const [numDogs, setNumDogs] = useState(1);
-  const [checkedFees, setCheckedFees] = useState<Set<string>>(new Set());
+  // Late checkout is automatic: boarding pickups after 12:15 PM (noon + 15min
+  // grace) pre-check the late fee so nobody has to remember the dropdown.
+  // Staff can still untick it for an exception.
+  const [checkedFees, setCheckedFees] = useState<Set<string>>(() => {
+    if (rateUnit !== "per_night") return new Set();
+    const nowPT = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(new Date());
+    const h = Number(nowPT.find((p) => p.type === "hour")?.value ?? 0);
+    const m = Number(nowPT.find((p) => p.type === "minute")?.value ?? 0);
+    if (h * 60 + m < 12 * 60 + 15) return new Set();
+    return new Set(
+      rules
+        .filter((r) => r.rule_type === "flat_fee" && /late\s*check[- ]?out/i.test(r.label))
+        .map((r) => r.id)
+    );
+  });
+  const autoLateFeeIds = useMemo(
+    () =>
+      new Set(
+        rateUnit === "per_night"
+          ? rules.filter((r) => r.rule_type === "flat_fee" && /late\s*check[- ]?out/i.test(r.label)).map((r) => r.id)
+          : []
+      ),
+    [rules, rateUnit]
+  );
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
   const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>(initialRetailRows ?? []);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
@@ -460,6 +488,11 @@ export default function CheckoutCalculator({
                   }
                 />
                 {rule.label} (+${rule.amount.toFixed(2)})
+                {autoLateFeeIds.has(rule.id) && checkedFees.has(rule.id) && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                    auto — pickup after 12:15 PM (untick if excused)
+                  </span>
+                )}
               </label>
             ))}
           </div>

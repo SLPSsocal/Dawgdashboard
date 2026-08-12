@@ -159,7 +159,26 @@ export default async function ReservationsPage() {
           tall empty gap under the short stat row beside the breakdown card. */}
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-[19px] font-semibold leading-tight">Check-in Board</h1>
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h1 className="text-[19px] font-semibold leading-tight">Check-in Board</h1>
+            {/* Quick calendar links (Kathleen's request) — new tab so the board stays put. */}
+            <a
+              href="/lodging/calendar"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[13px] text-indigo-600 underline decoration-indigo-300 hover:decoration-indigo-600 dark:text-indigo-400"
+            >
+              Lodging Calendar ↗
+            </a>
+            <a
+              href="/facility-calendar"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[13px] text-indigo-600 underline decoration-indigo-300 hover:decoration-indigo-600 dark:text-indigo-400"
+            >
+              Facility Calendar ↗
+            </a>
+          </div>
           <span className="text-[13px] text-slate-500 dark:text-slate-400">
             {new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
           </span>

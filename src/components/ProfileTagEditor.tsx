@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { assignProfileTag, removeProfileTagAssignment, updateProfileTagNote } from "@/app/profile-tags/actions";
+import Toggle from "@/components/ui/Toggle";
 import Link from "next/link";
 
 type Catalog = { id: string; icon: string; name: string; description: string | null };
@@ -79,17 +80,19 @@ export default function ProfileTagEditor({
                 : "border-slate-200 dark:border-slate-800"
             }`}
           >
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={isPending}
-                onChange={(e) => toggle(tag, e.target.checked)}
-              />
+            {/* Toggle instead of checkbox (Kathleen's request) — same
+                multi-select behavior, just a clearer on/off control. */}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => toggle(tag, !checked)}
+              className="flex w-full cursor-pointer items-center gap-2 text-left disabled:opacity-60"
+            >
+              <Toggle checked={checked} label={`${checked ? "Remove" : "Add"} ${tag.name}`} />
               <span>
                 {tag.icon} {tag.name}
               </span>
-            </label>
+            </button>
             {checked && (
               <input
                 value={notes[tag.id] ?? ""}

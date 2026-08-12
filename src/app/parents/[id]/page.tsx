@@ -205,7 +205,7 @@ export default async function ParentDetailPage({
                 className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
               >
                 <Link
-                  href={`/animals/${a.id}`}
+                  href={`/animals/${a.id}?from=/parents/${id}`}
                   className="min-w-0 flex-1 underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600"
                 >
                   <span className="font-medium">{a.name}</span>{" "}

@@ -19,12 +19,15 @@ export default async function AnimalDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; from?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, from } = await searchParams;
+  // Context-aware back link (Kathleen's request): arriving from a parent page
+  // goes back there, not to the full Animals list. Only same-app paths.
+  const cameFromParent = typeof from === "string" && /^\/parents\/[0-9a-f-]+$/.test(from);
 
   const supabase = createClient();
   const { data: animal } = await supabase
@@ -58,8 +61,13 @@ export default async function AnimalDetailPage({
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <PageQuickActions session={session!} />
 
-        <Link href="/animals" className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500">
-          ← Animals
+        <Link
+          href={cameFromParent ? from! : "/animals"}
+          className="mt-4 inline-block text-sm text-slate-400 underline dark:text-slate-500"
+        >
+          {cameFromParent
+            ? `← ${parent ? `${parent.first_name} ${parent.last_name}` : "Parent"}`
+            : "← Animals"}
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold">{animal.name}</h1>

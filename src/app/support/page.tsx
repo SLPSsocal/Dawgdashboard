@@ -19,7 +19,7 @@ export default async function SupportTicketsPage() {
   const supabase = createClient();
   const { data: tickets } = await supabase
     .from("support_tickets")
-    .select("id, staff_name, message, screenshot_url, attachment_url, page_url, status, created_at")
+    .select("id, staff_name, message, screenshot_url, attachment_url, page_url, status, created_at, response, responded_at")
     .eq("facility_id", session!.facilityId)
     .order("created_at", { ascending: false });
 
@@ -33,8 +33,8 @@ export default async function SupportTicketsPage() {
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold">Reported Issues — {session!.facilityName}</h1>
         <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
-          Submitted via the 💬 button in the corner of every page. Nothing routes anywhere automatically yet — this
-          list is the whole pipeline for now until it's wired up to a Slack channel.
+          Submitted via the 💬 button in the corner of every page. Feedback is reviewed every morning —
+          answers appear right here under each report.
         </p>
 
         <div className="mt-3">
@@ -62,6 +62,17 @@ export default async function SupportTicketsPage() {
               </div>
 
               <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{t.message}</p>
+
+              {t.response && (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                    ↩ Reply{t.responded_at ? ` · ${new Date(t.responded_at).toLocaleDateString()}` : ""}
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-emerald-900 dark:text-emerald-200">
+                    {t.response}
+                  </p>
+                </div>
+              )}
 
               {t.page_url && (
                 <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Page: {t.page_url}</p>
