@@ -416,3 +416,74 @@ export async function getRevenueByServiceType(
 
   return Array.from(acc.values()).sort((a, b) => a.facilityName.localeCompare(b.facilityName));
 }
+
+// ---------------------------------------------------------------------------
+// Referral-source ROI: which channel (Yelp / Google / Facebook / word of
+// mouth…) brings in new customers, and what those customers are worth.
+// "New customers" = parents CREATED in the window; revenue = their invoices,
+// both inside the window and lifetime-to-date, so monthly ad spend can be
+// compared against what the channel actually produced.
+// ---------------------------------------------------------------------------
+export type ReferralReportRow = {
+  source: string;
+  newCustomers: number;
+  revenueInPeriod: number;
+  revenueToDate: number;
+  avgToDate: number;
+};
+
+export async function getReferralReport(
+  from: string,
+  to: string,
+  facilityId: string | null
+): Promise<{ rows: ReferralReportRow[]; totalNew: number }> {
+  const supabase = createClient();
+  const { data: parents } = await supabase
+    .from("parents")
+    .select("id, referral_source, created_at")
+    .gte("created_at", `${from}T00:00:00`)
+    .lte("created_at", `${to}T23:59:59`);
+
+  const byParent = new Map<string, string>();
+  for (const p of parents ?? []) {
+    byParent.set(p.id, (p.referral_source ?? "").trim() || "(not recorded)");
+  }
+  if (byParent.size === 0) return { rows: [], totalNew: 0 };
+
+  // All invoices ever for these new customers (facility-filtered when asked) —
+  // one query, split into in-period vs to-date in memory.
+  let invQuery = supabase
+    .from("invoices")
+    .select("parent_id, total, created_at, paid_at, status")
+    .in("parent_id", Array.from(byParent.keys()));
+  if (facilityId) invQuery = invQuery.eq("facility_id", facilityId);
+  const { data: invoices } = await invQuery;
+
+  const agg = new Map<string, ReferralReportRow>();
+  const rowFor = (source: string) => {
+    let r = agg.get(source);
+    if (!r) {
+      r = { source, newCustomers: 0, revenueInPeriod: 0, revenueToDate: 0, avgToDate: 0 };
+      agg.set(source, r);
+    }
+    return r;
+  };
+  for (const source of byParent.values()) rowFor(source).newCustomers += 1;
+
+  for (const inv of invoices ?? []) {
+    const source = byParent.get(inv.parent_id as string);
+    if (!source) continue;
+    const total = Number(inv.total ?? 0);
+    const when = String(inv.paid_at ?? inv.created_at).slice(0, 10);
+    const r = rowFor(source);
+    r.revenueToDate += total;
+    if (when >= from && when <= to) r.revenueInPeriod += total;
+  }
+
+  const rows = Array.from(agg.values()).map((r) => ({
+    ...r,
+    avgToDate: r.newCustomers > 0 ? r.revenueToDate / r.newCustomers : 0,
+  }));
+  rows.sort((a, b) => b.revenueToDate - a.revenueToDate || b.newCustomers - a.newCustomers);
+  return { rows, totalNew: byParent.size };
+}

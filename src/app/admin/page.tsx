@@ -18,6 +18,12 @@ const REPORTS = [
     blurb: "Boarding, daycare, grooming, retail, fees and tips broken out per location.",
   },
   {
+    href: "/admin/referrals",
+    title: "Referral Sources ROI",
+    blurb:
+      "New customers per referral source (Yelp, Google, Facebook…) for a date range, plus the revenue those customers generated — compare against what you spent on each channel.",
+  },
+  {
     href: "/admin/sales-tax",
     title: "Sales Tax",
     blurb:
