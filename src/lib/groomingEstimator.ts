@@ -148,12 +148,22 @@ export function buildQuote(
   if (opts.remembered != null) {
     baseLo = baseHi = opts.remembered;
     basis = "remembered";
-  } else if (opts.menuRange) {
-    [baseLo, baseHi] = opts.menuRange;
-    basis = "menu";
   } else {
+    // The historical model (service × size band from ~4,400 real grooms) is
+    // ALWAYS the basis — the facility menu's min–max is far too wide to quote
+    // from (e.g. haircut $70–$160). The menu only clamps the band so a quote
+    // never falls outside what the facility actually charges.
     [baseLo, baseHi] = BASE_PRICE[svc][size];
     basis = "model";
+    if (opts.menuRange) {
+      const [mLo, mHi] = opts.menuRange;
+      const lo = Math.max(baseLo, mLo);
+      const hi = Math.min(baseHi, mHi);
+      if (lo <= hi) {
+        baseLo = lo;
+        baseHi = hi;
+      }
+    }
   }
 
   const svcLabel = svc === "groom" ? "Full groom / haircut" : "Bath & tidy";
