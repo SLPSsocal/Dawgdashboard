@@ -111,11 +111,9 @@ export default function AppNav() {
 
   return (
     <>
-      {/* Desktop nav */}
+      {/* Desktop nav — no Check-in Board link here: the facility name on the
+          left of the header already goes to the board. */}
       <nav className="hidden items-center gap-0.5 md:flex">
-        <Link href="/reservations" className={itemClass(pathname === "/reservations")}>
-          Check-in Board
-        </Link>
         <button type="button" onClick={openCheckIn} className={itemClass(false)}>
           Quick Check-in
         </button>
@@ -153,9 +151,6 @@ export default function AppNav() {
               </button>
             </div>
 
-            <Link href="/reservations" className={`mb-0.5 block ${itemClass(pathname === "/reservations")} w-full`}>
-              Check-in Board
-            </Link>
             <button
               type="button"
               onClick={() => {
