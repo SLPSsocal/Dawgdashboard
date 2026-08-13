@@ -99,19 +99,41 @@ export default async function AdminReferralsPage({
               </thead>
               <tbody>
                 {report.rows.map((r) => (
-                  <tr key={r.source} className="border-b border-slate-100 dark:border-slate-800">
-                    <td className="px-4 py-2 font-medium">{r.source}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{r.newCustomers}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">
-                      {r.revenueInPeriod === 0 ? "—" : money(r.revenueInPeriod)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                      {r.revenueToDate === 0 ? "—" : money(r.revenueToDate)}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">
-                      {r.avgToDate === 0 ? "—" : money(r.avgToDate)}
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={r.source} className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="px-4 py-2 font-medium">{r.source}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{r.newCustomers}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                        {r.revenueInPeriod === 0 ? "—" : money(r.revenueInPeriod)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                        {r.revenueToDate === 0 ? "—" : money(r.revenueToDate)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                        {r.avgToDate === 0 ? "—" : money(r.avgToDate)}
+                      </td>
+                    </tr>
+                    {/* Per-facility split (All Locations view): customer counts
+                        by where they first booked; revenue by which facility
+                        invoiced it. */}
+                    {!facilityId &&
+                      r.facilities.map((f) => (
+                        <tr
+                          key={`${r.source}-${f.facilityId}`}
+                          className="border-b border-slate-50 bg-slate-50/40 text-xs text-slate-500 dark:border-slate-800/60 dark:bg-slate-950/20 dark:text-slate-400"
+                        >
+                          <td className="py-1.5 pl-8 pr-4">↳ {f.facilityName}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">{f.newCustomers || "—"}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">
+                            {f.revenueInPeriod === 0 ? "—" : money(f.revenueInPeriod)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">
+                            {f.revenueToDate === 0 ? "—" : money(f.revenueToDate)}
+                          </td>
+                          <td className="px-4 py-1.5" />
+                        </tr>
+                      ))}
+                  </>
                 ))}
                 {report.rows.length > 1 && (
                   <tr className="bg-slate-50/60 dark:bg-slate-950/30">

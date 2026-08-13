@@ -424,12 +424,22 @@ export async function getRevenueByServiceType(
 // both inside the window and lifetime-to-date, so monthly ad spend can be
 // compared against what the channel actually produced.
 // ---------------------------------------------------------------------------
+export type ReferralFacilitySlice = {
+  facilityId: string;
+  facilityName: string;
+  newCustomers: number; // customers whose FIRST booking/invoice was here
+  revenueInPeriod: number; // invoices issued at this facility
+  revenueToDate: number;
+};
+
 export type ReferralReportRow = {
   source: string;
   newCustomers: number;
   revenueInPeriod: number;
   revenueToDate: number;
   avgToDate: number;
+  /** Per-facility split, only populated for the All Locations view. */
+  facilities: ReferralFacilitySlice[];
 };
 
 export async function getReferralReport(
@@ -449,26 +459,61 @@ export async function getReferralReport(
     byParent.set(p.id, (p.referral_source ?? "").trim() || "(not recorded)");
   }
   if (byParent.size === 0) return { rows: [], totalNew: 0 };
+  const parentIds = Array.from(byParent.keys());
+
+  const facilities = await getFacilities();
+  const facName = new Map(facilities.map((f) => [f.id, f.name]));
 
   // All invoices ever for these new customers (facility-filtered when asked) —
   // one query, split into in-period vs to-date in memory.
   let invQuery = supabase
     .from("invoices")
-    .select("parent_id, total, created_at, paid_at, status")
-    .in("parent_id", Array.from(byParent.keys()));
+    .select("parent_id, facility_id, total, created_at, paid_at, status")
+    .in("parent_id", parentIds);
   if (facilityId) invQuery = invQuery.eq("facility_id", facilityId);
   const { data: invoices } = await invQuery;
+
+  // Home facility = where the customer FIRST booked (falls back to first
+  // invoice). Splits the customer COUNT per facility in the all-locations view.
+  const homeFacility = new Map<string, string>();
+  const { data: firstRes } = await supabase
+    .from("reservations")
+    .select("facility_id, created_at, animals!inner ( parent_id )")
+    .in("animals.parent_id", parentIds)
+    .order("created_at", { ascending: true });
+  for (const r of (firstRes ?? []) as unknown as { facility_id: string; animals: { parent_id: string } }[]) {
+    const pid = r.animals?.parent_id;
+    if (pid && !homeFacility.has(pid)) homeFacility.set(pid, r.facility_id);
+  }
+  for (const inv of invoices ?? []) {
+    const pid = inv.parent_id as string;
+    if (pid && !homeFacility.has(pid)) homeFacility.set(pid, inv.facility_id as string);
+  }
 
   const agg = new Map<string, ReferralReportRow>();
   const rowFor = (source: string) => {
     let r = agg.get(source);
     if (!r) {
-      r = { source, newCustomers: 0, revenueInPeriod: 0, revenueToDate: 0, avgToDate: 0 };
+      r = { source, newCustomers: 0, revenueInPeriod: 0, revenueToDate: 0, avgToDate: 0, facilities: [] };
       agg.set(source, r);
     }
     return r;
   };
-  for (const source of byParent.values()) rowFor(source).newCustomers += 1;
+  const sliceFor = (row: ReferralReportRow, fid: string) => {
+    let s = row.facilities.find((f) => f.facilityId === fid);
+    if (!s) {
+      s = { facilityId: fid, facilityName: facName.get(fid) ?? "Unknown", newCustomers: 0, revenueInPeriod: 0, revenueToDate: 0 };
+      row.facilities.push(s);
+    }
+    return s;
+  };
+
+  for (const [pid, source] of byParent) {
+    const r = rowFor(source);
+    r.newCustomers += 1;
+    const home = homeFacility.get(pid);
+    if (home) sliceFor(r, home).newCustomers += 1;
+  }
 
   for (const inv of invoices ?? []) {
     const source = byParent.get(inv.parent_id as string);
@@ -477,12 +522,17 @@ export async function getReferralReport(
     const when = String(inv.paid_at ?? inv.created_at).slice(0, 10);
     const r = rowFor(source);
     r.revenueToDate += total;
-    if (when >= from && when <= to) r.revenueInPeriod += total;
+    const inPeriod = when >= from && when <= to;
+    if (inPeriod) r.revenueInPeriod += total;
+    const s = sliceFor(r, inv.facility_id as string);
+    s.revenueToDate += total;
+    if (inPeriod) s.revenueInPeriod += total;
   }
 
   const rows = Array.from(agg.values()).map((r) => ({
     ...r,
     avgToDate: r.newCustomers > 0 ? r.revenueToDate / r.newCustomers : 0,
+    facilities: r.facilities.sort((a, b) => b.revenueToDate - a.revenueToDate),
   }));
   rows.sort((a, b) => b.revenueToDate - a.revenueToDate || b.newCustomers - a.newCustomers);
   return { rows, totalNew: byParent.size };
