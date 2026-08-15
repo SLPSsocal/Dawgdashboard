@@ -8,6 +8,7 @@ import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
+import { getGingrCheckins } from "@/lib/gingr";
 
 type Row = {
   id: string;
@@ -105,6 +106,22 @@ export default async function ReservationsPage() {
     }
   }
 
+  // Live Gingr layer (migration period): who Gingr says is in the building
+  // right now, shown as its own section with ✱. Fail-soft when unreachable.
+  const { data: facilityRowForSlug } = await supabase
+    .from("facilities")
+    .select("slug")
+    .eq("id", session!.facilityId)
+    .maybeSingle();
+  const { checkins: gingrCheckins, error: gingrError } = await getGingrCheckins(facilityRowForSlug?.slug ?? "");
+  const gingrGids = gingrCheckins.map((c) => c.gingrAnimalId).filter(Boolean);
+  const { data: gingrMatched } = gingrGids.length
+    ? await supabase.from("animals").select("id, gingr_animal_id").in("gingr_animal_id", gingrGids)
+    : { data: [] };
+  const gidToAnimal = new Map(
+    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null }[]).map((a) => [String(a.gingr_animal_id), a.id])
+  );
+
   const boardRows: CheckInRow[] = rows.map(toRow);
   const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
 
@@ -190,6 +207,51 @@ export default async function ReservationsPage() {
         <div className="mt-3 flex flex-col gap-2">
           <DailySummaryBar stats={stats} />
           <ServiceBreakdownTable breakdown={breakdown} />
+
+          {/* Migration-period live view: what Gingr says is in the building. */}
+          {(gingrCheckins.length > 0 || gingrError) && (
+            <details className="group rounded-xl border border-indigo-200 bg-white dark:border-indigo-900 dark:bg-slate-900" open>
+              <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-400">
+                  ✱ Live from Gingr — {gingrError ? "unavailable" : `${gingrCheckins.length} checked in right now`}
+                </span>
+                <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
+                  ▾
+                </span>
+              </summary>
+              <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                {gingrError && (
+                  <p className="px-4 py-2 text-[12px] text-slate-400 dark:text-slate-500">
+                    Couldn&apos;t reach the Gingr feed ({gingrError}). Try a refresh.
+                  </p>
+                )}
+                {gingrCheckins.map((c) => {
+                  const matchedId = gidToAnimal.get(c.gingrAnimalId);
+                  return (
+                    <div key={c.gingrReservationId} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
+                      {matchedId ? (
+                        <a href={`/animals/${matchedId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                          {c.animalName}
+                        </a>
+                      ) : (
+                        <span className="font-medium" title="Not ported into the dashboard yet — lives in Gingr">
+                          {c.animalName} ✱
+                        </span>
+                      )}
+                      <span className="text-slate-400 dark:text-slate-500">{c.breed ?? ""}</span>
+                      <span className="text-slate-500 dark:text-slate-400">{c.ownerName ?? ""}</span>
+                      <span className="text-slate-400 dark:text-slate-500">{c.type ?? ""}</span>
+                      {c.medicines && <span title={`Meds: ${c.medicines}`}>💊</span>}
+                      <span className="ml-auto text-slate-400 dark:text-slate-500">
+                        departs{" "}
+                        {new Date(c.endDate).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
 
           {overnightRows.length > 0 && (
             <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

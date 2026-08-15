@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import FeedingBoard, { type FeedingRow, type MealName } from "@/components/FeedingBoard";
 import { stripHtml } from "@/lib/text";
+import { getGingrCheckins } from "@/lib/gingr";
 
 // Default the meal tab to whatever mealtime it actually is right now
 // (Pacific), so staff opening the page at 5pm land on Dinner, not Breakfast.
@@ -94,6 +95,44 @@ export default async function FeedingPage({
       endYmd: ymdPT(r.end_date),
     });
   }
+  // ---- Live Gingr layer (migration period): the dogs ACTUALLY checked in
+  // right now per Gingr, merged in with a ✱ badge. Matched imported animals
+  // get their full profile; unmatched ones appear live-only.
+  const { checkins: gingrCheckins, error: gingrError } = await getGingrCheckins(slug);
+  if (gingrCheckins.length > 0) {
+    const gids = gingrCheckins.map((c) => c.gingrAnimalId).filter(Boolean);
+    const { data: matchedAnimals } = gids.length
+      ? await supabase
+          .from("animals")
+          .select("id, name, gingr_animal_id, feeding_instructions, medications, alert_note, parents ( last_name )")
+          .in("gingr_animal_id", gids)
+      : { data: [] };
+    const byGid = new Map(
+      ((matchedAnimals ?? []) as unknown as { id: string; gingr_animal_id: number | string | null; feeding_instructions: string | null; medications: string | null; alert_note: string | null; parents: { last_name: string } | null }[]).map(
+        (a) => [String(a.gingr_animal_id), a]
+      )
+    );
+    const already = new Set(rows.map((r) => r.petId));
+    for (const c of gingrCheckins) {
+      if (!c.gingrAnimalId || already.has(c.gingrAnimalId)) continue;
+      const m = byGid.get(c.gingrAnimalId);
+      rows.push({
+        petId: c.gingrAnimalId,
+        animalId: m?.id ?? "",
+        reservationId: "",
+        name: c.animalName ?? "Unknown",
+        parentLastName: m?.parents?.last_name ?? (c.ownerName ? c.ownerName.split(" ").slice(-1)[0] : null),
+        feeding: m?.feeding_instructions ? stripHtml(m.feeding_instructions) : null,
+        medications: (m?.medications ? stripHtml(m.medications) : null) ?? c.medicines,
+        alertNote: m?.alert_note ?? c.allergies,
+        typeName: c.type,
+        isOvernight: ymdPT(c.endDate) > ymdPT(c.startDate),
+        startYmd: ymdPT(c.startDate),
+        endYmd: ymdPT(c.endDate),
+        isLive: true,
+      });
+    }
+  }
   rows.sort((x, y) => x.name.localeCompare(y.name));
 
   // All of today's logs (every meal) so the tabs can show progress counts and
@@ -119,6 +158,13 @@ export default async function FeedingPage({
           meal={meal}
           facilitySlug={slug}
           staffName={session!.staffName}
+          gingrNote={
+            gingrError
+              ? `Live Gingr feed unavailable right now (${gingrError}) — showing dashboard reservations only.`
+              : gingrCheckins.length > 0
+                ? `✱ = checked in via Gingr (live). ${gingrCheckins.length} live dogs merged in.`
+                : null
+          }
         />
       </div>
     </main>

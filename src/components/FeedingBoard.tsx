@@ -26,6 +26,8 @@ export type FeedingRow = {
   isOvernight: boolean;
   startYmd: string;
   endYmd: string;
+  /** Checked in via Gingr's live feed (migration period) — shown with ✱. */
+  isLive?: boolean;
 };
 
 type LogRow = {
@@ -59,6 +61,7 @@ export default function FeedingBoard({
   meal,
   facilitySlug,
   staffName,
+  gingrNote,
 }: {
   rows: FeedingRow[];
   logs: LogRow[];
@@ -66,6 +69,7 @@ export default function FeedingBoard({
   meal: MealName;
   facilitySlug: string;
   staffName?: string | null;
+  gingrNote?: string | null;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -153,6 +157,9 @@ export default function FeedingBoard({
           <p className="text-[13px] text-slate-500 dark:text-slate-400">
             {rows.length} checked in · logs sync with the PawFeed tablet app
           </p>
+          {gingrNote && (
+            <p className="mt-0.5 text-[12px] text-indigo-500 dark:text-indigo-400">{gingrNote}</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -223,12 +230,21 @@ export default function FeedingBoard({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <Link
-                    href={`/animals/${row.animalId}`}
-                    className="text-[15px] font-semibold underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600"
-                  >
-                    {row.name}
-                  </Link>
+                  {row.animalId ? (
+                    <Link
+                      href={`/animals/${row.animalId}`}
+                      className="text-[15px] font-semibold underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600"
+                    >
+                      {row.name}
+                    </Link>
+                  ) : (
+                    <span className="text-[15px] font-semibold">{row.name}</span>
+                  )}
+                  {row.isLive && (
+                    <span title="Checked in via Gingr (live) — not ported into the dashboard yet" className="ml-1 text-[13px] text-indigo-500 dark:text-indigo-400">
+                      ✱
+                    </span>
+                  )}
                   {row.parentLastName && (
                     <span className="ml-1.5 text-[12px] text-slate-400 dark:text-slate-500">({row.parentLastName})</span>
                   )}
