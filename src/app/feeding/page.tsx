@@ -99,6 +99,15 @@ export default async function FeedingPage({
   // right now per Gingr, merged in with a ✱ badge. Matched imported animals
   // get their full profile; unmatched ones appear live-only.
   const { checkins: gingrCheckins, error: gingrError } = await getGingrCheckins(slug);
+  // Gingr is the source of truth for who's physically here (migration mode):
+  // dashboard-only "checked in" rows that Gingr doesn't list are test data —
+  // drop them from the feeding board rather than asking staff to feed ghosts.
+  if (!gingrError) {
+    const liveIds = new Set(gingrCheckins.map((c) => c.gingrAnimalId));
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (!liveIds.has(rows[i].petId)) rows.splice(i, 1);
+    }
+  }
   if (gingrCheckins.length > 0) {
     const gids = gingrCheckins.map((c) => c.gingrAnimalId).filter(Boolean);
     const { data: matchedAnimals } = gids.length

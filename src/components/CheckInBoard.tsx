@@ -22,6 +22,8 @@ export type CheckInRow = {
   phone: string | null;
   /** null = never sent, "sent"/"pending" = link out, "submitted" = form done */
   precheckinStatus: string | null;
+  /** Row comes from the live Gingr feed (migration mode) — read-only here. */
+  isLive?: boolean;
 };
 
 type SortKey = "animalName" | "parentName" | "typeName" | "lodgingName" | "startDate" | "endDate";
@@ -173,11 +175,23 @@ export default function CheckInBoard({
                 >
                   <td className="px-3 py-1.5">
                     <span className="inline-flex items-center gap-1.5">
-                      <Link href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
-                        {r.animalName}
-                      </Link>
+                      {r.animalId ? (
+                        <Link href={`/animals/${r.animalId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                          {r.animalName}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{r.animalName}</span>
+                      )}
+                      {r.isLive && (
+                        <span
+                          title="Live from Gingr — manage this stay in Gingr until cutover"
+                          className="text-[12px] text-indigo-500 dark:text-indigo-400"
+                        >
+                          ✱
+                        </span>
+                      )}
                       {r.alertNote && <span title={`Alert: ${r.alertNote}`}>❗</span>}
-                      <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />
+                      {r.animalId && <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />}
                     </span>
                     <div className="text-xs text-slate-400 dark:text-slate-500">{r.breed ?? "—"}</div>
                   </td>
@@ -199,7 +213,12 @@ export default function CheckInBoard({
                   <td className="px-3 py-1.5 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1.5">
-                      {r.status === "booked" && facilityId && (
+                      {r.isLive && (
+                        <span className="whitespace-nowrap rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
+                          in Gingr
+                        </span>
+                      )}
+                      {!r.isLive && r.status === "booked" && facilityId && (
                         r.precheckinStatus === "submitted" ? (
                           <span
                             title="Pre-check-in form submitted by the parent"
@@ -217,7 +236,7 @@ export default function CheckInBoard({
                           />
                         )
                       )}
-                      {r.status === "checked_in" && (
+                      {!r.isLive && r.status === "checked_in" && (
                         <Link
                           href={`/reservations/${r.id}/checkout`}
                           className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2 py-1 text-xs font-medium text-white dark:bg-slate-100 dark:text-slate-900"
@@ -225,15 +244,17 @@ export default function CheckInBoard({
                           Check Out
                         </Link>
                       )}
-                      <ReservationActionsMenu
-                        reservationId={r.id}
-                        animalId={r.animalId}
-                        animalName={r.animalName}
-                        parentId={r.parentId}
-                        parentName={r.parentName}
-                        status={r.status}
-                        performedBy={staffName}
-                      />
+                      {!r.isLive && (
+                        <ReservationActionsMenu
+                          reservationId={r.id}
+                          animalId={r.animalId}
+                          animalName={r.animalName}
+                          parentId={r.parentId}
+                          parentName={r.parentName}
+                          status={r.status}
+                          performedBy={staffName}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

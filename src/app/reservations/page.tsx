@@ -8,7 +8,8 @@ import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
-import { getGingrCheckins } from "@/lib/gingr";
+import { getGingrDay, type GingrCheckin } from "@/lib/gingr";
+import Link from "next/link";
 
 type Row = {
   id: string;
@@ -106,26 +107,80 @@ export default async function ReservationsPage() {
     }
   }
 
-  // Live Gingr layer (migration period): who Gingr says is in the building
-  // right now, shown as its own section with ✱. Fail-soft when unreachable.
+  // ---- Gingr is the SOURCE OF TRUTH for today during the migration period.
+  // The board's Checked In / Expected / Checked Out sections come from the
+  // live Gingr feed; dashboard-native rows that Gingr doesn't know about are
+  // shown separately (they're test data until cutover). Fail-soft: if Gingr
+  // is unreachable, the board falls back to dashboard data with a notice.
   const { data: facilityRowForSlug } = await supabase
     .from("facilities")
     .select("slug")
     .eq("id", session!.facilityId)
     .maybeSingle();
-  const { checkins: gingrCheckins, error: gingrError } = await getGingrCheckins(facilityRowForSlug?.slug ?? "");
-  const gingrGids = gingrCheckins.map((c) => c.gingrAnimalId).filter(Boolean);
+  const gingr = await getGingrDay(facilityRowForSlug?.slug ?? "");
+  const gingrMode = !gingr.error;
+  const allGingr = [...gingr.checkins, ...gingr.expected, ...gingr.checkedOut];
+  const gingrGids = allGingr.map((c) => c.gingrAnimalId).filter(Boolean);
   const { data: gingrMatched } = gingrGids.length
-    ? await supabase.from("animals").select("id, gingr_animal_id").in("gingr_animal_id", gingrGids)
+    ? await supabase.from("animals").select("id, gingr_animal_id, alert_note").in("gingr_animal_id", gingrGids)
     : { data: [] };
   const gidToAnimal = new Map(
-    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null }[]).map((a) => [String(a.gingr_animal_id), a.id])
+    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null; alert_note: string | null }[]).map((a) => [
+      String(a.gingr_animal_id),
+      a,
+    ])
   );
 
-  const boardRows: CheckInRow[] = rows.map(toRow);
-  const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
+  const gToRow = (c: GingrCheckin, status: "booked" | "checked_in" | "checked_out"): CheckInRow => {
+    const m = gidToAnimal.get(c.gingrAnimalId);
+    const allergy = c.allergies && !/^none\.?$/i.test(c.allergies) ? `Allergies: ${c.allergies}` : null;
+    return {
+      id: `gingr:${c.gingrReservationId}`,
+      status,
+      animalId: m?.id ?? "",
+      animalName: c.animalName ?? "Unknown",
+      alertNote: m?.alert_note ?? allergy,
+      breed: c.breed,
+      parentId: null,
+      parentName: c.ownerName,
+      typeName: c.type,
+      lodgingName: null,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      phone: c.ownerPhone,
+      precheckinStatus: null,
+      isLive: true,
+    };
+  };
 
-  const allRows = [...boardRows, ...checkedOutRows];
+  const dashboardRows: CheckInRow[] = rows.map(toRow);
+  // A dashboard row duplicates a Gingr row when its animal is matched to a
+  // Gingr id present in today's feed — Gingr wins.
+  const gingrAnimalIdSet = new Set(allGingr.map((c) => c.gingrAnimalId));
+  const animalIdToGid = new Map(
+    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null }[]).map((a) => [a.id, String(a.gingr_animal_id)])
+  );
+  const dupOfGingr = (r: CheckInRow) => gingrAnimalIdSet.has(animalIdToGid.get(r.animalId) ?? "");
+
+  let boardRows: CheckInRow[];
+  let checkedOutRowsFinal: CheckInRow[];
+  let dashboardOnlyCheckedIn: CheckInRow[] = [];
+  if (gingrMode) {
+    const dashBooked = dashboardRows.filter((r) => r.status === "booked" && !dupOfGingr(r));
+    dashboardOnlyCheckedIn = dashboardRows.filter((r) => r.status === "checked_in" && !dupOfGingr(r));
+    boardRows = [
+      ...gingr.checkins.map((c) => gToRow(c, "checked_in")),
+      ...gingr.expected.map((c) => gToRow(c, "booked")),
+      ...dashBooked,
+    ];
+    checkedOutRowsFinal = gingr.checkedOut.map((c) => gToRow(c, "checked_out"));
+  } else {
+    boardRows = dashboardRows;
+    checkedOutRowsFinal = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
+  }
+  const checkedOutRows = checkedOutRowsFinal;
+
+  const allRows = [...boardRows, ...checkedOutRows, ...dashboardOnlyCheckedIn];
   const [animalTags, parentTags] = await Promise.all([
     getProfileTagsBulk("animal", allRows.map((r) => r.animalId)),
     getProfileTagsBulk("parent", allRows.map((r) => r.parentId ?? "").filter(Boolean)),
@@ -158,11 +213,12 @@ export default async function ReservationsPage() {
     { label: "Total Today", value: expectedTodayCount + checkedInCount + checkedOutTodayCount },
   ];
 
-  // Breakdown by service type — every active reservation type shows, even at
-  // zero, so staff can see what's not moving today (matches Gingr's dash).
+  // Breakdown by service type — in Gingr mode the counts come from the live
+  // feed's own type names; otherwise every active dashboard type shows, even
+  // at zero, so staff can see what's not moving today.
   const typeCounts = new Map<string, number>();
-  for (const t of allTypes ?? []) typeCounts.set(t.name, 0);
-  for (const r of boardRows) {
+  if (!gingrMode) for (const t of allTypes ?? []) typeCounts.set(t.name, 0);
+  for (const r of [...boardRows, ...checkedOutRows]) {
     if (r.typeName) typeCounts.set(r.typeName, (typeCounts.get(r.typeName) ?? 0) + 1);
   }
   const breakdown = Array.from(typeCounts.entries()).map(([name, count]) => ({ name, count }));
@@ -208,47 +264,35 @@ export default async function ReservationsPage() {
           <DailySummaryBar stats={stats} />
           <ServiceBreakdownTable breakdown={breakdown} />
 
-          {/* Migration-period live view: what Gingr says is in the building. */}
-          {(gingrCheckins.length > 0 || gingrError) && (
-            <details className="group rounded-xl border border-indigo-200 bg-white dark:border-indigo-900 dark:bg-slate-900" open>
+          {/* Where today's numbers come from. */}
+          <p className="px-1 text-[12px] text-slate-400 dark:text-slate-500">
+            {gingrMode
+              ? "✱ Board is live from Gingr (migration mode) — dogs not yet ported show a ✱ and are managed in Gingr until cutover."
+              : `Gingr feed unreachable (${gingr.error}) — showing dashboard data only.`}
+          </p>
+
+          {/* Dashboard-native checked-in rows Gingr doesn't know about —
+              during migration these are almost always test records. */}
+          {gingrMode && dashboardOnlyCheckedIn.length > 0 && (
+            <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
               <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-400">
-                  ✱ Live from Gingr — {gingrError ? "unavailable" : `${gingrCheckins.length} checked in right now`}
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  Dashboard-only checked in ({dashboardOnlyCheckedIn.length}) — not in Gingr, likely test data
                 </span>
-                <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
-                  ▾
-                </span>
+                <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
               </summary>
               <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-                {gingrError && (
-                  <p className="px-4 py-2 text-[12px] text-slate-400 dark:text-slate-500">
-                    Couldn&apos;t reach the Gingr feed ({gingrError}). Try a refresh.
-                  </p>
-                )}
-                {gingrCheckins.map((c) => {
-                  const matchedId = gidToAnimal.get(c.gingrAnimalId);
-                  return (
-                    <div key={c.gingrReservationId} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
-                      {matchedId ? (
-                        <a href={`/animals/${matchedId}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
-                          {c.animalName}
-                        </a>
-                      ) : (
-                        <span className="font-medium" title="Not ported into the dashboard yet — lives in Gingr">
-                          {c.animalName} ✱
-                        </span>
-                      )}
-                      <span className="text-slate-400 dark:text-slate-500">{c.breed ?? ""}</span>
-                      <span className="text-slate-500 dark:text-slate-400">{c.ownerName ?? ""}</span>
-                      <span className="text-slate-400 dark:text-slate-500">{c.type ?? ""}</span>
-                      {c.medicines && <span title={`Meds: ${c.medicines}`}>💊</span>}
-                      <span className="ml-auto text-slate-400 dark:text-slate-500">
-                        departs{" "}
-                        {new Date(c.endDate).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                      </span>
-                    </div>
-                  );
-                })}
+                {dashboardOnlyCheckedIn.map((r) => (
+                  <div key={r.id} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
+                    <Link href={`/reservations/${r.id}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
+                      {r.animalName}
+                    </Link>
+                    <span className="text-slate-400 dark:text-slate-500">{r.typeName ?? ""}</span>
+                    <span className="ml-auto text-slate-400 dark:text-slate-500">
+                      since {new Date(r.startDate).toLocaleDateString([], { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                ))}
               </div>
             </details>
           )}
