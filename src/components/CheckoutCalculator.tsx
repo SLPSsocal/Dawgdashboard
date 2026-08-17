@@ -55,6 +55,8 @@ export default function CheckoutCalculator({
   taxRate,
   initialRetailRows,
   careNote,
+  householdRank,
+  householdSize,
 }: {
   reservationId: string;
   facilityId: string;
@@ -75,8 +77,14 @@ export default function CheckoutCalculator({
   /** Pre-filled from the feeding log (house fresh food, CBD, …) — staff can adjust. */
   initialRetailRows?: { itemId: string; qty: number }[];
   careNote?: string | null;
+  /** This dog's position (1-based) among the household's overlapping stays. */
+  householdRank?: number;
+  /** How many of the household's dogs are here across this window. */
+  householdSize?: number;
 }) {
-  const [numDogs, setNumDogs] = useState(1);
+  const [numDogs, setNumDogs] = useState(householdRank ?? 1);
+  const autoDetectedDogs = (householdSize ?? 1) > 1;
+  const dogCountEdited = numDogs !== (householdRank ?? 1);
   // Late checkout is automatic: boarding pickups after 12:15 PM (noon + 15min
   // grace) pre-check the late fee so nobody has to remember the dropdown.
   // Staff can still untick it for an exception.
@@ -250,6 +258,34 @@ export default function CheckoutCalculator({
     setOpenItems((items) => [...items, { type: openType, description: openDesc.trim(), amount }]);
     setOpenDesc("");
     setOpenAmount("");
+  }
+
+  // Why no discount showed up (Kathleen's request). Discounts are real but
+  // conditional, and a ticket with none looked like the feature was missing.
+  // Spell out the unmet condition instead of silently showing nothing.
+  const hasDiscountLine = lineItems.some((li) => li.lineKind === "discount");
+  const nextMultiDayRule = useMemo(() => {
+    const ahead = multiDayRules
+      .filter((r) => effUnits < (r.threshold ?? Infinity))
+      .sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0));
+    return ahead[0] ?? null;
+  }, [multiDayRules, effUnits]);
+  const discountHints: string[] = [];
+  if (!hasDiscountLine) {
+    if (nextMultiDayRule) {
+      const need = (nextMultiDayRule.threshold ?? 0) - effUnits;
+      const unit = rateUnit === "per_night" ? "night" : "day";
+      discountHints.push(
+        `${nextMultiDayRule.label} starts at ${nextMultiDayRule.threshold} ${unit}s — this stay is ${effUnits} (${need} short).`
+      );
+    }
+    if (additionalDogRules.length > 0 && numDogs === 1) {
+      discountHints.push(
+        autoDetectedDogs
+          ? "This is the household's 1st dog on this stay, so it bills at full price — the additional-dog rate lands on their other dogs' tickets."
+          : "No other dog from this household overlaps this stay, so no additional-dog rate applies."
+      );
+    }
   }
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
@@ -462,9 +498,22 @@ export default function CheckoutCalculator({
             onChange={(e) => setNumDogs(Math.max(1, Number(e.target.value)))}
             className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
+          {autoDetectedDogs && !dogCountEdited && (
+            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              auto — {householdSize} dogs from this household on this stay
+            </span>
+          )}
+          {dogCountEdited && (
+            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+              edited (auto said #{householdRank ?? 1})
+            </span>
+          )}
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             1 = first dog (full price). 2+ applies that dog&apos;s additional-dog rate to this ticket —
             each dog checks out on its own reservation.
+            {autoDetectedDogs
+              ? " Filled in from the household's overlapping bookings — change it if that's wrong."
+              : " No other dog from this household overlaps this stay, so it's set to 1."}
           </p>
         </label>
       )}
@@ -696,6 +745,16 @@ export default function CheckoutCalculator({
           <span>Total</span>
           <span>${total.toFixed(2)}</span>
         </div>
+        {discountHints.length > 0 && (
+          <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">No discount on this ticket:</p>
+            <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-400 dark:text-slate-500">
+              {discountHints.map((h) => (
+                <li key={h}>{h}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Payment Method — supports splitting one ticket across several

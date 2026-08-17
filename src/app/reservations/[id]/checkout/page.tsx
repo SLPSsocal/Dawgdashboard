@@ -127,6 +127,43 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const end = new Date(reservation.end_date);
   const units = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
 
+  // Household dog rank, detected instead of asked for. The additional-dog rate
+  // used to depend on staff remembering to bump a dropdown that defaulted to 1,
+  // so a forgotten click silently OVERCHARGED a multi-dog family. Look up the
+  // parent's other dogs whose stays overlap this one and rank this ticket among
+  // them. Order is created_at (then id) so every dog in the group resolves to
+  // the same rank no matter which one is checked out first, or in what order —
+  // two dogs must never both come out as "#2". Staff can still override.
+  let householdRank = 1;
+  let householdSize = 1;
+  if (animal?.parents) {
+    const { data: siblingRows } = await supabase
+      .from("reservations")
+      .select("id, created_at, animal_id, animals!inner ( parent_id )")
+      .eq("facility_id", session!.facilityId)
+      .eq("animals.parent_id", animal.parents.id)
+      .in("status", ["booked", "checked_in", "checked_out"])
+      .is("cancelled_at", null)
+      .lte("start_date", reservation.end_date)
+      .gte("end_date", reservation.start_date);
+
+    // One rank per DOG, not per reservation — a dog with two back-to-back
+    // bookings inside the window must not consume two slots in the tier list.
+    const byAnimal = new Map<string, { id: string; created_at: string }>();
+    for (const r of siblingRows ?? []) {
+      const prev = byAnimal.get(r.animal_id);
+      if (!prev || r.created_at < prev.created_at || (r.created_at === prev.created_at && r.id < prev.id)) {
+        byAnimal.set(r.animal_id, { id: r.id, created_at: r.created_at });
+      }
+    }
+    const ordered = [...byAnimal.entries()].sort(([, a], [, b]) =>
+      a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at.localeCompare(b.created_at)
+    );
+    householdSize = Math.max(1, ordered.length);
+    const idx = ordered.findIndex(([animalId]) => animalId === animal.id);
+    householdRank = idx >= 0 ? idx + 1 : 1;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <FacilityHeader session={session!} />
@@ -172,6 +209,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             taxRate={taxRate}
             initialRetailRows={initialRetailRows}
             careNote={careNote}
+            householdRank={householdRank}
+            householdSize={householdSize}
           />
         </div>
       </div>
