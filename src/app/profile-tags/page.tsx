@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
+import Toggle from "@/components/ui/Toggle";
 import { createProfileTag, setProfileTagActive } from "./actions";
 
 type Tag = { id: string; applies_to: string; icon: string; name: string; description: string | null; active: boolean };
@@ -25,19 +26,18 @@ function TagGroup({ title, tags }: { title: string; tags: Tag[] }) {
                 <span className="text-xs text-slate-400 dark:text-slate-500">— {t.description}</span>
               )}
             </div>
-            <form action={setProfileTagActive.bind(null, t.id, !t.active)}>
+            {/* Shared Toggle (Kathleen's request). The old inline switch here
+                anchored its knob with only `top-0.5` and no left offset, so on
+                narrow screens the knob drifted over the tag name — the same
+                bug ui/Toggle was extracted to fix on Referral Sources. The
+                accessible name now includes the tag, so a screen reader hears
+                "Disable Dog Aggressive" instead of a page full of "Disable". */}
+            <form action={setProfileTagActive.bind(null, t.id, !t.active)} className="flex">
               <button
                 type="submit"
-                aria-label={t.active ? "Disable" : "Enable"}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                  t.active ? "bg-green-500" : "bg-slate-300 dark:bg-slate-700"
-                }`}
+                className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
               >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    t.active ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
+                <Toggle checked={t.active} label={`${t.active ? "Disable" : "Enable"} ${t.name}`} />
               </button>
             </form>
           </div>
