@@ -10,7 +10,11 @@ export type GingrCheckin = {
   gingrAnimalId: string;
   animalName: string | null;
   breed: string | null;
+  gingrOwnerId: string | null;
+  ownerFirstName: string | null;
+  ownerLastName: string | null;
   ownerName: string | null;
+  ownerEmail: string | null;
   ownerPhone: string | null;
   type: string | null;
   checkInDate: string | null;

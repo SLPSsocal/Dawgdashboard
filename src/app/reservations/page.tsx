@@ -8,7 +8,7 @@ import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
-import { getGingrDay, type GingrCheckin } from "@/lib/gingr";
+import { syncGingrDay } from "@/lib/gingrSync";
 import Link from "next/link";
 
 type Row = {
@@ -16,6 +16,7 @@ type Row = {
   status: string;
   start_date: string;
   end_date: string;
+  gingr_reservation_id: string | null;
   animals: {
     id: string;
     name: string;
@@ -46,6 +47,7 @@ function toRow(r: Row): CheckInRow {
     endDate: r.end_date,
     phone: r.animals?.parents?.phone ?? null,
     precheckinStatus: precheckinByReservation.get(r.id) ?? null,
+    isLive: Boolean(r.gingr_reservation_id),
   };
 }
 
@@ -56,7 +58,19 @@ export default async function ReservationsPage() {
   // Facility isolation happens right here: every query in this app is filtered
   // by session.facilityId, which came from the PIN login for this facility only.
   const supabase = createClient();
-  const selectCols = `id, status, start_date, end_date,
+
+  // ---- One-way Gingr mirror (migration/testing period) ----
+  // Live Gingr reservations become REAL local rows first, then the board
+  // renders from local data as normal — so estimates, adjustments, checkout
+  // and Helcim all work on live dogs. Nothing ever writes back to Gingr.
+  const { data: facilityRow } = await supabase
+    .from("facilities")
+    .select("slug")
+    .eq("id", session!.facilityId)
+    .maybeSingle();
+  const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
+
+  const selectCols = `id, status, start_date, end_date, gingr_reservation_id,
        animals ( id, name, breed, photo_url, alert_note, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name ),
        reservation_types ( name )`;
@@ -80,7 +94,7 @@ export default async function ReservationsPage() {
       .eq("facility_id", session!.facilityId)
       .eq("status", "checked_out")
       .gte("checked_out_at", `${todayStr}T00:00:00`)
-      .lte("checked_out_at", `${todayStr}T23:59:59`)
+      .lte("checked_out_at", `${todayStr}T23:59:59.999`)
       .order("checked_out_at", { ascending: false }),
     supabase
       .from("reservation_types")
@@ -107,82 +121,22 @@ export default async function ReservationsPage() {
     }
   }
 
-  // ---- Gingr is the SOURCE OF TRUTH for today during the migration period.
-  // The board's Checked In / Expected / Checked Out sections come from the
-  // live Gingr feed; dashboard-native rows that Gingr doesn't know about are
-  // shown separately (they're test data until cutover). Fail-soft: if Gingr
-  // is unreachable, the board falls back to dashboard data with a notice.
-  const { data: facilityRowForSlug } = await supabase
-    .from("facilities")
-    .select("slug")
-    .eq("id", session!.facilityId)
-    .maybeSingle();
-  const gingr = await getGingrDay(facilityRowForSlug?.slug ?? "");
-  const gingrMode = !gingr.error;
-  const allGingr = [...gingr.checkins, ...gingr.expected, ...gingr.checkedOut];
-  const gingrGids = allGingr.map((c) => c.gingrAnimalId).filter(Boolean);
-  const { data: gingrMatched } = gingrGids.length
-    ? await supabase.from("animals").select("id, gingr_animal_id, alert_note").in("gingr_animal_id", gingrGids)
-    : { data: [] };
-  const gidToAnimal = new Map(
-    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null; alert_note: string | null }[]).map((a) => [
-      String(a.gingr_animal_id),
-      a,
-    ])
-  );
+  const allBoardRows: CheckInRow[] = rows.map(toRow);
+  const checkedOutRows: CheckInRow[] = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
 
-  const gToRow = (c: GingrCheckin, status: "booked" | "checked_in" | "checked_out"): CheckInRow => {
-    const m = gidToAnimal.get(c.gingrAnimalId);
-    const allergy = c.allergies && !/^none\.?$/i.test(c.allergies) ? `Allergies: ${c.allergies}` : null;
-    return {
-      id: `gingr:${c.gingrReservationId}`,
-      status,
-      animalId: m?.id ?? "",
-      animalName: c.animalName ?? "Unknown",
-      alertNote: m?.alert_note ?? allergy,
-      breed: c.breed,
-      parentId: null,
-      parentName: c.ownerName,
-      typeName: c.type,
-      lodgingName: null,
-      startDate: c.startDate,
-      endDate: c.endDate,
-      phone: c.ownerPhone,
-      precheckinStatus: null,
-      isLive: true,
-    };
-  };
+  // With the mirror active, checked-in rows Gingr doesn't know about are
+  // almost certainly leftover test records — keep them out of the way in a
+  // labelled drawer instead of polluting the board.
+  const mirrorActive = sync.ok;
+  const staleTestRows = mirrorActive
+    ? allBoardRows.filter((r) => r.status === "checked_in" && !r.isLive)
+    : [];
+  const staleIds = new Set(staleTestRows.map((r) => r.id));
+  const boardRows = allBoardRows.filter((r) => !staleIds.has(r.id));
 
-  const dashboardRows: CheckInRow[] = rows.map(toRow);
-  // A dashboard row duplicates a Gingr row when its animal is matched to a
-  // Gingr id present in today's feed — Gingr wins.
-  const gingrAnimalIdSet = new Set(allGingr.map((c) => c.gingrAnimalId));
-  const animalIdToGid = new Map(
-    ((gingrMatched ?? []) as { id: string; gingr_animal_id: number | string | null }[]).map((a) => [a.id, String(a.gingr_animal_id)])
-  );
-  const dupOfGingr = (r: CheckInRow) => gingrAnimalIdSet.has(animalIdToGid.get(r.animalId) ?? "");
-
-  let boardRows: CheckInRow[];
-  let checkedOutRowsFinal: CheckInRow[];
-  let dashboardOnlyCheckedIn: CheckInRow[] = [];
-  if (gingrMode) {
-    const dashBooked = dashboardRows.filter((r) => r.status === "booked" && !dupOfGingr(r));
-    dashboardOnlyCheckedIn = dashboardRows.filter((r) => r.status === "checked_in" && !dupOfGingr(r));
-    boardRows = [
-      ...gingr.checkins.map((c) => gToRow(c, "checked_in")),
-      ...gingr.expected.map((c) => gToRow(c, "booked")),
-      ...dashBooked,
-    ];
-    checkedOutRowsFinal = gingr.checkedOut.map((c) => gToRow(c, "checked_out"));
-  } else {
-    boardRows = dashboardRows;
-    checkedOutRowsFinal = ((checkedOutData as unknown as Row[]) ?? []).map(toRow);
-  }
-  const checkedOutRows = checkedOutRowsFinal;
-
-  const allRows = [...boardRows, ...checkedOutRows, ...dashboardOnlyCheckedIn];
+  const allRows = [...allBoardRows, ...checkedOutRows];
   const [animalTags, parentTags] = await Promise.all([
-    getProfileTagsBulk("animal", allRows.map((r) => r.animalId)),
+    getProfileTagsBulk("animal", allRows.map((r) => r.animalId).filter(Boolean)),
     getProfileTagsBulk("parent", allRows.map((r) => r.parentId ?? "").filter(Boolean)),
   ]);
   const animalTagsObj = Object.fromEntries(animalTags);
@@ -213,11 +167,10 @@ export default async function ReservationsPage() {
     { label: "Total Today", value: expectedTodayCount + checkedInCount + checkedOutTodayCount },
   ];
 
-  // Breakdown by service type — in Gingr mode the counts come from the live
-  // feed's own type names; otherwise every active dashboard type shows, even
-  // at zero, so staff can see what's not moving today.
+  // Breakdown by service type — every active reservation type shows, even at
+  // zero, so staff can see what's not moving today (matches Gingr's dash).
   const typeCounts = new Map<string, number>();
-  if (!gingrMode) for (const t of allTypes ?? []) typeCounts.set(t.name, 0);
+  for (const t of allTypes ?? []) typeCounts.set(t.name, 0);
   for (const r of [...boardRows, ...checkedOutRows]) {
     if (r.typeName) typeCounts.set(r.typeName, (typeCounts.get(r.typeName) ?? 0) + 1);
   }
@@ -228,8 +181,7 @@ export default async function ReservationsPage() {
       <FacilityHeader session={session!} />
 
       {/* Summary stacks vertically and compactly — KPI strip, service mix,
-          then straight into search + tables. The old two-column layout left a
-          tall empty gap under the short stat row beside the breakdown card. */}
+          then straight into search + tables. */}
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex flex-wrap items-baseline gap-3">
@@ -264,25 +216,22 @@ export default async function ReservationsPage() {
           <DailySummaryBar stats={stats} />
           <ServiceBreakdownTable breakdown={breakdown} />
 
-          {/* Where today's numbers come from. */}
           <p className="px-1 text-[12px] text-slate-400 dark:text-slate-500">
-            {gingrMode
-              ? "✱ Board is live from Gingr (migration mode) — dogs not yet ported show a ✱ and are managed in Gingr until cutover."
-              : `Gingr feed unreachable (${gingr.error}) — showing dashboard data only.`}
+            {mirrorActive
+              ? `✱ Mirrored live from Gingr (${sync.created ? `${sync.created} new, ` : ""}${sync.updated} refreshed just now). Full dashboard actions work on these dogs — nothing you do here touches Gingr.`
+              : `Gingr feed unreachable (${sync.error}) — board may be missing live dogs until the next refresh.`}
           </p>
 
-          {/* Dashboard-native checked-in rows Gingr doesn't know about —
-              during migration these are almost always test records. */}
-          {gingrMode && dashboardOnlyCheckedIn.length > 0 && (
+          {staleTestRows.length > 0 && (
             <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
               <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Dashboard-only checked in ({dashboardOnlyCheckedIn.length}) — not in Gingr, likely test data
+                  Dashboard-only checked in ({staleTestRows.length}) — not in Gingr, likely test data
                 </span>
                 <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
               </summary>
               <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-                {dashboardOnlyCheckedIn.map((r) => (
+                {staleTestRows.map((r) => (
                   <div key={r.id} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
                     <Link href={`/reservations/${r.id}`} className="font-medium underline decoration-slate-300 hover:decoration-slate-600 dark:decoration-slate-600">
                       {r.animalName}
@@ -339,7 +288,7 @@ export default async function ReservationsPage() {
         </div>
 
         <div className="mt-3">
-          {rows.length === 0 && !error ? (
+          {boardRows.length === 0 && !error ? (
             <p className="text-sm text-slate-400 dark:text-slate-500">
               No reservations yet at {session!.facilityName}. Once reservation types and lodging
               areas are set up, bookings will show here.

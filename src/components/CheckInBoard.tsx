@@ -184,7 +184,7 @@ export default function CheckInBoard({
                       )}
                       {r.isLive && (
                         <span
-                          title="Live from Gingr — manage this stay in Gingr until cutover"
+                          title="Mirrored live from Gingr — dashboard actions here never touch Gingr"
                           className="text-[12px] text-indigo-500 dark:text-indigo-400"
                         >
                           ✱
@@ -213,12 +213,7 @@ export default function CheckInBoard({
                   <td className="px-3 py-1.5 text-slate-500 dark:text-slate-400">{fmtDate(r.endDate)}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1.5">
-                      {r.isLive && (
-                        <span className="whitespace-nowrap rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
-                          in Gingr
-                        </span>
-                      )}
-                      {!r.isLive && r.status === "booked" && facilityId && (
+                      {r.status === "booked" && facilityId && (
                         r.precheckinStatus === "submitted" ? (
                           <span
                             title="Pre-check-in form submitted by the parent"
@@ -236,7 +231,7 @@ export default function CheckInBoard({
                           />
                         )
                       )}
-                      {!r.isLive && r.status === "checked_in" && (
+                      {r.status === "checked_in" && (
                         <Link
                           href={`/reservations/${r.id}/checkout`}
                           className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2 py-1 text-xs font-medium text-white dark:bg-slate-100 dark:text-slate-900"
@@ -244,17 +239,15 @@ export default function CheckInBoard({
                           Check Out
                         </Link>
                       )}
-                      {!r.isLive && (
-                        <ReservationActionsMenu
-                          reservationId={r.id}
-                          animalId={r.animalId}
-                          animalName={r.animalName}
-                          parentId={r.parentId}
-                          parentName={r.parentName}
-                          status={r.status}
-                          performedBy={staffName}
-                        />
-                      )}
+                      <ReservationActionsMenu
+                        reservationId={r.id}
+                        animalId={r.animalId}
+                        animalName={r.animalName}
+                        parentId={r.parentId}
+                        parentName={r.parentName}
+                        status={r.status}
+                        performedBy={staffName}
+                      />
                     </div>
                   </td>
                 </tr>

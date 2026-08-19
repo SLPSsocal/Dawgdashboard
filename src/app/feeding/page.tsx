@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import FeedingBoard, { type FeedingRow, type MealName } from "@/components/FeedingBoard";
 import { stripHtml } from "@/lib/text";
-import { getGingrCheckins } from "@/lib/gingr";
+import { syncGingrDay } from "@/lib/gingrSync";
 
 // Default the meal tab to whatever mealtime it actually is right now
 // (Pacific), so staff opening the page at 5pm land on Dinner, not Breakfast.
@@ -40,26 +40,33 @@ export default async function FeedingPage({
   const meal: MealName = sp.meal === "Breakfast" || sp.meal === "Lunch" || sp.meal === "Dinner" ? sp.meal : currentMeal();
 
   const supabase = createClient();
-  const [{ data: facilityRow }, { data: resRows }] = await Promise.all([
-    supabase.from("facilities").select("slug").eq("id", session!.facilityId).maybeSingle(),
-    supabase
-      .from("reservations")
-      .select(
-        `id, start_date, end_date, status,
-         animals ( id, name, gingr_animal_id, feeding_instructions, medications, alert_note, parents ( last_name ) ),
-         reservation_types ( name, category )`
-      )
-      .eq("facility_id", session!.facilityId)
-      .eq("status", "checked_in")
-      .order("start_date", { ascending: true }),
-  ]);
-
+  const { data: facilityRow } = await supabase
+    .from("facilities")
+    .select("slug")
+    .eq("id", session!.facilityId)
+    .maybeSingle();
   const slug = facilityRow?.slug ?? "";
+
+  // Mirror the live Gingr day into local rows first (one-way; never writes
+  // back to Gingr), then read local reservations like any other page.
+  const sync = await syncGingrDay(session!.facilityId, slug);
+
+  const { data: resRows } = await supabase
+    .from("reservations")
+    .select(
+      `id, start_date, end_date, status, gingr_reservation_id,
+       animals ( id, name, gingr_animal_id, feeding_instructions, medications, alert_note, parents ( last_name ) ),
+       reservation_types ( name, category )`
+    )
+    .eq("facility_id", session!.facilityId)
+    .eq("status", "checked_in")
+    .order("start_date", { ascending: true });
 
   type ResRow = {
     id: string;
     start_date: string;
     end_date: string;
+    gingr_reservation_id: string | null;
     animals: {
       id: string;
       name: string;
@@ -77,6 +84,9 @@ export default async function FeedingPage({
   for (const r of ((resRows as unknown as ResRow[]) ?? [])) {
     const a = r.animals;
     if (!a || seen.has(a.id)) continue;
+    // With the mirror active, checked-in rows Gingr doesn't know about are
+    // leftover test records — don't ask staff to feed ghosts.
+    if (sync.ok && !r.gingr_reservation_id) continue;
     seen.add(a.id);
     rows.push({
       petId: a.gingr_animal_id != null ? String(a.gingr_animal_id) : a.id,
@@ -93,54 +103,8 @@ export default async function FeedingPage({
       isOvernight: ymdPT(r.end_date) > ymdPT(r.start_date),
       startYmd: ymdPT(r.start_date),
       endYmd: ymdPT(r.end_date),
+      isLive: Boolean(r.gingr_reservation_id),
     });
-  }
-  // ---- Live Gingr layer (migration period): the dogs ACTUALLY checked in
-  // right now per Gingr, merged in with a ✱ badge. Matched imported animals
-  // get their full profile; unmatched ones appear live-only.
-  const { checkins: gingrCheckins, error: gingrError } = await getGingrCheckins(slug);
-  // Gingr is the source of truth for who's physically here (migration mode):
-  // dashboard-only "checked in" rows that Gingr doesn't list are test data —
-  // drop them from the feeding board rather than asking staff to feed ghosts.
-  if (!gingrError) {
-    const liveIds = new Set(gingrCheckins.map((c) => c.gingrAnimalId));
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (!liveIds.has(rows[i].petId)) rows.splice(i, 1);
-    }
-  }
-  if (gingrCheckins.length > 0) {
-    const gids = gingrCheckins.map((c) => c.gingrAnimalId).filter(Boolean);
-    const { data: matchedAnimals } = gids.length
-      ? await supabase
-          .from("animals")
-          .select("id, name, gingr_animal_id, feeding_instructions, medications, alert_note, parents ( last_name )")
-          .in("gingr_animal_id", gids)
-      : { data: [] };
-    const byGid = new Map(
-      ((matchedAnimals ?? []) as unknown as { id: string; gingr_animal_id: number | string | null; feeding_instructions: string | null; medications: string | null; alert_note: string | null; parents: { last_name: string } | null }[]).map(
-        (a) => [String(a.gingr_animal_id), a]
-      )
-    );
-    const already = new Set(rows.map((r) => r.petId));
-    for (const c of gingrCheckins) {
-      if (!c.gingrAnimalId || already.has(c.gingrAnimalId)) continue;
-      const m = byGid.get(c.gingrAnimalId);
-      rows.push({
-        petId: c.gingrAnimalId,
-        animalId: m?.id ?? "",
-        reservationId: "",
-        name: c.animalName ?? "Unknown",
-        parentLastName: m?.parents?.last_name ?? (c.ownerName ? c.ownerName.split(" ").slice(-1)[0] : null),
-        feeding: m?.feeding_instructions ? stripHtml(m.feeding_instructions) : null,
-        medications: (m?.medications ? stripHtml(m.medications) : null) ?? c.medicines,
-        alertNote: m?.alert_note ?? c.allergies,
-        typeName: c.type,
-        isOvernight: ymdPT(c.endDate) > ymdPT(c.startDate),
-        startYmd: ymdPT(c.startDate),
-        endYmd: ymdPT(c.endDate),
-        isLive: true,
-      });
-    }
   }
   rows.sort((x, y) => x.name.localeCompare(y.name));
 
@@ -168,11 +132,9 @@ export default async function FeedingPage({
           facilitySlug={slug}
           staffName={session!.staffName}
           gingrNote={
-            gingrError
-              ? `Live Gingr feed unavailable right now (${gingrError}) — showing dashboard reservations only.`
-              : gingrCheckins.length > 0
-                ? `✱ = checked in via Gingr (live). ${gingrCheckins.length} live dogs merged in.`
-                : null
+            sync.ok
+              ? "✱ = mirrored live from Gingr. Logging here syncs with PawFeed; nothing touches Gingr."
+              : `Live Gingr feed unavailable right now (${sync.error}) — showing dashboard reservations only.`
           }
         />
       </div>
