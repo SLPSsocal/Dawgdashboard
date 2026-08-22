@@ -316,11 +316,28 @@ export default function CheckInBoard({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[15px] font-semibold text-[#15181d] dark:text-slate-100">{r.animalName}</span>
+                    {/* Same profile links the desktop rows have — staff on tablets
+                        couldn't open a pet or parent from the board (Kath, Aug 19). */}
+                    {r.animalId ? (
+                      <Link href={`/animals/${r.animalId}`} className="text-[15px] font-semibold text-[#15181d] hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400">
+                        {r.animalName}
+                      </Link>
+                    ) : (
+                      <span className="text-[15px] font-semibold text-[#15181d] dark:text-slate-100">{r.animalName}</span>
+                    )}
                     {r.isLive && <span className="text-[13px] text-indigo-500 dark:text-indigo-400">✱</span>}
                   </div>
                   <div className="truncate text-[12.5px] text-[#8a91a0] dark:text-slate-500">
-                    {[r.breed, r.parentName].filter(Boolean).join(" · ")}
+                    {r.breed && <span>{r.breed}</span>}
+                    {r.breed && r.parentName && <span> · </span>}
+                    {r.parentName &&
+                      (r.parentId ? (
+                        <Link href={`/parents/${r.parentId}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                          {r.parentName}
+                        </Link>
+                      ) : (
+                        <span>{r.parentName}</span>
+                      ))}
                   </div>
                 </div>
                 <PrecheckinChip r={r} />
