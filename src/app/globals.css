@@ -22,6 +22,7 @@ html.dark {
 }
 
 body {
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 

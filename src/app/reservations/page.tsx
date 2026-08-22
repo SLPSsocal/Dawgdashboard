@@ -160,11 +160,16 @@ export default async function ReservationsPage() {
     }));
 
   const stats = [
-    { label: "Expected Today", value: expectedTodayCount },
-    { label: "Checked In", value: checkedInCount, accent: "border-l-4 border-l-green-500" },
-    { label: "Checked Out Today", value: checkedOutTodayCount },
-    { label: "Overnight", value: overnightCount },
-    { label: "Total Today", value: expectedTodayCount + checkedInCount + checkedOutTodayCount },
+    { label: "Expected Today", value: expectedTodayCount, dot: "bg-amber-500" },
+    { label: "Checked In", value: checkedInCount, dot: "bg-emerald-500" },
+    { label: "Checked Out", value: checkedOutTodayCount, dot: "bg-sky-500" },
+    { label: "Overnight", value: overnightCount, dot: "bg-violet-500" },
+    {
+      label: "Total Today",
+      value: expectedTodayCount + checkedInCount + checkedOutTodayCount,
+      dot: "bg-indigo-500",
+      highlight: true,
+    },
   ];
 
   // Breakdown by service type — every active reservation type shows, even at
@@ -183,44 +188,86 @@ export default async function ReservationsPage() {
       {/* Summary stacks vertically and compactly — KPI strip, service mix,
           then straight into search + tables. */}
       <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h1 className="text-[19px] font-semibold leading-tight">Check-in Board</h1>
-            {/* Quick calendar links (Kathleen's request) — new tab so the board stays put. */}
+        {/* Page head per the redesign: big title, one meta line (date · live
+            mirror status · refresh), calendar quick links as chips. */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[26px] font-bold leading-tight tracking-[-0.01em]">Check-in board</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-[#565d6d] dark:text-slate-400">
+              <span>{new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}</span>
+              <span className="text-[#c4c9d4] dark:text-slate-600">·</span>
+              {mirrorActive ? (
+                <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                  ✱ {boardRows.filter((r) => r.isLive).length + checkedOutRows.filter((r) => r.isLive).length} mirrored
+                  live from Gingr
+                </span>
+              ) : (
+                <span className="text-amber-700 dark:text-amber-400">Gingr feed unreachable — local data only</span>
+              )}
+              <span className="text-[#c4c9d4] dark:text-slate-600">·</span>
+              <Link href="/reservations" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+                Refresh
+              </Link>
+            </p>
+          </div>
+          <div className="flex gap-2">
             <a
               href="/lodging/calendar"
               target="_blank"
               rel="noreferrer"
-              className="text-[13px] text-indigo-600 underline decoration-indigo-300 hover:decoration-indigo-600 dark:text-indigo-400"
+              className="inline-flex h-9 items-center rounded-[10px] border border-[#e3e5ea] bg-white px-3 text-[13px] font-medium text-[#565d6d] hover:border-[#c4c9d4] hover:text-[#15181d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             >
-              Lodging Calendar ↗
+              Lodging calendar ↗
             </a>
             <a
               href="/facility-calendar"
               target="_blank"
               rel="noreferrer"
-              className="text-[13px] text-indigo-600 underline decoration-indigo-300 hover:decoration-indigo-600 dark:text-indigo-400"
+              className="inline-flex h-9 items-center rounded-[10px] border border-[#e3e5ea] bg-white px-3 text-[13px] font-medium text-[#565d6d] hover:border-[#c4c9d4] hover:text-[#15181d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
             >
-              Facility Calendar ↗
+              Facility calendar ↗
             </a>
           </div>
-          <span className="text-[13px] text-slate-500 dark:text-slate-400">
-            {new Date().toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
-          </span>
         </div>
         {error && (
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">Couldn&apos;t load reservations: {error.message}</p>
         )}
 
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-3">
           <DailySummaryBar stats={stats} />
-          <ServiceBreakdownTable breakdown={breakdown} />
 
-          <p className="px-1 text-[12px] text-slate-400 dark:text-slate-500">
-            {mirrorActive
-              ? `✱ Mirrored live from Gingr (${sync.created ? `${sync.created} new, ` : ""}${sync.updated} refreshed just now). Full dashboard actions work on these dogs — nothing you do here touches Gingr.`
-              : `Gingr feed unreachable (${sync.error}) — board may be missing live dogs until the next refresh.`}
-          </p>
+          <div className={`grid gap-3 ${overnightRows.length > 0 ? "lg:grid-cols-[1fr_400px]" : ""}`}>
+            <ServiceBreakdownTable breakdown={breakdown} />
+            {overnightRows.length > 0 && (
+              <div className="rounded-[14px] border border-[#e3e5ea] bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
+                  Overnight tonight — nights billing
+                </div>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {overnightRows.slice(0, 6).map((o, i) => (
+                    <div key={i} className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+                      <span className="font-semibold text-[#15181d] dark:text-slate-100">{o.animalName}</span>
+                      <span className="text-[#8a91a0] dark:text-slate-500">
+                        night of{" "}
+                        {new Date(`${o.nightOf}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })} →{" "}
+                        {new Date(new Date(`${o.nightOf}T12:00:00`).getTime() + 86400000).toLocaleDateString([], {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span className="ml-auto text-[12px] text-[#8a91a0] dark:text-slate-500">
+                        departs{" "}
+                        {new Date(o.departs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                  {overnightRows.length > 6 && (
+                    <p className="text-[12px] text-[#8a91a0] dark:text-slate-500">+ {overnightRows.length - 6} more staying tonight</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {staleTestRows.length > 0 && (
             <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -246,45 +293,6 @@ export default async function ReservationsPage() {
             </details>
           )}
 
-          {overnightRows.length > 0 && (
-            <details className="group rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-              <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Overnight tonight — which nights are billing
-                </span>
-                <span className="text-[12px] text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">
-                  ▾
-                </span>
-              </summary>
-              <div className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-                {overnightRows.map((o, i) => (
-                  <div key={i} className="flex flex-wrap items-baseline gap-x-3 px-4 py-1.5 text-[13px]">
-                    <span className="font-medium">{o.animalName}</span>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      night of{" "}
-                      {new Date(`${o.nightOf}T12:00:00`).toLocaleDateString([], {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                      {" → "}
-                      {new Date(
-                        new Date(`${o.nightOf}T12:00:00`).getTime() + 86400000
-                      ).toLocaleDateString([], { month: "short", day: "numeric" })}
-                    </span>
-                    <span className="ml-auto text-slate-400 dark:text-slate-500">
-                      departs{" "}
-                      {new Date(o.departs).toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
         </div>
 
         <div className="mt-3">

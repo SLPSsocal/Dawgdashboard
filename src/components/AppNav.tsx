@@ -41,11 +41,13 @@ const ALL_GROUPS: { label: string; items: Item[] }[] = [
   { label: "Admin", items: ADMIN },
 ];
 
+// Redesign: quiet text links, active state = accent text on a soft accent
+// pill (see "Daily ops" in the mock) rather than a gray block.
 function itemClass(active: boolean) {
-  return `inline-flex h-8 items-center rounded-lg px-2.5 text-[13px] whitespace-nowrap transition-colors ${
+  return `inline-flex h-8 items-center rounded-full px-3 text-[13.5px] whitespace-nowrap transition-colors ${
     active
-      ? "bg-slate-200/80 font-medium text-slate-900 dark:bg-slate-800 dark:text-slate-50"
-      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+      ? "bg-indigo-50 font-semibold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300"
+      : "font-medium text-[#565d6d] hover:text-[#15181d] dark:text-slate-400 dark:hover:text-slate-100"
   }`;
 }
 

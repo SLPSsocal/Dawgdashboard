@@ -20,12 +20,14 @@ export default function FacilityHeader({ session }: { session: Session }) {
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:px-6">
         <Link
           href="/"
-          className="shrink-0 text-[13px] font-semibold uppercase tracking-wide text-slate-800 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400"
+          className="flex shrink-0 items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#15181d] hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400"
         >
-          {session.facilityName}
+          {/* Logo chip from the redesign — indigo square with the facility initial. */}
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-[13px] font-bold normal-case text-white">
+            {session.facilityName.charAt(0)}
+          </span>
+          <span className="hidden sm:inline">{session.facilityName}</span>
         </Link>
-
-        <span className="hidden h-5 w-px shrink-0 bg-slate-200 md:block dark:bg-slate-700" />
 
         <div className="min-w-0 flex-1">
           <AppNav />
@@ -35,10 +37,10 @@ export default function FacilityHeader({ session }: { session: Session }) {
           {/* The single primary action in the product. */}
           <Link
             href="/reservations/new"
-            className="inline-flex h-8 items-center rounded-lg bg-emerald-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-emerald-700"
+            className="inline-flex h-9 items-center rounded-[10px] bg-indigo-600 px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-indigo-700"
           >
             <span className="sm:hidden">+ Booking</span>
-            <span className="hidden sm:inline">+ New Booking</span>
+            <span className="hidden sm:inline">+ New booking</span>
           </Link>
           <CartButton />
           <ThemeToggle />

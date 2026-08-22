@@ -5,6 +5,7 @@ import PrintButton from "@/components/PrintButton";
 import { getProfileTagsFor } from "@/lib/profileTags";
 import { getBookingGroupSiblings } from "../../actions";
 import { stripHtml } from "@/lib/text";
+import { todayLocal } from "@/lib/dates";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -46,7 +47,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      `*, animals ( id, name, breed, size, sex, fixed, birthdate, photo_url,
+      `*, animals ( id, name, breed, size, sex, fixed, birthdate, photo_url, gingr_animal_id,
          medical_notes, medications, behavioral_notes, grooming_notes, alert_note,
          feeding_instructions, vet_name, vet_phone,
          parents ( first_name, last_name, phone, emergency_contact_name, emergency_contact_phone ) ),
@@ -65,6 +66,7 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     fixed: boolean | null;
     birthdate: string | null;
     photo_url: string | null;
+    gingr_animal_id: number | string | null;
     medical_notes: string | null;
     medications: string | null;
     behavioral_notes: string | null;
@@ -84,10 +86,32 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const lodging = reservation.lodging_areas as unknown as { name: string } | null;
   const type = reservation.reservation_types as unknown as { name: string } | null;
   const parent = animal?.parents ?? null;
-  const [animalTags, siblings] = await Promise.all([
+  // Today's feeding log for this pet — same shared table the Feeding Log page
+  // and the PawFeed tablet write to (keyed by dashboard id OR Gingr id), so a
+  // meal logged in either place shows up here. Kath (Aug 19): the run card
+  // showed static feeding instructions but never reflected what was actually
+  // logged, and had no AM/PM checkboxes.
+  const petKeys = animal
+    ? [animal.id, ...(animal.gingr_animal_id != null ? [String(animal.gingr_animal_id)] : [])]
+    : [];
+  const todayYmd = todayLocal();
+  const [animalTags, siblings, feedLogsRes] = await Promise.all([
     animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
     getBookingGroupSiblings(id, reservation.booking_group_id ?? null),
+    petKeys.length
+      ? supabase
+          .from("feeding_logs")
+          .select("meal_time, amount, medication_administered")
+          .in("pet_id", petKeys)
+          .eq("date", todayYmd)
+      : Promise.resolve({ data: [] as { meal_time: string; amount: string | null; medication_administered: boolean }[] }),
   ]);
+  const feedLogs = feedLogsRes.data ?? [];
+  const mealSlots: { label: string; meal: string }[] = [
+    { label: "AM", meal: "Breakfast" },
+    { label: "Lunch", meal: "Lunch" },
+    { label: "PM", meal: "Dinner" },
+  ];
   const isPoopEater = animalTags.some((t) => t.name === "Poop Eater");
   const isPeeDrinker = animalTags.some((t) => t.name === "Pee Drinker");
 
@@ -160,6 +184,24 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
             <p className="whitespace-pre-line break-words text-amber-800">
               <span className="mr-1">🍽️</span>
               <span className="font-semibold">Feeding:</span> {stripHtml(animal.feeding_instructions)}
+            </p>
+          )}
+          {animal && (
+            // Live status from today's feeding log; unlogged meals print as
+            // empty boxes staff can tick by hand on paper.
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-amber-800">
+              <span className="font-semibold">Today&apos;s meals:</span>
+              {mealSlots.map(({ label, meal }) => {
+                const log = feedLogs.find((f) => f.meal_time === meal);
+                const eaten = Boolean(log?.amount);
+                return (
+                  <span key={meal} className="whitespace-nowrap">
+                    {eaten ? "☑" : "☐"} {label}
+                    {log?.amount ? ` (${log.amount})` : ""}
+                    {log?.medication_administered ? " 💊" : ""}
+                  </span>
+                );
+              })}
             </p>
           )}
           {animal?.grooming_notes && (

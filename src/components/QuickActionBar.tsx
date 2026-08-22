@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { name: "Lodging", href: "/lodging/calendar" },
   { name: "Calendar", href: "/facility-calendar" },
   { name: "Parents", href: "/parents" },
+  { name: "New Parent", href: "/parents/new" }, // quick link requested by staff (Kathleen, Aug 18)
   { name: "Animals", href: "/animals" },
 ];
 

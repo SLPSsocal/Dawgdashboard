@@ -16,6 +16,15 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        {/* Typeface from the approved redesign — IBM Plex Sans. Loaded as a
+            runtime stylesheet (not next/font) so builds don't depend on
+            Google Fonts being reachable from the build machine. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <script
           // Runs before paint to avoid a dark-mode flash for returning users
           // who've explicitly toggled dark mode on this device. Every fresh
@@ -27,7 +36,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+      <body className="bg-[#f5f6f8] font-sans text-[#15181d] antialiased dark:bg-slate-950 dark:text-slate-100">
         <CartProvider>{children}</CartProvider>
       </body>
     </html>

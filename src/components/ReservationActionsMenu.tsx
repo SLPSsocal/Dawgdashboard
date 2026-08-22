@@ -54,10 +54,11 @@ export default function ReservationActionsMenu({
     return <div className="my-1 border-t border-slate-100 dark:border-slate-800" />;
   }
 
-  function LinkItem({ href, icon, label }: { href: string; icon: string; label: string }) {
+  function LinkItem({ href, icon, label, newTab }: { href: string; icon: string; label: string; newTab?: boolean }) {
     return (
       <Link
         href={href}
+        target={newTab ? "_blank" : undefined}
         className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
       >
         <span>{icon}</span>
@@ -182,7 +183,8 @@ export default function ReservationActionsMenu({
           <Divider />
           <LinkItem href={`/reservations/${reservationId}/checkout`} icon="💲" label="View Estimate / Checkout" />
           <LinkItem href={`/reservations/${reservationId}`} icon="📋" label="View Reservation Details" />
-          <LinkItem href={`/reservations/${reservationId}/run-card`} icon="🖨️" label="Print Run Card" />
+          {/* New tab so printing doesn't navigate staff away from the board (Kath, Aug 19) */}
+          <LinkItem href={`/reservations/${reservationId}/run-card`} icon="🖨️" label="Print Run Card" newTab />
           <StubItem icon="✉️" label="Ready for Pickup Email" reason="Needs an email provider connected — not built yet" />
           <StubItem icon="📱" label="Ready for Pickup SMS" reason="Needs an SMS provider connected — not built yet" />
         </div>
