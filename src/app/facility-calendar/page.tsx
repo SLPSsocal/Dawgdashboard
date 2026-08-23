@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import FacilityCalendarBoard, { type ApptCard, type Specialist, type SpecialistBlock } from "@/components/FacilityCalendarBoard";
 import SpecialistBlockForm from "@/components/SpecialistBlockForm";
+import CalendarDateJump from "@/components/CalendarDateJump";
 import Link from "next/link";
 
 function fmt(d: Date) {
@@ -134,6 +135,8 @@ export default async function FacilityCalendarPage({
           >
             Day →
           </Link>
+          {/* Direct month/date jump (Alan's request) — no more paging day by day. */}
+          <CalendarDateJump date={dateStr} basePath="/facility-calendar" />
         </div>
 
         <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">

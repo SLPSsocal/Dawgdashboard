@@ -19,6 +19,7 @@ const CALENDAR: Item[] = [
 ];
 const CUSTOMERS: Item[] = [
   { name: "Parents", href: "/parents" },
+  { name: "New Parent", href: "/parents/new" },
   { name: "Animals", href: "/animals" },
 ];
 const MORE: Item[] = [
