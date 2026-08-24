@@ -165,18 +165,21 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
-          ← Check-in Board
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <Link
+          href="/reservations"
+          className="text-[13px] font-medium text-[#8a91a0] transition-colors hover:text-indigo-600 dark:text-slate-500"
+        >
+          ← Check-in board
         </Link>
-        <h1 className="mt-2 text-xl font-semibold">Checkout — {animal?.name ?? "Unknown"}</h1>
-        <p className="text-sm text-slate-400 dark:text-slate-500">
-          {type?.name ?? "No reservation type"} · {units} {type?.rate_unit === "per_night" ? "night(s)" : "day(s)"}
-        </p>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          Priced using rates/rules in effect on {stayDateStr} (the stay&apos;s start date), not today&apos;s.
+        <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
+          Checkout — {animal?.name ?? "Unknown"}
+        </h1>
+        <p className="mt-1 text-[13px] text-[#8a91a0] dark:text-slate-500">
+          {type?.name ?? "No reservation type"} · {units} {type?.rate_unit === "per_night" ? "night(s)" : "day(s)"} ·
+          priced with rates/rules in effect {stayDateStr} (stay start), not today
         </p>
         {animal?.parents && (!savedCardRows || savedCardRows.length === 0) && (
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
@@ -189,7 +192,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           </p>
         )}
 
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mt-5">
           <CheckoutCalculator
             reservationId={id}
             facilityId={session!.facilityId}

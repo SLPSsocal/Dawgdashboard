@@ -68,11 +68,13 @@ export default function LodgingCalendar({
   days,
   initialReservations,
   blocks = [],
+  today,
 }: {
   areas: CalArea[];
   days: string[];
   initialReservations: CalReservation[];
   blocks?: LodgingBlock[];
+  today?: string;
 }) {
   const [reservations, setReservations] = useState(initialReservations);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -138,11 +140,11 @@ export default function LodgingCalendar({
           setSelectedId((cur) => (cur === r.id ? null : r.id));
         }}
         title={`${r.animalName} · ${r.typeName ?? "—"} · ${r.status === "checked_in" ? "checked in" : "expected"}`}
-        className={`cursor-grab touch-manipulation truncate rounded-md border px-1.5 py-1 text-[11px] font-medium shadow-sm active:cursor-grabbing ${
+        className={`cursor-grab touch-manipulation truncate rounded-[8px] border px-1.5 py-1 text-[11px] font-semibold shadow-sm active:cursor-grabbing ${
           r.status === "checked_in"
-            ? "border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300"
-            : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-        } ${isSelected ? "ring-2 ring-slate-900 dark:ring-slate-100" : ""} ${dragId === r.id ? "opacity-40" : ""}`}
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+            : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+        } ${isSelected ? "ring-2 ring-indigo-500 dark:ring-indigo-400" : ""} ${dragId === r.id ? "opacity-40" : ""}`}
       >
         {r.animalName}
       </div>
@@ -182,16 +184,22 @@ export default function LodgingCalendar({
       <>
         <div
           {...rowProps}
-          className={`sticky left-0 flex items-center justify-between gap-1 border-b border-r border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-900 ${
-            isOver ? "bg-slate-100 dark:bg-slate-800" : ""
-          } ${selectedId ? "cursor-pointer" : ""} ${areaId === null ? "text-amber-600 dark:text-amber-400" : ""}`}
+          className={`sticky left-0 flex items-center justify-between gap-1 border-b border-r border-[#edeff3] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#15181d] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 ${
+            isOver ? "bg-indigo-50/70 dark:bg-slate-800" : ""
+          } ${selectedId ? "cursor-pointer" : ""} ${areaId === null ? "text-amber-700 dark:text-amber-400" : ""}`}
         >
           <span className="truncate">
             {hasBlock && "🔧 "}
             {label}
           </span>
           {capacity != null && (
-            <span className={overCapacity ? "font-semibold text-red-500 dark:text-red-400" : "text-slate-400 dark:text-slate-500"}>
+            <span
+              className={
+                overCapacity
+                  ? "rounded-full bg-red-50 px-1.5 text-[11px] font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400"
+                  : "text-[11px] font-medium text-[#8a91a0] dark:text-slate-500"
+              }
+            >
               {maxHere}/{capacity}
             </span>
           )}
@@ -200,8 +208,12 @@ export default function LodgingCalendar({
           <div
             key={d}
             {...rowProps}
-            className={`flex min-h-[46px] flex-col gap-1 border-b border-r border-slate-100 p-1 last:border-r-0 dark:border-slate-800 ${
-              isOver ? "bg-slate-100 dark:bg-slate-800" : "bg-white dark:bg-slate-900"
+            className={`flex min-h-[46px] flex-col gap-1 border-b border-r border-[#edeff3] p-1 last:border-r-0 dark:border-slate-800 ${
+              isOver
+                ? "bg-indigo-50/70 dark:bg-slate-800"
+                : d === today
+                  ? "bg-indigo-50/40 dark:bg-indigo-950/20"
+                  : "bg-white dark:bg-slate-900"
             } ${selectedId ? "cursor-pointer" : ""}`}
           >
             {blocksByDay[i].map((b) => (
@@ -235,18 +247,22 @@ export default function LodgingCalendar({
     // "sticky top" to actually freeze the date row while scrolling; with
     // only overflow-x set, browsers won't reliably stick a top-0 element to
     // the page scroll, only to an internal one.
-    <div className="mt-3 max-h-[75vh] overflow-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800">
+    <div className="mt-3 max-h-[75vh] overflow-auto rounded-[14px] border border-[#e3e5ea] bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className={`grid ${gridCols} min-w-[760px]`}>
         {/* Header row — pinned to the top of the viewport (and the corner
             cell also pinned to the left) so the dates stay visible no
             matter how far down the suite list you've scrolled. */}
-        <div className="sticky left-0 top-0 z-30 border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
+        <div className="sticky left-0 top-0 z-30 border-b border-r border-[#e3e5ea] bg-[#f9fafb] px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400">
           Suite
         </div>
         {days.map((d) => (
           <div
             key={d}
-            className="sticky top-0 z-20 border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 last:border-r-0 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
+            className={`sticky top-0 z-20 border-b border-r border-[#e3e5ea] px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.06em] last:border-r-0 dark:border-slate-800 ${
+              d === today
+                ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300"
+                : "bg-[#f9fafb] text-[#8a91a0] dark:bg-slate-800 dark:text-slate-400"
+            }`}
           >
             {dayLabel(d)}
           </div>
@@ -255,19 +271,34 @@ export default function LodgingCalendar({
         {/* Unassigned row */}
         <Row areaId={null} label="⚠️ Unassigned" />
 
-        {groups.map((g) => (
-          <Fragment key={g.type}>
-            <div
-              className="border-b border-slate-200 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300"
-              style={{ gridColumn: "1 / -1" }}
-            >
-              {typeLabel(g.type)}
-            </div>
-            {g.areas.map((a) => (
-              <Row key={a.id} areaId={a.id} label={a.name} capacity={a.capacity} />
-            ))}
-          </Fragment>
-        ))}
+        {groups.map((g) => {
+          const groupAreaIds = new Set(g.areas.map((a) => a.id));
+          const tonight =
+            today && days.includes(today)
+              ? reservations.filter(
+                  (r) => r.lodgingAreaId && groupAreaIds.has(r.lodgingAreaId) && occupiesDay(r, today)
+                ).length
+              : null;
+          const beds = g.areas.reduce((s, a) => s + (a.capacity ?? 0), 0);
+          return (
+            <Fragment key={g.type}>
+              <div
+                className="flex items-center justify-between border-b border-[#e3e5ea] bg-[#f5f6f8] px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#565d6d] dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300"
+                style={{ gridColumn: "1 / -1" }}
+              >
+                <span>{typeLabel(g.type)}</span>
+                {tonight != null && (
+                  <span className="normal-case tracking-normal text-[#8a91a0] dark:text-slate-500">
+                    {tonight}/{beds} tonight
+                  </span>
+                )}
+              </div>
+              {g.areas.map((a) => (
+                <Row key={a.id} areaId={a.id} label={a.name} capacity={a.capacity} />
+              ))}
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );

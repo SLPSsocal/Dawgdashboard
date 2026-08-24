@@ -6,6 +6,7 @@ import PageQuickActions from "@/components/PageQuickActions";
 import FacilityCalendarBoard, { type ApptCard, type Specialist, type SpecialistBlock } from "@/components/FacilityCalendarBoard";
 import SpecialistBlockForm from "@/components/SpecialistBlockForm";
 import CalendarDateJump from "@/components/CalendarDateJump";
+import { todayLocal } from "@/lib/dates";
 import Link from "next/link";
 
 function fmt(d: Date) {
@@ -32,7 +33,7 @@ export default async function FacilityCalendarPage({
   if (!session) redirect("/login");
   const { date } = await searchParams;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayLocal();
   const dateStr = date || todayStr;
   const prevDate = fmt(new Date(new Date(`${dateStr}T00:00:00`).getTime() - 86400000));
   const nextDate = fmt(new Date(new Date(`${dateStr}T00:00:00`).getTime() + 86400000));
@@ -98,53 +99,47 @@ export default async function FacilityCalendarPage({
     reason: b.reason,
   }));
 
+  const pagerChip =
+    "inline-flex h-8 items-center rounded-full border border-[#e3e5ea] bg-white px-3 text-[13px] font-medium text-[#565d6d] shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+
   return (
-    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
+    <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Facility Calendar — {session!.facilityName}</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
+              Facility calendar
+            </h1>
+            <p className="mt-1 text-[13px] text-[#8a91a0] dark:text-slate-500">
+              {new Date(`${dateStr}T00:00:00`).toLocaleDateString([], {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}{" "}
+              · drag grooming cards between groomers; double-booked slots flag red ⚠️
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/facility-calendar?date=${prevDate}`} className={pagerChip}>
+              ← Day
+            </Link>
+            {dateStr !== todayStr && (
+              <Link href="/facility-calendar" className={`${pagerChip} !text-indigo-600`}>
+                Today
+              </Link>
+            )}
+            <Link href={`/facility-calendar?date=${nextDate}`} className={pagerChip}>
+              Day →
+            </Link>
+            {/* Direct month/date jump (Alan's request) — no more paging day by day. */}
+            <CalendarDateJump date={dateStr} basePath="/facility-calendar" />
+          </div>
         </div>
 
         <div className="mt-3">
           <PageQuickActions session={session!} />
         </div>
-
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <Link
-            href={`/facility-calendar?date=${prevDate}`}
-            className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
-          >
-            ← Day
-          </Link>
-          <span className="font-medium">
-            {new Date(`${dateStr}T00:00:00`).toLocaleDateString([], {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-          {dateStr !== todayStr && (
-            <Link href="/facility-calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
-              Today
-            </Link>
-          )}
-          <Link
-            href={`/facility-calendar?date=${nextDate}`}
-            className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
-          >
-            Day →
-          </Link>
-          {/* Direct month/date jump (Alan's request) — no more paging day by day. */}
-          <CalendarDateJump date={dateStr} basePath="/facility-calendar" />
-        </div>
-
-        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-          Grooming appointments can be dragged between groomers to reassign — or on mobile, tap a card, then tap
-          a column. Evaluations and daycare/boarding arrivals are shown for visibility only. Overbooking a
-          specialist is allowed, but double-booked appointments show side-by-side with a{" "}
-          <span className="text-red-500 dark:text-red-400">red ⚠️ warning</span> so it doesn&apos;t go unnoticed.
-        </p>
 
         <SpecialistBlockForm specialists={specialists} date={dateStr} />
 

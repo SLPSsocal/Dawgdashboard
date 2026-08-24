@@ -117,6 +117,9 @@ export default function CheckoutCalculator({
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
   const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>(initialRetailRows ?? []);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
+  // Tip-on base (design: TIP ON — Grooming ($67) vs Whole ticket ($427) with
+  // 15/18/20/25% quick buttons that show the dollar amount before you tap).
+  const [tipBase, setTipBase] = useState<"grooming" | "ticket">("grooming");
   const [openType, setOpenType] = useState<OpenItemType>("Tip");
   const [openDesc, setOpenDesc] = useState("");
   const [openAmount, setOpenAmount] = useState("");
@@ -289,6 +292,25 @@ export default function CheckoutCalculator({
   }
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
+  // Tip bases: grooming services on this ticket, or the whole ticket minus
+  // any tips already added (tipping on a tip compounds).
+  const groomingTotal = groomingRows.reduce((s, r) => s + (r.service ? r.price : 0), 0);
+  const tipsSoFar = openItems.filter((o) => o.type === "Tip").reduce((s, o) => s + o.amount, 0);
+  const preTipTicket = Math.round((subtotal - tipsSoFar) * 100) / 100;
+  const effTipBase = tipBase === "grooming" && groomingTotal > 0 ? "grooming" : "ticket";
+  const tipBaseAmount = effTipBase === "grooming" ? groomingTotal : preTipTicket;
+  function addQuickTip(pct: number) {
+    if (tipBaseAmount <= 0) return;
+    const amount = Math.round(tipBaseAmount * pct) / 100;
+    setOpenItems((items) => [
+      ...items,
+      {
+        type: "Tip",
+        description: `${pct}% of ${effTipBase === "grooming" ? "grooming" : "ticket"} ($${tipBaseAmount.toFixed(2)})`,
+        amount,
+      },
+    ]);
+  }
   const taxableSubtotal = lineItems.filter((li) => li.taxable).reduce((sum, li) => sum + li.lineTotal, 0);
   const taxAmount = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
   const total = subtotal + taxAmount;
@@ -445,12 +467,24 @@ export default function CheckoutCalculator({
     );
   }
 
+  const card =
+    "rounded-[14px] border border-[#e3e5ea] bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900";
+  const sectionLabel =
+    "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:text-slate-500";
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="flex flex-col gap-4">
       {isStayBilling && (
-        <div>
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">🗓️ Stay Dates (billed)</span>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className={card}>
+          <div className="flex items-center justify-between">
+            <span className={sectionLabel}>Stay billed</span>
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
+              {effUnits} {rateUnit === "per_night" ? "night" : "day"}
+              {effUnits === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <input
               type="date"
               value={stayStart}
@@ -466,10 +500,6 @@ export default function CheckoutCalculator({
               onChange={(e) => setStayEnd(e.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
-            <span className="text-sm font-semibold tabular-nums">
-              {effUnits} {rateUnit === "per_night" ? "night" : "day"}
-              {effUnits === 1 ? "" : "s"}
-            </span>
           </div>
           {datesAdjusted && (
             <p className="mt-1 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
@@ -486,75 +516,98 @@ export default function CheckoutCalculator({
       )}
 
       {additionalDogRules.length > 0 && (
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            This dog is # ___ of the household&apos;s dogs here today
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={additionalDogRules.length + 1}
-            value={numDogs}
-            onChange={(e) => setNumDogs(Math.max(1, Number(e.target.value)))}
-            className="mt-1 w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          {autoDetectedDogs && !dogCountEdited && (
-            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-              auto — {householdSize} dogs from this household on this stay
-            </span>
-          )}
-          {dogCountEdited && (
-            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-              edited (auto said #{householdRank ?? 1})
-            </span>
-          )}
-          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            1 = first dog (full price). 2+ applies that dog&apos;s additional-dog rate to this ticket —
+        <div className={card}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={sectionLabel}>Household position</span>
+            {autoDetectedDogs && !dogCountEdited && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                auto — {householdSize} dogs from this household on this stay
+              </span>
+            )}
+            {dogCountEdited && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                edited (auto said #{householdRank ?? 1})
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Array.from({ length: additionalDogRules.length + 1 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setNumDogs(n)}
+                className={`h-9 min-w-[52px] rounded-[10px] border px-3 text-sm font-semibold transition-colors ${
+                  numDogs === n
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300"
+                    : "border-[#e3e5ea] bg-white text-[#565d6d] hover:border-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                }`}
+              >
+                #{n}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-[#8a91a0] dark:text-slate-500">
+            #1 = first dog (full price). #2+ applies that dog&apos;s additional-dog rate to this ticket —
             each dog checks out on its own reservation.
             {autoDetectedDogs
               ? " Filled in from the household's overlapping bookings — change it if that's wrong."
-              : " No other dog from this household overlaps this stay, so it's set to 1."}
+              : " No other dog from this household overlaps this stay, so it's set to #1."}
           </p>
-        </label>
+        </div>
       )}
 
       {flatFeeRules.length > 0 && (
-        <div>
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fees</span>
-          <div className="mt-1 flex flex-col gap-1">
-            {flatFeeRules.map((rule) => (
-              <label key={rule.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={checkedFees.has(rule.id)}
-                  onChange={(e) =>
-                    setCheckedFees((s) => {
-                      const next = new Set(s);
-                      if (e.target.checked) next.add(rule.id);
-                      else next.delete(rule.id);
-                      return next;
-                    })
-                  }
-                />
-                {rule.label} (+${rule.amount.toFixed(2)})
-                {autoLateFeeIds.has(rule.id) && checkedFees.has(rule.id) && (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                    auto — pickup after 12:15 PM (untick if excused)
+        <div className={card}>
+          <span className={sectionLabel}>Fees from pricing rules</span>
+          <div className="mt-2 flex flex-col gap-2">
+            {flatFeeRules.map((rule) => {
+              const checked = checkedFees.has(rule.id);
+              return (
+                <label
+                  key={rule.id}
+                  className={`flex cursor-pointer items-center justify-between gap-2 rounded-[10px] border px-3 py-2.5 text-sm transition-colors ${
+                    checked
+                      ? "border-indigo-500 bg-indigo-50/50 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/30"
+                      : "border-[#e3e5ea] bg-white hover:border-indigo-200 dark:border-slate-700 dark:bg-slate-900"
+                  }`}
+                >
+                  <span className="flex min-w-0 flex-wrap items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        setCheckedFees((s) => {
+                          const next = new Set(s);
+                          if (e.target.checked) next.add(rule.id);
+                          else next.delete(rule.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <span className="font-medium text-[#15181d] dark:text-slate-100">{rule.label}</span>
+                    {autoLateFeeIds.has(rule.id) && checked && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                        auto — pickup after 12:15 PM (untick if excused)
+                      </span>
+                    )}
                   </span>
-                )}
-              </label>
-            ))}
+                  <span className="shrink-0 font-semibold tabular-nums text-[#15181d] dark:text-slate-100">
+                    +${rule.amount.toFixed(2)}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <div>
+      <div className={card}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Grooming Add-ons</span>
+          <span className={sectionLabel}>Grooming add-ons</span>
           <button
             type="button"
             onClick={addGroomingRow}
-            className="text-xs font-medium text-slate-500 underline dark:text-slate-400"
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
           >
             + Add Service
           </button>
@@ -603,17 +656,17 @@ export default function CheckoutCalculator({
         </p>
       )}
       {retailItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+        <div className="rounded-[14px] border border-dashed border-[#e3e5ea] px-3 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
           <span className="font-medium text-slate-700 dark:text-slate-200">Items for Sale</span> — nothing in the
           catalog yet.{" "}
           <Link href="/retail" className="text-indigo-600 underline dark:text-indigo-400">Add items</Link>{" "}
           and they&apos;ll be sellable here.
         </div>
       ) : (
-        <div>
+        <div className={card}>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Items for Sale</span>
-            <button type="button" onClick={addRetailRow} className="text-xs font-medium text-slate-500 underline dark:text-slate-400">
+            <span className={sectionLabel}>Items for sale</span>
+            <button type="button" onClick={addRetailRow} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
               + Add Item
             </button>
           </div>
@@ -659,11 +712,66 @@ export default function CheckoutCalculator({
 
       {/* Open Line Items — a tip, a manual price adjustment, or any other
           one-off charge that isn't tied to the retail catalog. */}
-      <div>
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tip / Other Charges</span>
+      <div className={card}>
+        <span className={sectionLabel}>Tip / other charges</span>
+
+        {/* TIP ON — pick the base, then a percentage; each button shows the
+            dollar amount so nobody does register math out loud. */}
+        {(groomingTotal > 0 || preTipTicket > 0) && (
+          <div className="mt-2 rounded-[10px] border border-[#edeff3] bg-[#f9fafb] p-3 dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:text-slate-500">
+              Tip on
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {groomingTotal > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTipBase("grooming")}
+                  className={`rounded-[10px] border px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                    effTipBase === "grooming"
+                      ? "border-indigo-500 bg-white text-indigo-700 ring-1 ring-indigo-500 dark:bg-slate-900 dark:text-indigo-300"
+                      : "border-[#e3e5ea] bg-white text-[#565d6d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  }`}
+                >
+                  Grooming (${groomingTotal.toFixed(2)})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setTipBase("ticket")}
+                className={`rounded-[10px] border px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                  effTipBase === "ticket"
+                    ? "border-indigo-500 bg-white text-indigo-700 ring-1 ring-indigo-500 dark:bg-slate-900 dark:text-indigo-300"
+                    : "border-[#e3e5ea] bg-white text-[#565d6d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                }`}
+              >
+                Whole ticket (${preTipTicket.toFixed(2)})
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[15, 18, 20, 25].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => addQuickTip(pct)}
+                  className="flex flex-col items-center rounded-[10px] border border-[#e3e5ea] bg-white px-3 py-1.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/50 dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <span className="text-[13px] font-semibold text-[#15181d] dark:text-slate-100">{pct}%</span>
+                  <span className="text-[10px] tabular-nums text-[#8a91a0] dark:text-slate-500">
+                    ${(Math.round(tipBaseAmount * pct) / 100).toFixed(2)}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-[#8a91a0] dark:text-slate-500">
+              Adds a Tip line to the ticket — tap ✕ on it to undo. Custom amounts below.
+            </p>
+          </div>
+        )}
+
         <div className="mt-2 flex flex-col gap-2">
           {openItems.map((oi, i) => (
-            <div key={i} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-800">
+            <div key={i} className="flex items-center justify-between rounded-[10px] border border-[#e3e5ea] px-3 py-1.5 text-sm dark:border-slate-800">
               <span className="text-slate-600 dark:text-slate-300">
                 {oi.type}
                 {oi.description ? `: ${oi.description}` : ""}
@@ -726,27 +834,44 @@ export default function CheckoutCalculator({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
+      </div>
+
+      {/* Right rail: the live TICKET + PAYMENT (sticky on desktop; on mobile
+          it renders below the builder cards, total always in view). */}
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-20">
+      <div className={`${card} text-sm`}>
+        <div className={sectionLabel}>Ticket</div>
+        <div className="mt-2">
         {lineItems.map((li, i) => (
-          <div key={i} className="flex justify-between py-0.5">
-            <span className="text-slate-500 dark:text-slate-400">{li.description}</span>
-            <span className={li.lineTotal < 0 ? "text-green-600 dark:text-green-400" : ""}>
-              {li.lineTotal < 0 ? "-" : ""}${Math.abs(li.lineTotal).toFixed(2)}
+          <div key={i} className="flex justify-between gap-3 py-1">
+            <span className="text-[13px] text-[#565d6d] dark:text-slate-400">{li.description}</span>
+            <span
+              className={`shrink-0 tabular-nums ${
+                li.lineTotal < 0
+                  ? "font-medium text-emerald-600 dark:text-emerald-400"
+                  : "text-[#15181d] dark:text-slate-100"
+              }`}
+            >
+              {li.lineTotal < 0 ? "−" : ""}${Math.abs(li.lineTotal).toFixed(2)}
             </span>
           </div>
         ))}
         {taxAmount > 0 && (
-          <div className="flex justify-between py-0.5">
-            <span className="text-slate-500 dark:text-slate-400">Sales Tax ({taxRate}%)</span>
-            <span>${taxAmount.toFixed(2)}</span>
+          <div className="flex justify-between gap-3 py-1">
+            <span className="text-[13px] text-[#565d6d] dark:text-slate-400">
+              Sales tax {taxRate}% on ${taxableSubtotal.toFixed(2)} retail
+            </span>
+            <span className="tabular-nums text-[#15181d] dark:text-slate-100">${taxAmount.toFixed(2)}</span>
           </div>
         )}
-        <div className="mt-2 flex justify-between border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
-          <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+        <div className="mt-2 flex items-baseline justify-between border-t border-[#edeff3] pt-2.5 dark:border-slate-800">
+          <span className="font-semibold text-[#15181d] dark:text-slate-100">Total</span>
+          <span className="text-[22px] font-semibold tabular-nums text-[#15181d] dark:text-slate-50">
+            ${total.toFixed(2)}
+          </span>
         </div>
         {discountHints.length > 0 && (
-          <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+          <div className="mt-2 border-t border-[#edeff3] pt-2 dark:border-slate-800">
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">No discount on this ticket:</p>
             <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-400 dark:text-slate-500">
               {discountHints.map((h) => (
@@ -755,19 +880,20 @@ export default function CheckoutCalculator({
             </ul>
           </div>
         )}
+        </div>
       </div>
 
       {/* Payment Method — supports splitting one ticket across several
           tender types (e.g. $15 cash, remainder on card). Card lines settle
           through Helcim; cash / store credit / admin credit are recorded
           against the invoice without touching the gateway. */}
-      <div>
+      <div className={card}>
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Payment Method</span>
+          <span className={sectionLabel}>Payment</span>
           <button
             type="button"
             onClick={addPaymentRow}
-            className="text-xs font-medium text-slate-500 underline dark:text-slate-400"
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
           >
             + Split payment
           </button>
@@ -863,23 +989,31 @@ export default function CheckoutCalculator({
             </span>
           </label>
         )}
+        <p className="mt-3 text-[11px] text-[#8a91a0] dark:text-slate-500">
+          Card charges settle through Helcim. Cash and credit are recorded against the invoice.
+        </p>
+
+        {error && (
+          <div className="mt-2 rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={submit}
+          disabled={isPending}
+          className="mt-3 w-full rounded-[10px] bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {isPending
+            ? "Working…"
+            : usingNewCard
+              ? `Continue to card — $${(newCardPayment?.amount ?? total).toFixed(2)}`
+              : savedCardPayment
+                ? `Charge $${savedCardPayment.amount.toFixed(2)} & check out`
+                : `Check out — $${total.toFixed(2)}`}
+        </button>
       </div>
-
-      {error && <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">{error}</div>}
-
-      <button
-        onClick={submit}
-        disabled={isPending}
-        className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 sm:w-fit dark:bg-slate-100 dark:text-slate-900"
-      >
-        {isPending
-          ? "Working…"
-          : usingNewCard
-            ? `Continue to Card — $${(newCardPayment?.amount ?? total).toFixed(2)}`
-            : savedCardPayment
-              ? `Charge $${savedCardPayment.amount.toFixed(2)} & Check Out`
-              : "Check Out"}
-      </button>
+      </aside>
     </div>
   );
 }

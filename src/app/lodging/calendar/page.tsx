@@ -6,6 +6,7 @@ import PageQuickActions from "@/components/PageQuickActions";
 import LodgingCalendar, { type CalArea, type CalReservation, type LodgingBlock } from "@/components/LodgingCalendar";
 import LodgingBlockForm from "@/components/LodgingBlockForm";
 import { createLodgingArea } from "@/app/lodging/actions";
+import { todayLocal } from "@/lib/dates";
 import Link from "next/link";
 
 function fmt(d: Date) {
@@ -40,7 +41,7 @@ export default async function LodgingCalendarPage({
   if (!session) redirect("/login");
   const { week } = await searchParams;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayLocal();
   const monday = mondayOf(week || todayStr);
   const days: string[] = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
@@ -134,19 +135,81 @@ export default async function LodgingCalendarPage({
     day: "numeric",
   })} – ${new Date(`${days[6]}T00:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })}`;
 
+  // KPI strip (design: OCCUPIED TONIGHT / ARRIVING TODAY / DEPARTING TOMORROW / UNASSIGNED)
+  const tomorrowStr = (() => {
+    const d = new Date(`${todayStr}T12:00:00`);
+    d.setDate(d.getDate() + 1);
+    return fmt(d);
+  })();
+  const occupiedTonight = reservations.filter(
+    (r) => todayStr >= r.startDate.slice(0, 10) && todayStr < r.endDate.slice(0, 10)
+  ).length;
+  const arrivingToday = reservations.filter((r) => r.startDate.slice(0, 10) === todayStr).length;
+  const departingTomorrow = reservations.filter((r) => r.endDate.slice(0, 10) === tomorrowStr).length;
+  const unassignedCount = reservations.filter((r) => !r.lodgingAreaId).length;
+  const kpis = [
+    { label: "Occupied tonight", value: occupiedTonight, dot: "bg-emerald-600" },
+    { label: "Arriving today", value: arrivingToday, dot: "bg-sky-600" },
+    { label: "Departing tomorrow", value: departingTomorrow, dot: "bg-violet-600" },
+    { label: "Unassigned", value: unassignedCount, dot: "bg-amber-600", warn: unassignedCount > 0 },
+  ];
+
+  const pagerChip =
+    "inline-flex h-8 items-center rounded-full border border-[#e3e5ea] bg-white px-3 text-[13px] font-medium text-[#565d6d] shadow-sm transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+
   return (
-    <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
+    <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">Lodging Calendar — {session!.facilityName}</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
+              Lodging calendar
+            </h1>
+            <p className="mt-1 text-[13px] text-[#8a91a0] dark:text-slate-500">
+              {weekLabel} · drag a chip to a suite row to reassign — the check-in board reads the same reservation
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href={`/lodging/calendar?week=${prevWeek}`} className={pagerChip}>
+              ← Week
+            </Link>
+            {!thisWeek && (
+              <Link href="/lodging/calendar" className={`${pagerChip} !text-indigo-600`}>
+                This week
+              </Link>
+            )}
+            <Link href={`/lodging/calendar?week=${nextWeek}`} className={pagerChip}>
+              Week →
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-[#e3e5ea] bg-[#e3e5ea] shadow-sm sm:grid-cols-4 dark:border-slate-800 dark:bg-slate-800">
+          {kpis.map((k) => (
+            <div key={k.label} className="bg-white px-4 py-3 dark:bg-slate-900">
+              <div className="flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${k.dot}`} />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:text-slate-500">
+                  {k.label}
+                </span>
+              </div>
+              <div
+                className={`mt-1 text-[26px] font-semibold leading-none ${
+                  k.warn ? "text-amber-700 dark:text-amber-400" : "text-[#15181d] dark:text-slate-50"
+                }`}
+              >
+                {k.value}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mt-3">
           <PageQuickActions session={session!} />
         </div>
 
-        <details className="group mt-4 rounded-xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <details className="group mt-4 rounded-[14px] border border-[#e3e5ea] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">+ Add Lodging Area</h2>
             <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
@@ -197,32 +260,6 @@ export default async function LodgingCalendarPage({
           </form>
         </details>
 
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <Link
-            href={`/lodging/calendar?week=${prevWeek}`}
-            className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
-          >
-            ← Week
-          </Link>
-          <span className="font-medium">{weekLabel}</span>
-          {!thisWeek && (
-            <Link href="/lodging/calendar" className="text-xs text-slate-400 underline dark:text-slate-500">
-              This Week
-            </Link>
-          )}
-          <Link
-            href={`/lodging/calendar?week=${nextWeek}`}
-            className="rounded-md border border-slate-300 px-2 py-1 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
-          >
-            Week →
-          </Link>
-        </div>
-
-        <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-          Drag a chip into a different suite row to reassign it — or on mobile, tap a chip, then tap the row.
-          Moving a suite here updates the same reservation the check-in board reads.
-        </p>
-
         {(!areas || areas.length === 0) ? (
           <p className="mt-8 text-sm text-slate-400 dark:text-slate-500">
             No lodging areas set up yet for {session!.facilityName}.
@@ -234,7 +271,7 @@ export default async function LodgingCalendarPage({
               week={weekStart}
               defaultDate={todayStr >= weekStart && todayStr <= days[6] ? todayStr : weekStart}
             />
-            <LodgingCalendar areas={calAreas} days={days} initialReservations={reservations} blocks={blocks} />
+            <LodgingCalendar areas={calAreas} days={days} initialReservations={reservations} blocks={blocks} today={todayStr} />
           </>
         )}
       </div>

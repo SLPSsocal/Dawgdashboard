@@ -112,7 +112,9 @@ export async function updateAnimal(animalId: string, formData: FormData) {
       alert_note: str(formData, "alert_note"),
       poop_eater: bool(formData, "poop_eater"),
       pee_drinker: bool(formData, "pee_drinker"),
-      active: bool(formData, "active"),
+      // "Deceased" checkbox (🙏🕊️) — checked means the pet is no longer
+      // active. Inverted here so the DB flag semantics stay the same.
+      active: !bool(formData, "deceased"),
     })
     .eq("id", animalId);
 

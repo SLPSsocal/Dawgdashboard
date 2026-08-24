@@ -3,6 +3,7 @@ import type { Session } from "@/lib/session";
 import ThemeToggle from "@/components/ThemeToggle";
 import CartButton from "@/components/CartButton";
 import SupportWidget from "@/components/SupportWidget";
+import DawgAssistant from "@/components/DawgAssistant";
 import AppNav from "@/components/AppNav";
 import Link from "next/link";
 
@@ -58,6 +59,8 @@ export default function FacilityHeader({ session }: { session: Session }) {
       {/* Sibling of the header, not a child — so its fixed positioning is
           relative to the viewport. */}
       <SupportWidget staffName={session.staffName} facilityId={session.facilityId} />
+      {/* ✨ assistant launcher — floats above the support button. */}
+      <DawgAssistant />
     </>
   );
 }

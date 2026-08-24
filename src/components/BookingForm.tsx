@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
 import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
@@ -239,81 +239,134 @@ export default function BookingForm({
     });
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <AnimalPicker animals={animals} onSelect={setAnimal} initialSelected={initialAnimal ?? null} />
-      {animal?.alertNote && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-          <span>❗</span>
-          <span>{animal.alertNote}</span>
-        </div>
-      )}
-      {animals.length === 0 && (
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          No animals yet — <Link href="/animals/new" className="underline">add one first</Link>.
-        </p>
-      )}
-
-      {siblings.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Also book from the same household?
+  // Design system: numbered step cards on the left, live booking summary on
+  // the right (mock: "New booking" screen).
+  function StepCard({
+    n,
+    title,
+    children,
+  }: {
+    n: number;
+    title: string;
+    children: ReactNode;
+  }) {
+    return (
+      <section className="rounded-[14px] border border-[#e3e5ea] bg-white p-4 shadow-sm sm:p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-3 flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-50 text-[12px] font-bold text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
+            {n}
           </span>
-          <div className="mt-2 flex flex-col gap-1">
-            {siblings.map((s) => (
-              <label key={s.id} className="flex items-center gap-2 text-sm">
+          <h2 className="text-[15px] font-semibold text-[#15181d] dark:text-slate-100">{title}</h2>
+        </div>
+        {children}
+      </section>
+    );
+  }
+
+  const summaryDates = usesTimeSlot
+    ? `${startDate} · ${SLOTS.find((s) => s.value === startTime)?.label ?? startTime}`
+    : startDate === endDate
+      ? `${startDate} (day visit)`
+      : `${startDate} → ${endDate}`;
+  const extraDogs = siblings.filter((s) => selectedSiblingIds.has(s.id));
+
+  return (
+    <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
+      <div className="flex flex-col gap-4">
+        <StepCard n={1} title="Who's coming in">
+          <AnimalPicker animals={animals} onSelect={setAnimal} initialSelected={initialAnimal ?? null} />
+          {animal?.alertNote && (
+            <div className="mt-3 flex items-start gap-2 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              <span>❗</span>
+              <span>{animal.alertNote}</span>
+            </div>
+          )}
+          {animals.length === 0 && (
+            <p className="mt-2 text-xs text-[#8a91a0] dark:text-slate-500">
+              No animals yet — <Link href="/animals/new" className="underline">add one first</Link>.
+            </p>
+          )}
+
+          {siblings.length > 0 && (
+            <div className="mt-3 rounded-[10px] border border-[#e3e5ea] bg-[#f9fafb] p-3 dark:border-slate-800 dark:bg-slate-950/40">
+              <span className="text-sm font-semibold text-[#15181d] dark:text-slate-200">
+                Also book from the same household?
+              </span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {siblings.map((s) => (
+                  <label
+                    key={s.id}
+                    className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      selectedSiblingIds.has(s.id)
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+                        : "border-[#e3e5ea] bg-white text-[#565d6d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedSiblingIds.has(s.id)}
+                      onChange={() => toggleSibling(s.id)}
+                    />
+                    {selectedSiblingIds.has(s.id) ? "✓ " : "+ "}
+                    {s.name}
+                    {s.breed ? ` · ${s.breed}` : ""}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-[#8a91a0] dark:text-slate-500">
+                Creates identical bookings for each dog picked — adjust lodging per dog afterward.
+              </p>
+            </div>
+          )}
+        </StepCard>
+
+        <StepCard n={2} title="Service">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {reservationTypes.map((t) => (
+              <label
+                key={t.id}
+                className={`flex cursor-pointer items-center justify-between rounded-[10px] border px-3 py-2.5 text-sm transition-colors ${
+                  typeId === t.id
+                    ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/30"
+                    : "border-[#e3e5ea] bg-white hover:border-indigo-200 dark:border-slate-700 dark:bg-slate-900"
+                }`}
+              >
                 <input
-                  type="checkbox"
-                  checked={selectedSiblingIds.has(s.id)}
-                  onChange={() => toggleSibling(s.id)}
+                  type="radio"
+                  name="reservation_type"
+                  className="sr-only"
+                  checked={typeId === t.id}
+                  onChange={() => setTypeId(t.id)}
                 />
-                {s.name}
-                {s.breed ? ` · ${s.breed}` : ""}
+                <span className="font-semibold text-[#15181d] dark:text-slate-100">{t.name}</span>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
+                  {t.category.replace(/_/g, " ")}
+                </span>
               </label>
             ))}
           </div>
-          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            Creates identical bookings for each dog checked — you can adjust lodging per dog afterward.
-          </p>
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Reservation Type</span>
-          <select
-            value={typeId}
-            onChange={(e) => setTypeId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          >
-            <option value="">—</option>
-            {reservationTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          {type?.requiresLodging && (
+            <label className="mt-3 block sm:max-w-xs">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging Area</span>
+              <select
+                value={lodgingAreaId}
+                onChange={(e) => setLodgingAreaId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="">— Unassigned —</option>
+                {lodgingAreas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </StepCard>
 
-        {type?.requiresLodging && (
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging Area</span>
-            <select
-              value={lodgingAreaId}
-              onChange={(e) => setLodgingAreaId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            >
-              <option value="">— Unassigned —</option>
-              {lodgingAreas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
-
+        <StepCard n={3} title="When">
       {usesTimeSlot ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -483,40 +536,101 @@ export default function BookingForm({
           </label>
         </div>
       )}
+        </StepCard>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Belongings</span>
-        <input
-          value={belongings}
-          onChange={(e) => setBelongings(e.target.value)}
-          placeholder="Leash, bed, food…"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
+        <StepCard n={4} title="Details">
+          <div className="flex flex-col gap-3">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Belongings</span>
+              <input
+                value={belongings}
+                onChange={(e) => setBelongings(e.target.value)}
+                placeholder="Leash, bed, food…"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+          </div>
+        </StepCard>
+      </div>
 
-      {error && (
-        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
-          {error}
+      {/* Booking summary rail — sticky on desktop, inline (bottom) on mobile. */}
+      <aside className="rounded-[14px] border border-[#e3e5ea] bg-white p-4 shadow-sm lg:sticky lg:top-20 dark:border-slate-800 dark:bg-slate-900">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:text-slate-500">
+          Booking summary
         </div>
-      )}
+        <dl className="mt-3 flex flex-col gap-2.5 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Dog{extraDogs.length > 0 ? "s" : ""}</dt>
+            <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+              {animal ? [animal.name, ...extraDogs.map((s) => s.name)].join(", ") : "—"}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Service</dt>
+            <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+              {type?.name ?? "—"}
+              {isGrooming && serviceName ? ` · ${serviceName}` : ""}
+            </dd>
+          </div>
+          {type?.requiresLodging && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Lodging</dt>
+              <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+                {lodgingAreas.find((a) => a.id === lodgingAreaId)?.name ?? "Unassigned"}
+              </dd>
+            </div>
+          )}
+          <div className="flex items-start justify-between gap-3">
+            <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">When</dt>
+            <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">{summaryDates}</dd>
+          </div>
+          {!usesTimeSlot && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Times</dt>
+              <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+                {dropOffTime || "—"} → {pickUpTime || "—"}
+              </dd>
+            </div>
+          )}
+        </dl>
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={isPending || !canSubmit}
-        className="mt-2 w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:w-fit dark:bg-slate-100 dark:text-slate-900"
-      >
-        {isPending ? "Creating…" : "Create Booking"}
-      </button>
+        {!usesTimeSlot && pickUpTime > "12:15" && (
+          <p className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            Pick-up after 12:15 PM adds the late check-out fee at checkout.
+          </p>
+        )}
+
+        {error && (
+          <div className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isPending || !canSubmit}
+          className="mt-4 w-full rounded-[10px] bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {isPending
+            ? "Creating…"
+            : extraDogs.length > 0
+              ? `Create ${1 + extraDogs.length} bookings`
+              : "Create booking"}
+        </button>
+        <p className="mt-2 text-center text-[11px] text-[#8a91a0] dark:text-slate-500">
+          Shows up in Quick Check-in right away.
+        </p>
+      </aside>
     </div>
   );
 }

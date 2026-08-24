@@ -39,7 +39,7 @@ export default function ProfileTagBadges({
           key={i}
           title={t.note ? `${t.name} — ${t.note}` : t.name}
           aria-label={t.name}
-          className="cursor-help text-sm leading-none"
+          className="text-sm leading-none"
         >
           {t.icon}
         </span>

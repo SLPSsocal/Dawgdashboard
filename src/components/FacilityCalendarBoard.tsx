@@ -231,24 +231,28 @@ export default function FacilityCalendarBoard({
           width: `calc(${widthPct}% - 6px)`,
           minHeight: durationOf(c) * PX_PER_MIN,
         }}
-        className={`overflow-hidden rounded-md border bg-white px-2 py-1 text-xs shadow-sm dark:bg-slate-900 ${
-          draggable ? "cursor-grab touch-manipulation active:cursor-grabbing" : ""
-        } ${
+        className={`overflow-hidden rounded-[10px] border border-l-[3px] bg-white px-2 py-1 text-xs shadow-sm dark:bg-slate-900 ${
+          c.category === "grooming"
+            ? "border-l-pink-500"
+            : c.category === "evaluation"
+              ? "border-l-amber-500"
+              : "border-l-violet-500"
+        } ${draggable ? "cursor-grab touch-manipulation active:cursor-grabbing" : ""} ${
           selectedId === c.id
-            ? "border-slate-900 ring-2 ring-slate-900 dark:border-slate-100 dark:ring-slate-100"
+            ? "border-indigo-500 ring-2 ring-indigo-500 dark:border-indigo-400 dark:ring-indigo-400"
             : flagged
               ? "border-red-400 ring-1 ring-red-400 dark:border-red-500 dark:ring-red-500"
-              : "border-slate-200 dark:border-slate-700"
+              : "border-[#e3e5ea] dark:border-slate-700"
         } ${dragId === c.id ? "opacity-40" : ""}`}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="truncate font-medium">
+          <span className="truncate font-semibold text-[#15181d] dark:text-slate-100">
             {flagged && "⚠️ "}
             {c.animalName}
           </span>
-          <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">{fmtTime(c.time)}</span>
+          <span className="shrink-0 text-[10px] font-medium text-[#8a91a0] dark:text-slate-500">{fmtTime(c.time)}</span>
         </div>
-        <div className="truncate text-[10px] text-slate-400 dark:text-slate-500">
+        <div className="truncate text-[10px] text-[#8a91a0] dark:text-slate-500">
           {c.breed ?? "—"} · {c.serviceName ?? c.typeName ?? "—"} {c.status === "checked_in" ? "🟢" : ""}
         </div>
       </div>
@@ -277,9 +281,14 @@ export default function FacilityCalendarBoard({
     const positioned = layoutOverlaps(items);
     return (
       <div className="flex shrink-0 flex-col" style={{ width: LANE_WIDTH }}>
-        <div className="sticky top-0 z-10 truncate rounded-t-lg border border-b-0 border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900">
-          {colId !== null && blocks.some((b) => b.specialistId === colId) && "🚫 "}
-          {name} <span className="font-normal text-slate-400 dark:text-slate-500">({items.length})</span>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-1 truncate rounded-t-[10px] border border-b-0 border-[#e3e5ea] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#15181d] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <span className="truncate">
+            {colId !== null && blocks.some((b) => b.specialistId === colId) && "🚫 "}
+            {name}
+          </span>
+          <span className="shrink-0 rounded-full bg-[#f1f2f5] px-1.5 py-0.5 text-[11px] font-medium text-[#565d6d] dark:bg-slate-800 dark:text-slate-400">
+            {items.length}
+          </span>
         </div>
         <div
           onClick={
@@ -311,8 +320,8 @@ export default function FacilityCalendarBoard({
               : undefined
           }
           style={{ height: gridHeight }}
-          className={`relative overflow-hidden rounded-b-lg border transition-colors ${accent} ${
-            isOver ? "border-slate-900 dark:border-slate-100" : ""
+          className={`relative overflow-hidden rounded-b-[10px] border transition-colors ${accent} ${
+            isOver ? "border-indigo-500 dark:border-indigo-400" : ""
           } ${droppable && selectedId ? "cursor-pointer" : ""}`}
         >
           {hourMarks.map((m) => (
@@ -337,6 +346,17 @@ export default function FacilityCalendarBoard({
 
   return (
     <div className="mt-3">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-medium text-[#565d6d] dark:text-slate-400">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-pink-500" /> Grooming ({grooming.length})
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Evaluations ({evaluations.length})
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-500" /> Daycare + Boarding ({incoming.length})
+        </span>
+      </div>
       {specialists.length === 0 && (
         <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
           No specialist staff marked yet — add groomers on the Staff/Pricing setup to get named columns here.
@@ -371,8 +391,8 @@ export default function FacilityCalendarBoard({
             droppable
             accent={
               col.id === null
-                ? "border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20"
-                : "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40"
+                ? "border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20"
+                : "border-[#e3e5ea] bg-[#fafbfc] dark:border-slate-700 dark:bg-slate-900/40"
             }
           />
         ))}
@@ -381,14 +401,14 @@ export default function FacilityCalendarBoard({
           name="Evaluations"
           items={evaluations}
           droppable={false}
-          accent="border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/20"
+          accent="border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20"
         />
         <Lane
           colId="incoming"
           name="Daycare + Boarding"
           items={incoming}
           droppable={false}
-          accent="border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40"
+          accent="border-[#e3e5ea] bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/40"
         />
       </div>
     </div>

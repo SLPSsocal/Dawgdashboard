@@ -250,12 +250,8 @@ export default function AnimalForm({
       {showActiveToggle && (
         <label className="block">
           <span className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="active" defaultChecked={defaults?.active ?? true} />
-            🐾 Still an active guest here?
-          </span>
-          <span className="mt-1 block pl-6 text-xs text-slate-400 dark:text-slate-500">
-            Uncheck if {defaults?.name || "this pet"} is no longer with us — no longer a customer, moved away, or has
-            passed away.
+            <input type="checkbox" name="deceased" defaultChecked={defaults?.active === false} />
+            🙏🕊️ Deceased
           </span>
         </label>
       )}

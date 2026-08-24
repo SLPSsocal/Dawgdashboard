@@ -86,24 +86,28 @@ export default async function NewReservationPage({
   const initialAnimal = animalIdParam ? animalOptions.find((a) => a.id === animalIdParam) ?? null : null;
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
       <FacilityHeader session={session!} />
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
-        <Link href="/reservations" className="text-sm text-slate-400 underline dark:text-slate-500">
-          ← Check-in Board
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <Link
+          href="/reservations"
+          className="text-[13px] font-medium text-[#8a91a0] transition-colors hover:text-indigo-600 dark:text-slate-500"
+        >
+          ← Check-in board
         </Link>
-        <h1 className="mt-2 text-xl font-semibold">New Booking</h1>
-        <p className="text-sm text-slate-400 dark:text-slate-500">
-          Creates a booked reservation at {session!.facilityName} — it shows up in Quick Check-in right after you
-          create it. Pick a grooming reservation type to schedule a time slot and specialist instead of a date
-          range.
+        <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
+          New booking
+        </h1>
+        <p className="mt-1 text-[13px] text-[#8a91a0] dark:text-slate-500">
+          Books at {session!.facilityName} and shows in Quick Check-in right away. Grooming types schedule a time
+          slot and specialist instead of a date range.
         </p>
 
         <div className="mt-3">
           <PageQuickActions session={session!} />
         </div>
 
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mt-5">
           <BookingForm
             facilityId={session!.facilityId}
             animals={animalOptions}
