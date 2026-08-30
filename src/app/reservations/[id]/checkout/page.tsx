@@ -16,7 +16,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     .from("reservations")
     .select(
       `*, animals ( id, name, parent_id, gingr_animal_id, parents ( id, first_name, last_name ) ),
-       reservation_types ( id, name, base_rate, rate_unit )`
+       reservation_types ( id, name, base_rate, rate_unit, category )`
     )
     .eq("id", id)
     .maybeSingle();
@@ -34,6 +34,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     name: string;
     base_rate: string;
     rate_unit: string;
+    category: string | null;
   } | null;
 
   // Anchor every price lookup to when the STAY started, not today. A rate
@@ -136,6 +137,24 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   // two dogs must never both come out as "#2". Staff can still override.
   let householdRank = 1;
   let householdSize = 1;
+  // Other dogs from this household still checked in right now — surfaced at
+  // checkout so nobody walks a two-dog family out on one ticket and forgets
+  // the other dog's (Kath, Aug 30). Each dog checks out on its own ticket.
+  const householdCheckedIn: { reservationId: string; animalName: string }[] = [];
+  if (animal?.parents) {
+    const { data: hereNow } = await supabase
+      .from("reservations")
+      .select("id, animal_id, animals!inner ( name, parent_id )")
+      .eq("facility_id", session!.facilityId)
+      .eq("animals.parent_id", animal.parents.id)
+      .eq("status", "checked_in")
+      .neq("id", id);
+    for (const r of (hereNow as unknown as { id: string; animal_id: string; animals: { name: string } | null }[]) ?? []) {
+      if (r.animal_id !== animal.id) {
+        householdCheckedIn.push({ reservationId: r.id, animalName: r.animals?.name ?? "Unknown" });
+      }
+    }
+  }
   if (animal?.parents) {
     const { data: siblingRows } = await supabase
       .from("reservations")
@@ -214,6 +233,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             careNote={careNote}
             householdRank={householdRank}
             householdSize={householdSize}
+            bookedGroomingService={(reservation.grooming_service_name as string | null) ?? null}
+            isGroomingReservation={type?.category === "grooming"}
+            householdCheckedIn={householdCheckedIn}
           />
         </div>
       </div>

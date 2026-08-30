@@ -17,16 +17,18 @@ type Row = {
   start_date: string;
   end_date: string;
   gingr_reservation_id: string | null;
+  grooming_service_name?: string | null;
   animals: {
     id: string;
     name: string;
     breed: string | null;
     photo_url: string | null;
     alert_note: string | null;
+    gingr_animal_id: number | string | null;
     parents: { id: string; first_name: string; last_name: string; phone: string | null } | null;
   } | null;
   lodging_areas: { name: string } | null;
-  reservation_types: { name: string } | null;
+  reservation_types: { name: string; category?: string | null } | null;
 };
 
 let precheckinByReservation = new Map<string, string>();
@@ -70,10 +72,10 @@ export default async function ReservationsPage() {
     .maybeSingle();
   const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
 
-  const selectCols = `id, status, start_date, end_date, gingr_reservation_id,
-       animals ( id, name, breed, photo_url, alert_note, parents ( id, first_name, last_name, phone ) ),
+  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name,
+       animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name ),
-       reservation_types ( name )`;
+       reservation_types ( name, category )`;
 
   // Facility-local day, NOT UTC — 5pm PT is already "tomorrow" in UTC, which
   // misclassified evening daycare departures as overnight stays.
@@ -133,6 +135,51 @@ export default async function ReservationsPage() {
     : [];
   const staleIds = new Set(staleTestRows.map((r) => r.id));
   const boardRows = allBoardRows.filter((r) => !staleIds.has(r.id));
+
+  // --- Card enrichments (Krishan, Aug 30) ---
+  // 1) Fresh-food meal counts this stay, from the shared feeding_logs table
+  //    (also written by PawFeed — read-only here).
+  // 2) Today's grooming appointment per dog, so a booked groom shows on the
+  //    dog's board card instead of only on the Facility Calendar.
+  const checkedInRaw = rows.filter((r) => r.status === "checked_in");
+  const petKeyByAnimal = new Map<string, string[]>();
+  const stayStartByAnimal = new Map<string, string>();
+  for (const r of checkedInRaw) {
+    if (!r.animals?.id) continue;
+    const keys = [r.animals.id, ...(r.animals.gingr_animal_id != null ? [String(r.animals.gingr_animal_id)] : [])];
+    petKeyByAnimal.set(r.animals.id, keys);
+    const startYmd = ymdLocal(r.start_date);
+    const cur = stayStartByAnimal.get(r.animals.id);
+    if (!cur || startYmd < cur) stayStartByAnimal.set(r.animals.id, startYmd);
+  }
+  const allPetKeys = [...petKeyByAnimal.values()].flat();
+  const freshMeals: Record<string, number> = {};
+  if (allPetKeys.length > 0) {
+    const minStart = [...stayStartByAnimal.values()].sort()[0];
+    const { data: feedRows } = await supabase
+      .from("feeding_logs")
+      .select("pet_id, date, fresh_food")
+      .in("pet_id", allPetKeys)
+      .gte("date", minStart)
+      .lte("date", todayStr);
+    for (const [animalId, keys] of petKeyByAnimal) {
+      const stayStart = stayStartByAnimal.get(animalId) ?? todayStr;
+      freshMeals[animalId] = (feedRows ?? []).filter(
+        (f) => keys.includes(String(f.pet_id)) && f.date >= stayStart && f.fresh_food
+      ).length;
+    }
+  }
+
+  const groomingToday: Record<string, { reservationId: string; time: string; service: string | null }> = {};
+  for (const r of rows) {
+    if (r.reservation_types?.category === "grooming" && r.animals?.id && ymdLocal(r.start_date) === todayStr) {
+      groomingToday[r.animals.id] = {
+        reservationId: r.id,
+        time: r.start_date,
+        service: r.grooming_service_name ?? null,
+      };
+    }
+  }
 
   const allRows = [...allBoardRows, ...checkedOutRows];
   const [animalTags, parentTags] = await Promise.all([
@@ -243,19 +290,24 @@ export default async function ReservationsPage() {
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
                   Overnight tonight — nights billing
                 </div>
-                <div className="mt-2 flex flex-col gap-1.5">
+                {/* On phones each dog gets its own two-line block (name+night,
+                    then departs) — the old single wrapping flex row broke into
+                    ragged fragments on narrow screens (Krishan, Aug 30). */}
+                <div className="mt-2 flex flex-col divide-y divide-[#f1f2f5] sm:divide-y-0 sm:gap-1.5 dark:divide-slate-800">
                   {overnightRows.slice(0, 6).map((o, i) => (
-                    <div key={i} className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                      <span className="font-semibold text-[#15181d] dark:text-slate-100">{o.animalName}</span>
-                      <span className="text-[#8a91a0] dark:text-slate-500">
-                        night of{" "}
-                        {new Date(`${o.nightOf}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })} →{" "}
-                        {new Date(new Date(`${o.nightOf}T12:00:00`).getTime() + 86400000).toLocaleDateString([], {
-                          month: "short",
-                          day: "numeric",
-                        })}
+                    <div key={i} className="flex flex-col gap-0.5 py-1.5 text-[13px] sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2 sm:py-0">
+                      <span className="flex items-baseline gap-x-2">
+                        <span className="font-semibold text-[#15181d] dark:text-slate-100">{o.animalName}</span>
+                        <span className="text-[#8a91a0] dark:text-slate-500">
+                          night of{" "}
+                          {new Date(`${o.nightOf}T12:00:00`).toLocaleDateString([], { month: "short", day: "numeric" })} →{" "}
+                          {new Date(new Date(`${o.nightOf}T12:00:00`).getTime() + 86400000).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
                       </span>
-                      <span className="ml-auto text-[12px] text-[#8a91a0] dark:text-slate-500">
+                      <span className="text-[12px] text-[#8a91a0] sm:ml-auto dark:text-slate-500">
                         departs{" "}
                         {new Date(o.departs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                       </span>
@@ -309,6 +361,8 @@ export default async function ReservationsPage() {
               facilityId={session!.facilityId}
               animalTags={animalTagsObj}
               parentTags={parentTagsObj}
+              freshMeals={freshMeals}
+              groomingToday={groomingToday}
             />
           )}
         </div>

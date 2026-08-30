@@ -54,19 +54,45 @@ export default function AnimalPicker({
         Dog<span className="text-red-500"> *</span>
       </span>
       <input type="hidden" name="animal_id" value={selected?.id ?? ""} />
-      <input
-        value={selected ? `${selected.name}${selected.parentName ? " · " + selected.parentName : ""}` : query}
-        onChange={(e) => {
-          choose(null);
-          setQuery(e.target.value);
-          setOpenList(true);
-        }}
-        onFocus={() => setOpenList(true)}
-        onBlur={() => setTimeout(() => setOpenList(false), 150)}
-        placeholder="Type a dog or parent name…"
-        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-      {openList && (
+      {selected ? (
+        // A picked dog renders as an explicit chip instead of text inside the
+        // search input — staff reported picking a dog and the box still
+        // looking empty (Kath, Aug 30), so make the selection unmissable.
+        <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-indigo-300 bg-indigo-50/60 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-950/30">
+          <span className="min-w-0 truncate text-sm">
+            <span className="font-semibold text-[#15181d] dark:text-slate-100">✓ {selected.name}</span>
+            {selected.parentName && (
+              <span className="text-[#8a91a0] dark:text-slate-500"> · {selected.parentName}</span>
+            )}
+            {selected.breed && <span className="text-[#8a91a0] dark:text-slate-500"> · {selected.breed}</span>}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              choose(null);
+              setQuery("");
+              setOpenList(true);
+            }}
+            className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 dark:text-indigo-300 dark:hover:bg-indigo-900/40"
+          >
+            Change
+          </button>
+        </div>
+      ) : (
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpenList(true);
+          }}
+          onFocus={() => setOpenList(true)}
+          onBlur={() => setTimeout(() => setOpenList(false), 150)}
+          placeholder="Type a dog or parent name…"
+          autoFocus={query !== ""}
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      )}
+      {!selected && openList && (
         <div className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
           {results.length === 0 && (
             <p className="px-3 py-3 text-sm text-slate-400 dark:text-slate-500">
@@ -80,7 +106,10 @@ export default function AnimalPicker({
             <button
               key={a.id}
               type="button"
-              onMouseDown={() => {
+              // pointerdown (not mousedown) so a touch tap commits the pick
+              // before the input's blur can close the list under the finger.
+              onPointerDown={(e) => {
+                e.preventDefault();
                 choose(a);
                 setQuery("");
                 setOpenList(false);

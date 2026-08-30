@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { assignSpecialist } from "@/app/facility-calendar/actions";
+import Link from "next/link";
+import { assignSpecialist, rescheduleAppointment, saveGroomingPrice } from "@/app/facility-calendar/actions";
 import { deleteAvailabilityBlock } from "@/app/blocks/actions";
 
 export type Specialist = { id: string; name: string };
@@ -16,6 +17,7 @@ export type SpecialistBlock = {
 
 export type ApptCard = {
   id: string;
+  animalId?: string | null;
   animalName: string;
   breed: string | null;
   status: string;
@@ -25,6 +27,8 @@ export type ApptCard = {
   specialistId: string | null;
   time: string; // ISO timestamp (start)
   endTime: string; // ISO timestamp (end) — falls back to a default block if equal to start
+  /** Remembered price for this dog + service (grooming only). */
+  price?: number | null;
 };
 
 // Vertical axis = time of day, earliest at top. Falls back to a default
@@ -91,20 +95,96 @@ function fmtHourMark(min: number) {
   return `${h12} ${ampm}`;
 }
 
+// 7:00 AM – 7:00 PM in 15-minute steps — same grid the booking form uses.
+const TIME_SLOTS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let min = 7 * 60; min <= 19 * 60; min += 15) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    out.push({
+      value: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+      label: `${h12}:${String(m).padStart(2, "0")} ${ampm}`,
+    });
+  }
+  return out;
+})();
+
 export default function FacilityCalendarBoard({
   specialists,
   cards: initialCards,
   blocks = [],
+  facilityId,
 }: {
   specialists: Specialist[];
   cards: ApptCard[];
   blocks?: SpecialistBlock[];
+  facilityId?: string;
 }) {
   const [cards, setCards] = useState(initialCards);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // Tap-to-manage panel (Kath, Aug 30): clicking any appointment opens a
+  // panel to edit its time, price, and groomer — or jump to the reservation.
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [panelTime, setPanelTime] = useState("09:00");
+  const [panelPrice, setPanelPrice] = useState("");
+  const [panelMsg, setPanelMsg] = useState<string | null>(null);
+  const [panelBusy, setPanelBusy] = useState(false);
+  const panelCard = cards.find((c) => c.id === panelId) ?? null;
+
+  function openPanel(c: ApptCard) {
+    setPanelId(c.id);
+    const d = new Date(c.time);
+    setPanelTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    setPanelPrice(c.price != null ? String(c.price) : "");
+    setPanelMsg(null);
+  }
+
+  async function savePanelTime() {
+    if (!panelCard) return;
+    const [h, m] = panelTime.split(":").map(Number);
+    const start = new Date(panelCard.time);
+    start.setHours(h, m, 0, 0);
+    const end = new Date(start.getTime() + durationOf(panelCard) * 60000);
+    setPanelBusy(true);
+    setPanelMsg(null);
+    try {
+      await rescheduleAppointment(panelCard.id, start.toISOString(), end.toISOString());
+      setCards((prev) =>
+        prev.map((c) => (c.id === panelCard.id ? { ...c, time: start.toISOString(), endTime: end.toISOString() } : c))
+      );
+      setPanelMsg("Time updated ✓");
+    } catch (e) {
+      setPanelMsg(e instanceof Error ? e.message : "Couldn't update the time.");
+    } finally {
+      setPanelBusy(false);
+    }
+  }
+
+  async function savePanelPrice() {
+    if (!panelCard || !facilityId || !panelCard.animalId || !panelCard.serviceName) return;
+    const price = Number(panelPrice);
+    if (!Number.isFinite(price) || price < 0) {
+      setPanelMsg("Enter a valid price.");
+      return;
+    }
+    setPanelBusy(true);
+    setPanelMsg(null);
+    try {
+      await saveGroomingPrice(facilityId, panelCard.animalId, panelCard.serviceName, price);
+      setCards((prev) => prev.map((c) => (c.id === panelCard.id ? { ...c, price } : c)));
+      setPanelMsg("Price saved ✓ — it'll prefill at checkout.");
+    } catch (e) {
+      setPanelMsg(e instanceof Error ? e.message : "Couldn't save the price.");
+    } finally {
+      setPanelBusy(false);
+    }
+  }
 
   function move(reservationId: string, specialistId: string | null) {
     setCards((prev) => prev.map((c) => (c.id === reservationId ? { ...c, specialistId } : c)));
@@ -215,14 +295,14 @@ export default function FacilityCalendarBoard({
             : undefined
         }
         onDragEnd={draggable ? () => setDragId(null) : undefined}
-        onClick={
-          draggable
-            ? (e) => {
-                e.stopPropagation();
-                setSelectedId((cur) => (cur === c.id ? null : c.id));
-              }
-            : undefined
-        }
+        onClick={(e) => {
+          e.stopPropagation();
+          // One click does both: opens the manage panel (time / price /
+          // groomer / open reservation) and, on groomer lanes, arms the
+          // tap-to-move flow that was already here.
+          openPanel(c);
+          if (draggable) setSelectedId((cur) => (cur === c.id ? null : c.id));
+        }}
         title={flagged ? "Double-booked with another appointment for this specialist" : undefined}
         style={{
           position: "absolute",
@@ -237,7 +317,7 @@ export default function FacilityCalendarBoard({
             : c.category === "evaluation"
               ? "border-l-amber-500"
               : "border-l-violet-500"
-        } ${draggable ? "cursor-grab touch-manipulation active:cursor-grabbing" : ""} ${
+        } ${draggable ? "cursor-grab touch-manipulation active:cursor-grabbing" : "cursor-pointer"} ${
           selectedId === c.id
             ? "border-indigo-500 ring-2 ring-indigo-500 dark:border-indigo-400 dark:ring-indigo-400"
             : flagged
@@ -411,6 +491,127 @@ export default function FacilityCalendarBoard({
           accent="border-[#e3e5ea] bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/40"
         />
       </div>
+
+      {/* Manage panel — bottom sheet on phones, floating card on desktop. */}
+      {panelCard && (
+        <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:bottom-5 sm:right-5 sm:w-[360px]">
+          <div className="rounded-t-2xl border border-[#e3e5ea] bg-white p-4 shadow-2xl sm:rounded-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate text-[15px] font-semibold text-[#15181d] dark:text-slate-100">
+                  {panelCard.animalName}
+                  {panelCard.status === "checked_in" && <span className="ml-1.5 text-[12px]">🟢 here</span>}
+                </div>
+                <div className="truncate text-[12px] text-[#8a91a0] dark:text-slate-500">
+                  {panelCard.breed ?? "—"} · {panelCard.serviceName ?? panelCard.typeName ?? "—"} ·{" "}
+                  {fmtTime(panelCard.time)}–{fmtTime(panelCard.endTime)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPanelId(null);
+                  setSelectedId(null);
+                }}
+                aria-label="Close"
+                className="shrink-0 rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="text-xs">
+                <span className="block text-[#8a91a0] dark:text-slate-500">Time</span>
+                <div className="mt-1 flex gap-1.5">
+                  <select
+                    value={panelTime}
+                    onChange={(e) => setPanelTime(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    {TIME_SLOTS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={panelBusy}
+                    onClick={savePanelTime}
+                    className="rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    Set
+                  </button>
+                </div>
+              </label>
+              {panelCard.category === "grooming" && panelCard.animalId && panelCard.serviceName && facilityId ? (
+                <label className="text-xs">
+                  <span className="block text-[#8a91a0] dark:text-slate-500">Price ($)</span>
+                  <div className="mt-1 flex gap-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={panelPrice}
+                      onChange={(e) => setPanelPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={panelBusy}
+                      onClick={savePanelPrice}
+                      className="rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </label>
+              ) : (
+                <div className="text-xs text-[#8a91a0] dark:text-slate-500">
+                  <span className="block">Price</span>
+                  <p className="mt-2">Set at checkout for this type.</p>
+                </div>
+              )}
+            </div>
+
+            {panelCard.category === "grooming" && (
+              <label className="mt-2 block text-xs">
+                <span className="block text-[#8a91a0] dark:text-slate-500">Groomer</span>
+                <select
+                  value={panelCard.specialistId ?? ""}
+                  onChange={(e) => {
+                    const sid = e.target.value || null;
+                    move(panelCard.id, sid);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">Unassigned</option>
+                  {specialists.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {panelMsg && (
+              <p className="mt-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {panelMsg}
+              </p>
+            )}
+
+            <Link
+              href={`/reservations/${panelCard.id}`}
+              className="mt-3 flex h-9 items-center justify-center rounded-[10px] border border-[#e3e5ea] text-[13px] font-semibold text-[#565d6d] transition-colors hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-300"
+            >
+              Open full reservation →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

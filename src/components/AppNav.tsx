@@ -21,6 +21,7 @@ const CUSTOMERS: Item[] = [
   { name: "Parents", href: "/parents" },
   { name: "New Parent", href: "/parents/new" },
   { name: "Animals", href: "/animals" },
+  { name: "Leads", href: "/leads" },
 ];
 const MORE: Item[] = [
   { name: "Pricing", href: "/pricing" },

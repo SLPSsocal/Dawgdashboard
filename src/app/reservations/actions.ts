@@ -125,6 +125,7 @@ export async function createReservation(payload: {
   durationMinutes: number | null; // grooming only
   specialistId: string | null;
   serviceName: string | null; // grooming service, for remembering duration/specialist
+  groomingPrice?: number | null; // quoted grooming price — remembered for checkout prefill
   belongings: string | null;
   notes: string | null;
   bookingGroupId?: string | null; // links siblings booked together in one pass
@@ -187,7 +188,8 @@ export async function createReservation(payload: {
 
   // Remember duration + who groomed this animal for this service, so the
   // next booking prefills both instead of guessing from the service
-  // default. Price is remembered separately at checkout time.
+  // default. A price quoted at booking is remembered too (checkout prefills
+  // it); when none is quoted, whatever checkout last recorded stays put.
   if (payload.serviceName) {
     await supabase.from("grooming_service_prices").upsert(
       {
@@ -196,6 +198,7 @@ export async function createReservation(payload: {
         service_name: payload.serviceName,
         duration_minutes: payload.durationMinutes,
         last_specialist_id: payload.specialistId,
+        ...(payload.groomingPrice != null && payload.groomingPrice > 0 ? { price: payload.groomingPrice } : {}),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "animal_id,service_name", ignoreDuplicates: false }

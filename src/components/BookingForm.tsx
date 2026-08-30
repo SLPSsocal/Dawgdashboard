@@ -14,7 +14,12 @@ type ReservationType = {
   requiresSpecialist: boolean;
   durationMinutes: number | null;
 };
-type GroomingService = { name: string; defaultDurationMinutes: number | null };
+type GroomingService = {
+  name: string;
+  defaultDurationMinutes: number | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+};
 type Specialist = { id: string; name: string };
 type LodgingArea = { id: string; name: string };
 
@@ -50,6 +55,7 @@ export default function BookingForm({
   groomingServices,
   specialists,
   initialAnimal,
+  initialTypeId,
   staffName,
 }: {
   facilityId: string;
@@ -61,6 +67,8 @@ export default function BookingForm({
   // Arriving here from a specific dog or parent's page ("New Booking")
   // should skip re-searching for who staff were already looking at.
   initialAnimal?: AnimalOption | null;
+  /** Preselects a reservation type (e.g. the board's "+ Grooming" shortcut). */
+  initialTypeId?: string | null;
   staffName?: string | null;
 }) {
   const router = useRouter();
@@ -69,7 +77,7 @@ export default function BookingForm({
   const [animal, setAnimal] = useState<AnimalOption | null>(initialAnimal ?? null);
   const [siblings, setSiblings] = useState<{ id: string; name: string; breed: string | null }[]>([]);
   const [selectedSiblingIds, setSelectedSiblingIds] = useState<Set<string>>(new Set());
-  const [typeId, setTypeId] = useState(reservationTypes[0]?.id ?? "");
+  const [typeId, setTypeId] = useState(initialTypeId ?? reservationTypes[0]?.id ?? "");
   const [lodgingAreaId, setLodgingAreaId] = useState("");
   const [serviceName, setServiceName] = useState(groomingServices[0]?.name ?? "");
   const [specialistId, setSpecialistId] = useState("");
@@ -82,6 +90,10 @@ export default function BookingForm({
   const [startTime, setStartTime] = useState("09:00");
   const [durationMinutes, setDurationMinutes] = useState(FALLBACK_DURATION);
   const [durationTouched, setDurationTouched] = useState(false);
+  // Grooming price, quotable at booking time (Kath, Aug 30). Prefills from
+  // this dog's remembered price for the service, else the menu's min price.
+  const [groomingPrice, setGroomingPrice] = useState<string>("");
+  const [priceTouched, setPriceTouched] = useState(false);
   const [belongings, setBelongings] = useState("");
   const [notes, setNotes] = useState("");
   const [lastGroomedNote, setLastGroomedNote] = useState<string | null>(null);
@@ -140,6 +152,8 @@ export default function BookingForm({
     setDurationTouched(false);
     setLastGroomedNote(null);
     setLastPriceNote(null);
+    setGroomingPrice(svc?.minPrice != null ? String(svc.minPrice) : "");
+    setPriceTouched(false);
   }, [serviceName, isGrooming, groomingServices]);
 
   // Once both a dog and a service are picked, look up what's remembered —
@@ -167,6 +181,7 @@ export default function BookingForm({
           ? ` (${new Date(mem.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })})`
           : "";
         setLastPriceNote(`${animal.name}'s last ${serviceName}: $${Number(mem.price)}${when}`);
+        setGroomingPrice((cur) => (priceTouched ? cur : String(Number(mem.price))));
       }
     });
   }, [animal, serviceName, isGrooming, specialists]);
@@ -222,6 +237,7 @@ export default function BookingForm({
             // settings, just without double-writing that per-dog memory.
             specialistId: isGrooming ? specialistId || null : null,
             serviceName: isGrooming ? serviceName || null : null,
+            groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
             belongings: belongings || null,
             notes: notes || null,
             bookingGroupId,
@@ -462,6 +478,29 @@ export default function BookingForm({
                 </p>
               </label>
             ) : (
+              <span className="hidden" />
+            )}
+            {isGrooming && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Price ($)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={groomingPrice}
+                  onChange={(e) => {
+                    setGroomingPrice(e.target.value);
+                    setPriceTouched(true);
+                  }}
+                  placeholder="0.00"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  Quoted now, prefilled at checkout — adjust it there if the coat needs more work.
+                </p>
+              </label>
+            )}
+            {!isGrooming && (
               <div className="block">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Duration</span>
                 <p className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -593,6 +632,14 @@ export default function BookingForm({
             <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">When</dt>
             <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">{summaryDates}</dd>
           </div>
+          {isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Price</dt>
+              <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+                ${Number(groomingPrice).toFixed(2)}
+              </dd>
+            </div>
+          )}
           {!usesTimeSlot && (
             <div className="flex items-start justify-between gap-3">
               <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Times</dt>

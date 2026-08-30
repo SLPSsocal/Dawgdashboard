@@ -57,6 +57,9 @@ export default function CheckoutCalculator({
   careNote,
   householdRank,
   householdSize,
+  bookedGroomingService,
+  isGroomingReservation,
+  householdCheckedIn,
 }: {
   reservationId: string;
   facilityId: string;
@@ -81,6 +84,12 @@ export default function CheckoutCalculator({
   householdRank?: number;
   /** How many of the household's dogs are here across this window. */
   householdSize?: number;
+  /** The grooming service booked on THIS reservation — prefills as a ticket line. */
+  bookedGroomingService?: string | null;
+  /** True when this reservation's type is a grooming appointment. */
+  isGroomingReservation?: boolean;
+  /** Household dogs still checked in — each checks out on its own ticket. */
+  householdCheckedIn?: { reservationId: string; animalName: string }[];
 }) {
   const [numDogs, setNumDogs] = useState(householdRank ?? 1);
   const autoDetectedDogs = (householdSize ?? 1) > 1;
@@ -105,6 +114,22 @@ export default function CheckoutCalculator({
         .map((r) => r.id)
     );
   });
+  // Editable pick-up time (Kath, Aug 30) — defaults to "now" in facility
+  // time, and drives the automatic late-checkout fee instead of the fee
+  // being frozen to whenever the page happened to load.
+  const nowPTHHMM = (() => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date());
+    const h = parts.find((p) => p.type === "hour")?.value ?? "12";
+    const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+    return `${h === "24" ? "00" : h}:${m}`;
+  })();
+  const [pickupTime, setPickupTime] = useState(nowPTHHMM);
+
   const autoLateFeeIds = useMemo(
     () =>
       new Set(
@@ -114,7 +139,16 @@ export default function CheckoutCalculator({
       ),
     [rules, rateUnit]
   );
-  const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>([]);
+  // The service booked on this reservation starts ON the ticket, price
+  // prefilled from the quote/history — it used to be invisible here, so staff
+  // couldn't tell a grooming reservation from a plain daycare one, let alone
+  // adjust its price (Kath + Krishan, Aug 30).
+  const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>(() => {
+    if (!bookedGroomingService) return [];
+    const remembered = rememberedPrices.find((p) => p.service_name === bookedGroomingService);
+    const item = groomingItems.find((g) => g.name === bookedGroomingService);
+    return [{ service: bookedGroomingService, price: remembered?.price ?? item?.min_price ?? 0 }];
+  });
   const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>(initialRetailRows ?? []);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
   // Tip-on base (design: TIP ON — Grooming ($67) vs Whole ticket ($427) with
@@ -154,6 +188,27 @@ export default function CheckoutCalculator({
   const [pendingInvoice, setPendingInvoice] = useState<{ id: string; amount: number } | null>(null);
   const router = useRouter();
 
+  // Changing the pick-up time re-decides the late-checkout fee: after
+  // 12:15 PM it's on, at/before it's off. Staff can still untick manually.
+  function applyPickupTime(t: string) {
+    setPickupTime(t);
+    if (rateUnit !== "per_night" || autoLateFeeIds.size === 0) return;
+    const [h, m] = t.split(":").map(Number);
+    const isLate = h * 60 + m >= 12 * 60 + 15;
+    setCheckedFees((prev) => {
+      const next = new Set(prev);
+      for (const id of autoLateFeeIds) {
+        if (isLate) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
+  const pickupIsLate = (() => {
+    const [h, m] = pickupTime.split(":").map(Number);
+    return h * 60 + m >= 12 * 60 + 15;
+  })();
+
   const multiDayRules = rules.filter((r) => r.rule_type === "multi_day_discount");
   const additionalDogRules = rules
     .filter((r) => r.rule_type === "additional_animal_discount")
@@ -169,6 +224,10 @@ export default function CheckoutCalculator({
   const lineItems: CheckoutLineItem[] = useMemo(() => {
     const lines: CheckoutLineItem[] = [];
     const baseTotal = baseRate * effUnits;
+    // A grooming appointment's price is its service line below — its type
+    // bills $0/session, and a "$0 × session" row just muddied the ticket.
+    const skipBase = Boolean(isGroomingReservation) && baseRate === 0;
+    if (!skipBase)
     lines.push({
       // Spell out the exact dates being billed. "6 x night" alone can't be
       // checked against a calendar; "Aug 14 -> Aug 20" can.
@@ -253,7 +312,7 @@ export default function CheckoutCalculator({
     }
 
     return lines;
-  }, [baseRate, effUnits, stayStart, stayEnd, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems]);
+  }, [baseRate, effUnits, stayStart, stayEnd, animalName, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems, isGroomingReservation]);
 
   function addOpenItem() {
     const amount = Number(openAmount);
@@ -475,6 +534,29 @@ export default function CheckoutCalculator({
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
       <div className="flex flex-col gap-4">
+      {(householdCheckedIn?.length ?? 0) > 0 && (
+        // Same-household dogs don't silently share one ticket — each checks
+        // out on its own reservation. But they shouldn't be forgotten either
+        // (Kath, Aug 30): list who else is still here and link their tickets.
+        <div className="rounded-[14px] border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+          <span className={sectionLabel}>Also here from this household</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {householdCheckedIn!.map((d) => (
+              <Link
+                key={d.reservationId}
+                href={`/reservations/${d.reservationId}/checkout`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-sky-300 bg-white px-3 text-[13px] font-semibold text-sky-800 transition-colors hover:border-sky-500 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300"
+              >
+                🐾 Check out {d.animalName} →
+              </Link>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-sky-800/80 dark:text-sky-300/80">
+            Each dog checks out on its own ticket so the additional-dog rate lands correctly — finish this one,
+            then tap through. Their tickets already know their household position.
+          </p>
+        </div>
+      )}
       {isStayBilling && (
         <div className={card}>
           <div className="flex items-center justify-between">
@@ -500,7 +582,23 @@ export default function CheckoutCalculator({
               onChange={(e) => setStayEnd(e.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
+            <label className="ml-0 flex items-center gap-2 sm:ml-2">
+              <span className="text-xs text-[#8a91a0] dark:text-slate-500">Pick-up time</span>
+              <input
+                type="time"
+                value={pickupTime}
+                onChange={(e) => applyPickupTime(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
           </div>
+          {rateUnit === "per_night" && autoLateFeeIds.size > 0 && (
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              {pickupIsLate
+                ? "Pick-up after 12:15 PM — late check-out fee applied below (untick it if excused)."
+                : "Pick-up by 12:15 PM — no late check-out fee."}
+            </p>
+          )}
           {datesAdjusted && (
             <p className="mt-1 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               Booked {fmtDay(`${bookedStartYmd}T12:00:00`)} → {fmtDay(`${bookedEndYmd}T12:00:00`)} — billing the
@@ -603,7 +701,9 @@ export default function CheckoutCalculator({
 
       <div className={card}>
         <div className="flex items-center justify-between">
-          <span className={sectionLabel}>Grooming add-ons</span>
+          <span className={sectionLabel}>
+            {bookedGroomingService ? "Grooming — booked service" : "Grooming services"}
+          </span>
           <button
             type="button"
             onClick={addGroomingRow}
@@ -612,6 +712,18 @@ export default function CheckoutCalculator({
             + Add Service
           </button>
         </div>
+        {bookedGroomingService && (
+          <p className="mt-1 text-xs text-[#8a91a0] dark:text-slate-500">
+            ✂️ <span className="font-medium text-[#565d6d] dark:text-slate-300">{bookedGroomingService}</span> was
+            booked on this appointment — the price below prefills from the quote/last visit. Adjust it here; the
+            new number is remembered for next time. Extras (de-shed, flea bath, …) go on as added services.
+          </p>
+        )}
+        {!bookedGroomingService && isGroomingReservation && (
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            This is a grooming appointment with no service recorded — add the service performed below so it bills.
+          </p>
+        )}
         <div className="mt-2 flex flex-col gap-2">
           {groomingRows.map((row, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -624,6 +736,10 @@ export default function CheckoutCalculator({
                 className="flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="">Select service…</option>
+                {/* A booked service that's since left the menu still has to render + bill. */}
+                {row.service && !groomingItems.some((g) => g.name === row.service) && (
+                  <option value={row.service}>{row.service}</option>
+                )}
                 {groomingItems.map((g) => (
                   <option key={g.name} value={g.name}>
                     {g.name}

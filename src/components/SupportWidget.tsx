@@ -233,7 +233,11 @@ export default function SupportWidget({
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <div
             onPaste={handlePaste}
-            className="flex max-h-[92vh] w-full flex-col overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 shadow-xl sm:max-w-md sm:rounded-2xl sm:p-6 dark:border-slate-800 dark:bg-slate-900"
+            // 92vh overflowed the *visible* viewport on phones: iOS/Android
+            // count the URL bar in vh, so the sheet's bottom (and the sent
+            // confirmation) rendered off-screen (Staff, Aug 30). dvh tracks
+            // the real visible height; the vh class stays as the fallback.
+            className="flex max-h-[85vh] w-full flex-col overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-200 bg-white p-4 shadow-xl supports-[height:100dvh]:max-h-[90dvh] sm:max-w-md sm:rounded-2xl sm:p-6 dark:border-slate-800 dark:bg-slate-900"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">

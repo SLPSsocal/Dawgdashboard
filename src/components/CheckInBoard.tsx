@@ -51,6 +51,7 @@ function relDay(iso: string, todayStr: string, tomorrowStr: string) {
 }
 
 type TagRecord = Record<string, { icon: string; name: string; note?: string | null }[]>;
+type GroomingTodayRecord = Record<string, { reservationId: string; time: string; service: string | null }>;
 
 export default function CheckInBoard({
   rows,
@@ -59,6 +60,8 @@ export default function CheckInBoard({
   facilityId,
   animalTags,
   parentTags,
+  freshMeals,
+  groomingToday,
 }: {
   rows: CheckInRow[];
   checkedOutToday?: CheckInRow[];
@@ -66,6 +69,10 @@ export default function CheckInBoard({
   facilityId?: string;
   animalTags?: TagRecord;
   parentTags?: TagRecord;
+  /** Fresh-food meals logged this stay, per animal id (checked-in dogs). */
+  freshMeals?: Record<string, number>;
+  /** Today's grooming appointment per animal id — shows on the dog's card. */
+  groomingToday?: GroomingTodayRecord;
 }) {
   const [query, setQuery] = useState("");
   const [pill, setPill] = useState<Pill>("all");
@@ -123,6 +130,101 @@ export default function CheckInBoard({
         setCheckingIn(null);
       }
     });
+  }
+
+  // Whole nights this dog has slept here so far (checked-in overnight stays).
+  function nightsSoFar(r: CheckInRow): number {
+    if (r.status !== "checked_in") return 0;
+    const startYmd = ymdPT(r.startDate);
+    const endYmd = ymdPT(r.endDate);
+    if (endYmd <= startYmd) return 0; // same-day daycare
+    const nights = Math.floor(
+      (new Date(`${todayStr}T12:00:00`).getTime() - new Date(`${startYmd}T12:00:00`).getTime()) / 86400000
+    );
+    return Math.max(0, nights);
+  }
+
+  // The stay chips Krishan asked for (Aug 30): nights so far, fresh-food meal
+  // count, and today's grooming appointment — all visible on the card itself.
+  function StayChips({ r }: { r: CheckInRow }) {
+    const nights = nightsSoFar(r);
+    const meals = r.status === "checked_in" ? freshMeals?.[r.animalId] ?? 0 : 0;
+    const groom = groomingToday?.[r.animalId];
+    if (nights === 0 && meals === 0 && !groom) return null;
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {meals > 0 && (
+          <span
+            title={`${meals} fresh-food meal${meals === 1 ? "" : "s"} logged this stay — bills at checkout`}
+            className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+          >
+            🍚 {meals}
+          </span>
+        )}
+        {groom && groom.reservationId !== r.id && (
+          <Link
+            href={`/reservations/${groom.reservationId}`}
+            title="Grooming appointment today"
+            className="inline-flex items-center gap-0.5 rounded-md bg-pink-50 px-1.5 py-0.5 text-[11px] font-medium text-pink-700 hover:bg-pink-100 dark:bg-pink-950/50 dark:text-pink-300"
+          >
+            ✂️ {fmtTime(groom.time)}
+            {groom.service ? ` ${groom.service}` : ""}
+          </Link>
+        )}
+        {nights > 0 && (
+          <span
+            title={`Night ${nights} of this stay`}
+            className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-950/50 dark:text-violet-300"
+          >
+            🌙 {nights}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // "+ Grooming" shortcut — books a grooming appointment for this dog without
+  // re-searching for it; the appointment then shows on this card (chip above).
+  function AddGroomingButton({ r }: { r: CheckInRow }) {
+    if (r.status !== "checked_in" || !r.animalId || groomingToday?.[r.animalId]) return null;
+    return (
+      <Link
+        href={`/reservations/new?animal_id=${r.animalId}&category=grooming`}
+        title={`Book grooming for ${r.animalName}`}
+        className="inline-flex h-7 items-center gap-1 rounded-lg border border-[#e3e5ea] bg-white px-2 text-[11.5px] font-medium text-[#565d6d] transition-colors hover:border-pink-300 hover:text-pink-700 dark:border-slate-700 dark:bg-transparent dark:text-slate-400 dark:hover:text-pink-300"
+      >
+        ✂️＋
+      </Link>
+    );
+  }
+
+  // Mobile variant: nights already sit in the card corner, so only the
+  // fresh-food and grooming chips render here.
+  function StayChipsMobile({ r }: { r: CheckInRow }) {
+    const meals = r.status === "checked_in" ? freshMeals?.[r.animalId] ?? 0 : 0;
+    const groom = groomingToday?.[r.animalId];
+    if (meals === 0 && (!groom || groom.reservationId === r.id)) return null;
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {meals > 0 && (
+          <span
+            title={`${meals} fresh-food meal${meals === 1 ? "" : "s"} logged this stay — bills at checkout`}
+            className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+          >
+            🍚 {meals} fresh meal{meals === 1 ? "" : "s"}
+          </span>
+        )}
+        {groom && groom.reservationId !== r.id && (
+          <Link
+            href={`/reservations/${groom.reservationId}`}
+            className="inline-flex items-center gap-0.5 rounded-md bg-pink-50 px-1.5 py-0.5 text-[11px] font-medium text-pink-700 dark:bg-pink-950/50 dark:text-pink-300"
+          >
+            ✂️ {fmtTime(groom.time)}
+            {groom.service ? ` ${groom.service}` : ""}
+          </Link>
+        )}
+      </div>
+    );
   }
 
   // ---------- row pieces ----------
@@ -204,6 +306,7 @@ export default function CheckInBoard({
           {r.animalId && <ProfileTagBadges tags={animalTags?.[r.animalId] ?? []} />}
         </div>
         <div className="text-[12px] text-[#8a91a0] dark:text-slate-500">{r.breed ?? "—"}</div>
+        <StayChips r={r} />
         {r.alertNote && (
           <div className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md bg-red-50 px-2 py-0.5 text-[11.5px] font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
@@ -284,6 +387,7 @@ export default function CheckInBoard({
               </div>
               <div><PrecheckinChip r={r} /></div>
               <div className="flex items-center gap-1.5">
+                <AddGroomingButton r={r} />
                 <PrimaryAction r={r} />
                 <ReservationActionsMenu
                   reservationId={r.id}
@@ -340,8 +444,20 @@ export default function CheckInBoard({
                       ))}
                   </div>
                 </div>
-                <PrecheckinChip r={r} />
+                <div className="flex shrink-0 items-center gap-1">
+                  <PrecheckinChip r={r} />
+                  {nightsSoFar(r) > 0 && (
+                    // Nights-so-far count, top-right corner (Krishan, Aug 30).
+                    <span
+                      title={`Night ${nightsSoFar(r)} of this stay`}
+                      className="inline-flex h-7 items-center gap-0.5 rounded-lg bg-violet-50 px-2 text-[12px] font-semibold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300"
+                    >
+                      🌙 {nightsSoFar(r)}
+                    </span>
+                  )}
+                </div>
               </div>
+              <StayChipsMobile r={r} />
               {r.alertNote && (
                 <div className="mt-1.5 rounded-md bg-red-50 px-2 py-1 text-[11.5px] font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
                   ● {r.alertNote}
@@ -366,6 +482,7 @@ export default function CheckInBoard({
               </div>
               <div className="mt-2.5 flex items-center gap-2">
                 <PrimaryAction r={r} block />
+                <AddGroomingButton r={r} />
                 <ReservationActionsMenu
                   reservationId={r.id}
                   animalId={r.animalId}
@@ -388,15 +505,23 @@ export default function CheckInBoard({
 
   return (
     <div className="pb-20 md:pb-0">
-      {/* Controls: search · status pills · count · sort */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Search — on phones it stays pinned to the top of the screen while
+          the board scrolls, so typing a dog's name always beats scrolling a
+          long list (Staff, Aug 30). Sticky spans the whole board because
+          this block is a direct child of the board container. */}
+      <div className="sticky top-0 z-20 -mx-4 bg-slate-100/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-0 dark:bg-slate-950/95 md:dark:bg-transparent">
         <input
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search dog, parent, breed, service, suite…"
-          className="h-10 w-full rounded-[10px] border border-[#e3e5ea] bg-white px-3.5 text-[13.5px] placeholder:text-[#8a91a0] sm:w-[300px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          placeholder="🔍 Search dog, parent, breed, service, suite…"
+          className="h-10 w-full rounded-[10px] border border-[#e3e5ea] bg-white px-3.5 text-[13.5px] placeholder:text-[#8a91a0] md:w-[300px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
+      </div>
+
+      {/* Controls: status pills · count · sort */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+
         <div className="flex flex-wrap items-center gap-1.5">
           {pills.map((p) => (
             <button

@@ -10,11 +10,11 @@ import Link from "next/link";
 export default async function NewReservationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ animal_id?: string }>;
+  searchParams: Promise<{ animal_id?: string; category?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  const { animal_id: animalIdParam } = await searchParams;
+  const { animal_id: animalIdParam, category: categoryParam } = await searchParams;
 
   const supabase = createClient();
   const [{ data: animals }, { data: types }, { data: areas }, { data: groomingItems }, { data: staffRows }] =
@@ -34,7 +34,7 @@ export default async function NewReservationPage({
       supabase.from("lodging_areas").select("id, name").eq("facility_id", session!.facilityId).order("name"),
       supabase
         .from("grooming_menu_items")
-        .select("name, default_duration_minutes")
+        .select("name, default_duration_minutes, min_price, max_price")
         .eq("facility_id", session!.facilityId)
         .eq("active", true)
         .order("name"),
@@ -76,6 +76,8 @@ export default async function NewReservationPage({
   const groomingServices = (groomingItems ?? []).map((g) => ({
     name: g.name,
     defaultDurationMinutes: g.default_duration_minutes,
+    minPrice: g.min_price != null ? Number(g.min_price) : null,
+    maxPrice: g.max_price != null ? Number(g.max_price) : null,
   }));
 
   const specialists = (staffRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
@@ -84,6 +86,13 @@ export default async function NewReservationPage({
   // pre-fill the dog instead of making staff search for who they were just
   // looking at.
   const initialAnimal = animalIdParam ? animalOptions.find((a) => a.id === animalIdParam) ?? null : null;
+
+  // ?category=grooming (the board's "+ Grooming" shortcut) preselects the
+  // first reservation type of that category so the time/service/price
+  // fields are already showing when the form opens.
+  const initialTypeId = categoryParam
+    ? reservationTypes.find((t) => t.category === categoryParam)?.id ?? null
+    : null;
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
@@ -116,6 +125,7 @@ export default async function NewReservationPage({
             groomingServices={groomingServices}
             specialists={specialists}
             initialAnimal={initialAnimal}
+            initialTypeId={initialTypeId}
             staffName={session!.staffName}
           />
         </div>

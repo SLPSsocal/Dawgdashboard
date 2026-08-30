@@ -20,7 +20,7 @@ type ReservationRow = {
   end_date: string;
   specialist_id: string | null;
   grooming_service_name: string | null;
-  animals: { name: string; breed: string | null } | null;
+  animals: { id: string; name: string; breed: string | null } | null;
   reservation_types: { name: string; category: string | null } | null;
 };
 
@@ -60,7 +60,7 @@ export default async function FacilityCalendarPage({
     .from("reservations")
     .select(
       `id, status, start_date, end_date, specialist_id, grooming_service_name,
-       animals ( name, breed ),
+       animals ( id, name, breed ),
        reservation_types ( name, category )`
     )
     .eq("facility_id", session!.facilityId)
@@ -70,8 +70,31 @@ export default async function FacilityCalendarPage({
     .order("start_date");
 
   const rows = (resData as unknown as ReservationRow[]) ?? [];
+
+  // Remembered grooming prices for the dogs on today's board, so tapping an
+  // appointment can show/edit the price without a round trip (Kath, Aug 30).
+  const groomingAnimalIds = [
+    ...new Set(
+      rows
+        .filter((r) => r.reservation_types?.category === "grooming" && r.animals?.id)
+        .map((r) => r.animals!.id)
+    ),
+  ];
+  const { data: priceRows } = groomingAnimalIds.length
+    ? await supabase
+        .from("grooming_service_prices")
+        .select("animal_id, service_name, price")
+        .in("animal_id", groomingAnimalIds)
+    : { data: [] };
+  const priceFor = (animalId: string | undefined, service: string | null) => {
+    if (!animalId || !service) return null;
+    const row = (priceRows ?? []).find((p) => p.animal_id === animalId && p.service_name === service);
+    return row?.price != null ? Number(row.price) : null;
+  };
+
   const cards: ApptCard[] = rows.map((r) => ({
     id: r.id,
+    animalId: r.animals?.id ?? null,
     animalName: r.animals?.name ?? "Unknown",
     breed: r.animals?.breed ?? null,
     status: r.status,
@@ -81,6 +104,7 @@ export default async function FacilityCalendarPage({
     specialistId: r.specialist_id,
     time: r.start_date,
     endTime: r.end_date,
+    price: priceFor(r.animals?.id, r.grooming_service_name),
   }));
 
   const specialists: Specialist[] = (specialistRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
@@ -117,7 +141,8 @@ export default async function FacilityCalendarPage({
                 month: "long",
                 day: "numeric",
               })}{" "}
-              · drag grooming cards between groomers; double-booked slots flag red ⚠️
+              · tap any appointment to edit its time, price, or groomer; drag grooming cards between groomers;
+              double-booked slots flag red ⚠️
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -143,7 +168,12 @@ export default async function FacilityCalendarPage({
 
         <SpecialistBlockForm specialists={specialists} date={dateStr} />
 
-        <FacilityCalendarBoard specialists={specialists} cards={cards} blocks={blocks} />
+        <FacilityCalendarBoard
+          specialists={specialists}
+          cards={cards}
+          blocks={blocks}
+          facilityId={session!.facilityId}
+        />
       </div>
     </main>
   );
