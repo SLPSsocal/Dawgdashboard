@@ -22,6 +22,9 @@ export type CheckoutLineItem = {
   lineTotal: number;
   lineKind?: LineKind;
   groomingServiceName?: string;
+  /** Which dog this line belongs to — needed on household invoices so the
+      per-animal grooming price memory lands on the right dog. */
+  animalId?: string;
   retailItemId?: string;
   taxable?: boolean;
 };
@@ -40,39 +43,52 @@ export async function completeCheckout(
     adjustedEndDate?: string;
     /** Non-card tenders collected now (cash / store_credit / admin_credit). */
     tenders?: { method: string; amount: number }[];
+    /** Other household reservations checking out on THIS invoice (one bill
+        per family, not per dog — Krishan, Aug 30). */
+    additionalReservations?: {
+      reservationId: string;
+      animalId: string;
+      adjustedStartDate?: string;
+      adjustedEndDate?: string;
+    }[];
   }
 ) {
   const supabase = createClient();
 
   // An early/late checkout adjusts the reservation itself, so the calendar,
   // board, and history all agree with what was actually billed.
-  if (payload.adjustedStartDate || payload.adjustedEndDate) {
+  async function applyDateAdjustment(resId: string, adjStart?: string, adjEnd?: string) {
+    if (!adjStart && !adjEnd) return;
     const { data: resRow } = await supabase
       .from("reservations")
       .select("start_date, end_date")
-      .eq("id", reservationId)
+      .eq("id", resId)
       .maybeSingle();
-    if (resRow) {
-      const withDate = (iso: string, ymd: string) => {
-        const d = new Date(iso);
-        const [y, m, day] = ymd.split("-").map(Number);
-        d.setFullYear(y, m - 1, day);
-        return d.toISOString();
-      };
-      const newStart = payload.adjustedStartDate ? withDate(resRow.start_date, payload.adjustedStartDate) : resRow.start_date;
-      const newEnd = payload.adjustedEndDate ? withDate(resRow.end_date, payload.adjustedEndDate) : resRow.end_date;
-      if (newStart !== resRow.start_date || newEnd !== resRow.end_date) {
-        await supabase.from("reservations").update({ start_date: newStart, end_date: newEnd }).eq("id", reservationId);
-        await supabase.from("reservation_history").insert({
-          reservation_id: reservationId,
-          action: "modified",
-          details: `Stay dates corrected at checkout: ${payload.adjustedStartDate ?? resRow.start_date.slice(0, 10)} → ${
-            payload.adjustedEndDate ?? resRow.end_date.slice(0, 10)
-          }`,
-          performed_by: "Checkout",
-        });
-      }
+    if (!resRow) return;
+    const withDate = (iso: string, ymd: string) => {
+      const d = new Date(iso);
+      const [y, m, day] = ymd.split("-").map(Number);
+      d.setFullYear(y, m - 1, day);
+      return d.toISOString();
+    };
+    const newStart = adjStart ? withDate(resRow.start_date, adjStart) : resRow.start_date;
+    const newEnd = adjEnd ? withDate(resRow.end_date, adjEnd) : resRow.end_date;
+    if (newStart !== resRow.start_date || newEnd !== resRow.end_date) {
+      await supabase.from("reservations").update({ start_date: newStart, end_date: newEnd }).eq("id", resId);
+      await supabase.from("reservation_history").insert({
+        reservation_id: resId,
+        action: "modified",
+        details: `Stay dates corrected at checkout: ${adjStart ?? resRow.start_date.slice(0, 10)} → ${
+          adjEnd ?? resRow.end_date.slice(0, 10)
+        }`,
+        performed_by: "Checkout",
+      });
     }
+  }
+
+  await applyDateAdjustment(reservationId, payload.adjustedStartDate, payload.adjustedEndDate);
+  for (const extra of payload.additionalReservations ?? []) {
+    await applyDateAdjustment(extra.reservationId, extra.adjustedStartDate, extra.adjustedEndDate);
   }
   const subtotal = payload.lineItems.reduce((sum, li) => sum + li.lineTotal, 0);
   const tax = payload.taxAmount ?? 0;
@@ -138,7 +154,9 @@ export async function completeCheckout(
     await supabase.from("grooming_service_prices").upsert(
       {
         facility_id: payload.facilityId,
-        animal_id: payload.animalId,
+        // Household invoices tag each grooming line with its dog; untagged
+        // lines belong to the primary dog (single-dog checkouts).
+        animal_id: li.animalId ?? payload.animalId,
         service_name: li.groomingServiceName!,
         price: li.unitPrice,
         updated_at: new Date().toISOString(),
@@ -147,11 +165,25 @@ export async function completeCheckout(
     );
   }
 
+  // One invoice can close several reservations (household checkout) — every
+  // dog on the ticket checks out together.
+  const allReservationIds = [reservationId, ...(payload.additionalReservations ?? []).map((r) => r.reservationId)];
   const { error: resError } = await supabase
     .from("reservations")
     .update({ status: "checked_out", checked_out_at: new Date().toISOString() })
-    .eq("id", reservationId);
+    .in("id", allReservationIds);
   if (resError) throw new Error(resError.message);
+
+  if (allReservationIds.length > 1) {
+    await supabase.from("reservation_history").insert(
+      allReservationIds.map((rid) => ({
+        reservation_id: rid,
+        action: "checked_out",
+        details: `Household checkout — one invoice for ${allReservationIds.length} dogs (invoice ${invoice.id})`,
+        performed_by: "Checkout",
+      }))
+    );
+  }
 
   revalidatePath("/reservations");
   revalidatePath("/lodging");

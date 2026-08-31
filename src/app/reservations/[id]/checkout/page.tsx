@@ -55,12 +55,14 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             .order("effective_date", { ascending: false })
             .limit(1)
         : Promise.resolve({ data: null }),
+      // ALL of this facility's rules in effect at stay start — filtered per
+      // reservation type below, because a household checkout can mix types
+      // (one dog boarding, one in daycare) on the same invoice.
       supabase
         .from("pricing_rules")
         .select("id, reservation_type_id, label, rule_type, threshold, method, amount, effective_date, retired_date")
         .eq("facility_id", session!.facilityId)
         .lte("effective_date", stayDateStr)
-        .or(type ? `reservation_type_id.eq.${type.id},reservation_type_id.is.null` : "reservation_type_id.is.null")
         .or(`retired_date.is.null,retired_date.gt.${stayDateStr}`),
       supabase.from("grooming_menu_items").select("name, min_price, max_price").eq("facility_id", session!.facilityId).eq("active", true).order("name"),
       animal
@@ -81,48 +83,63 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const currentRate = rateHistory && rateHistory.length > 0 ? Number(rateHistory[0].rate) : Number(type?.base_rate ?? 0);
   const taxRate = Number(facilityRow?.tax_rate ?? 0);
 
+  // Per-type rule filtering (a household ticket can mix reservation types).
+  const allRules = rules ?? [];
+  const rulesFor = (typeId: string | null | undefined) =>
+    allRules.filter((r) => !r.reservation_type_id || r.reservation_type_id === typeId);
+
   // Feeding-log charges: house fresh food / CBD logged during the stay (in
   // this dashboard or the PawFeed tablet app — same table) pre-fill as retail
   // lines so they actually land on the tab instead of relying on memory.
-  const petKeys = animal ? [animal.id, ...(animal.gingr_animal_id != null ? [String(animal.gingr_animal_id)] : [])] : [];
-  const todayYmd = new Date().toISOString().slice(0, 10);
-  const { data: feedRows } = petKeys.length
-    ? await supabase
-        .from("feeding_logs")
-        .select("date, meal_time, fresh_food, fresh_food_items")
-        .in("pet_id", petKeys)
-        .gte("date", stayDateStr)
-        .lte("date", todayYmd)
-    : { data: [] };
-
-  let houseFoodMeals = 0;
-  let cbdCount = 0;
-  let topperCount = 0;
-  for (const f of feedRows ?? []) {
-    if (f.fresh_food) houseFoodMeals++;
-    const items = String(f.fresh_food_items ?? "").toLowerCase();
-    if (items.includes("cbd")) cbdCount++;
-    if (items.includes("topper")) topperCount++;
-  }
+  // Shared with each household dog on a combined invoice, hence the helper.
   const houseFoodItem = retailCatalog.find((r) => r.name.toLowerCase().includes("house food"));
   const cbdItem = retailCatalog.find((r) => r.name.toLowerCase().includes("cbd"));
-  const initialRetailRows: { itemId: string; qty: number }[] = [];
-  const careParts: string[] = [];
-  if (houseFoodMeals > 0) {
-    if (houseFoodItem) initialRetailRows.push({ itemId: houseFoodItem.id, qty: houseFoodMeals });
-    careParts.push(`house fresh food ×${houseFoodMeals} meal${houseFoodMeals === 1 ? "" : "s"}`);
+  const todayYmd = new Date().toISOString().slice(0, 10);
+
+  async function feedingPrefill(petKeys: string[], sinceYmd: string) {
+    const { data: feedRows } = petKeys.length
+      ? await supabase
+          .from("feeding_logs")
+          .select("date, meal_time, fresh_food, fresh_food_items")
+          .in("pet_id", petKeys)
+          .gte("date", sinceYmd)
+          .lte("date", todayYmd)
+      : { data: [] };
+    let houseFoodMeals = 0;
+    let cbdCount = 0;
+    let topperCount = 0;
+    for (const f of feedRows ?? []) {
+      if (f.fresh_food) houseFoodMeals++;
+      const items = String(f.fresh_food_items ?? "").toLowerCase();
+      if (items.includes("cbd")) cbdCount++;
+      if (items.includes("topper")) topperCount++;
+    }
+    const retailRows: { itemId: string; qty: number }[] = [];
+    const careParts: string[] = [];
+    if (houseFoodMeals > 0) {
+      if (houseFoodItem) retailRows.push({ itemId: houseFoodItem.id, qty: houseFoodMeals });
+      careParts.push(`house fresh food ×${houseFoodMeals} meal${houseFoodMeals === 1 ? "" : "s"}`);
+    }
+    if (cbdCount > 0) {
+      if (cbdItem) retailRows.push({ itemId: cbdItem.id, qty: cbdCount });
+      careParts.push(`CBD ×${cbdCount}`);
+    }
+    if (topperCount > 0) {
+      careParts.push(`topper ×${topperCount} (no retail item configured — add one under Items for Sale to bill it)`);
+    }
+    return {
+      retailRows,
+      careNote:
+        careParts.length > 0
+          ? `From the feeding log this stay: ${careParts.join(", ")} — pre-filled below, adjust if needed.`
+          : null,
+    };
   }
-  if (cbdCount > 0) {
-    if (cbdItem) initialRetailRows.push({ itemId: cbdItem.id, qty: cbdCount });
-    careParts.push(`CBD ×${cbdCount}`);
-  }
-  if (topperCount > 0) {
-    careParts.push(`topper ×${topperCount} (no retail item configured — add one under Items for Sale to bill it)`);
-  }
-  const careNote =
-    careParts.length > 0
-      ? `From the feeding log this stay: ${careParts.join(", ")} — pre-filled below, adjust if needed.`
-      : null;
+
+  const petKeys = animal ? [animal.id, ...(animal.gingr_animal_id != null ? [String(animal.gingr_animal_id)] : [])] : [];
+  const primaryCare = await feedingPrefill(petKeys, stayDateStr);
+  const initialRetailRows = primaryCare.retailRows;
+  const careNote = primaryCare.careNote;
 
   const start = new Date(reservation.start_date);
   const end = new Date(reservation.end_date);
@@ -137,24 +154,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   // two dogs must never both come out as "#2". Staff can still override.
   let householdRank = 1;
   let householdSize = 1;
-  // Other dogs from this household still checked in right now — surfaced at
-  // checkout so nobody walks a two-dog family out on one ticket and forgets
-  // the other dog's (Kath, Aug 30). Each dog checks out on its own ticket.
-  const householdCheckedIn: { reservationId: string; animalName: string }[] = [];
-  if (animal?.parents) {
-    const { data: hereNow } = await supabase
-      .from("reservations")
-      .select("id, animal_id, animals!inner ( name, parent_id )")
-      .eq("facility_id", session!.facilityId)
-      .eq("animals.parent_id", animal.parents.id)
-      .eq("status", "checked_in")
-      .neq("id", id);
-    for (const r of (hereNow as unknown as { id: string; animal_id: string; animals: { name: string } | null }[]) ?? []) {
-      if (r.animal_id !== animal.id) {
-        householdCheckedIn.push({ reservationId: r.id, animalName: r.animals?.name ?? "Unknown" });
-      }
-    }
-  }
+  let rankOf = (animalId: string): number => (animalId ? 1 : 1);
   if (animal?.parents) {
     const { data: siblingRows } = await supabase
       .from("reservations")
@@ -181,6 +181,104 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     householdSize = Math.max(1, ordered.length);
     const idx = ordered.findIndex(([animalId]) => animalId === animal.id);
     householdRank = idx >= 0 ? idx + 1 : 1;
+    rankOf = (animalId: string) => {
+      const i = ordered.findIndex(([aid]) => aid === animalId);
+      return i >= 0 ? i + 1 : ordered.length + 1;
+    };
+  }
+
+  // ---- Household invoice (Krishan, Aug 30): one bill per family. ----
+  // Every OTHER dog from this household still checked in joins this ticket
+  // as its own section — its base rate, its rank's additional-dog discount,
+  // its grooming service, its feeding-log charges — and completing checkout
+  // closes all the reservations against ONE invoice.
+  type ExtraDogData = {
+    reservationId: string;
+    animalId: string;
+    animalName: string;
+    baseRate: number;
+    rateUnit: string;
+    startDate: string;
+    endDate: string;
+    rank: number;
+    typeName: string | null;
+    isGrooming: boolean;
+    bookedGroomingService: string | null;
+    rules: NonNullable<typeof rules>;
+    rememberedPrices: { service_name: string; price: number }[];
+    initialRetailRows: { itemId: string; qty: number }[];
+    careNote: string | null;
+  };
+  const extraDogs: ExtraDogData[] = [];
+  if (animal?.parents) {
+    const { data: hereNow } = await supabase
+      .from("reservations")
+      .select(
+        `id, animal_id, start_date, end_date, grooming_service_name,
+         animals!inner ( id, name, parent_id, gingr_animal_id ),
+         reservation_types ( id, name, base_rate, rate_unit, category )`
+      )
+      .eq("facility_id", session!.facilityId)
+      .eq("animals.parent_id", animal.parents.id)
+      .eq("status", "checked_in")
+      .neq("id", id);
+
+    type HereRow = {
+      id: string;
+      animal_id: string;
+      start_date: string;
+      end_date: string;
+      grooming_service_name: string | null;
+      animals: { id: string; name: string; gingr_animal_id: number | string | null } | null;
+      reservation_types: { id: string; name: string; base_rate: string; rate_unit: string; category: string | null } | null;
+    };
+    const extraRows = ((hereNow as unknown as HereRow[]) ?? []).filter((r) => r.animal_id !== animal.id);
+
+    // Remembered grooming prices for all extra dogs in one query.
+    const extraAnimalIds = extraRows.map((r) => r.animal_id);
+    const { data: extraRemembered } = extraAnimalIds.length
+      ? await supabase
+          .from("grooming_service_prices")
+          .select("animal_id, service_name, price")
+          .in("animal_id", extraAnimalIds)
+      : { data: [] };
+
+    for (const r of extraRows) {
+      const rType = r.reservation_types;
+      const rStayYmd = String(r.start_date).slice(0, 10);
+      // Same anchored-rate lookup the primary dog gets.
+      const { data: rRate } = rType
+        ? await supabase
+            .from("reservation_type_rates")
+            .select("rate")
+            .eq("reservation_type_id", rType.id)
+            .lte("effective_date", rStayYmd)
+            .order("effective_date", { ascending: false })
+            .limit(1)
+        : { data: null };
+      const dogRate = rRate && rRate.length > 0 ? Number(rRate[0].rate) : Number(rType?.base_rate ?? 0);
+      const dogKeys = [r.animal_id, ...(r.animals?.gingr_animal_id != null ? [String(r.animals.gingr_animal_id)] : [])];
+      const care = await feedingPrefill(dogKeys, rStayYmd);
+      extraDogs.push({
+        reservationId: r.id,
+        animalId: r.animal_id,
+        animalName: r.animals?.name ?? "Unknown",
+        baseRate: dogRate,
+        rateUnit: rType?.rate_unit ?? "per_night",
+        startDate: r.start_date,
+        endDate: r.end_date,
+        rank: rankOf(r.animal_id),
+        typeName: rType?.name ?? null,
+        isGrooming: rType?.category === "grooming",
+        bookedGroomingService: r.grooming_service_name,
+        rules: rulesFor(rType?.id) as NonNullable<typeof rules>,
+        rememberedPrices: ((extraRemembered ?? []) as { animal_id: string; service_name: string; price: number }[])
+          .filter((p) => p.animal_id === r.animal_id)
+          .map((p) => ({ service_name: p.service_name, price: Number(p.price) })),
+        initialRetailRows: care.retailRows,
+        careNote: care.careNote,
+      });
+    }
   }
 
   return (
@@ -194,9 +292,17 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           ← Check-in board
         </Link>
         <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
-          Checkout — {animal?.name ?? "Unknown"}
+          Checkout —{" "}
+          {extraDogs.length > 0
+            ? [animal?.name ?? "Unknown", ...extraDogs.map((d) => d.animalName)].join(" + ")
+            : animal?.name ?? "Unknown"}
         </h1>
         <p className="mt-1 text-[13px] text-[#8a91a0] dark:text-slate-500">
+          {extraDogs.length > 0
+            ? `One family bill — ${1 + extraDogs.length} dogs from ${animal?.parents?.first_name ?? "this"} ${
+                animal?.parents?.last_name ?? "household"
+              } check out together on one invoice · `
+            : ""}
           {type?.name ?? "No reservation type"} · {units} {type?.rate_unit === "per_night" ? "night(s)" : "day(s)"} ·
           priced with rates/rules in effect {stayDateStr} (stay start), not today
         </p>
@@ -223,7 +329,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             units={units}
             startDate={reservation.start_date}
             endDate={reservation.end_date}
-            rules={(rules ?? []) as unknown as Parameters<typeof CheckoutCalculator>[0]["rules"]}
+            rules={rulesFor(type?.id) as unknown as Parameters<typeof CheckoutCalculator>[0]["rules"]}
             groomingItems={groomingItems ?? []}
             rememberedPrices={remembered ?? []}
             savedCards={savedCardRows ?? []}
@@ -235,7 +341,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             householdSize={householdSize}
             bookedGroomingService={(reservation.grooming_service_name as string | null) ?? null}
             isGroomingReservation={type?.category === "grooming"}
-            householdCheckedIn={householdCheckedIn}
+            extraDogs={extraDogs as unknown as Parameters<typeof CheckoutCalculator>[0]["extraDogs"]}
           />
         </div>
       </div>
