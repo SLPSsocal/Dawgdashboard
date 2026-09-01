@@ -6,6 +6,7 @@ import { getProfileTagsFor } from "@/lib/profileTags";
 import { getBookingGroupSiblings } from "../../actions";
 import { stripHtml } from "@/lib/text";
 import { todayLocal } from "@/lib/dates";
+import QRCode from "qrcode";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -115,6 +116,16 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const isPoopEater = animalTags.some((t) => t.name === "Poop Eater");
   const isPeeDrinker = animalTags.some((t) => t.name === "Pee Drinker");
 
+  // Unique per-animal QR (Kath's ask): the printed run card lives on the
+  // suite, so scanning it with any phone opens THIS dog's feeding log,
+  // pre-filtered — no hunting through the whole board.
+  const feedingUrl = animal
+    ? `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dawgdashboard.vercel.app"}/feeding?animal=${animal.id}`
+    : null;
+  const feedingQrSvg = feedingUrl
+    ? await QRCode.toString(feedingUrl, { type: "svg", margin: 1, width: 104, errorCorrectionLevel: "M" })
+    : null;
+
   const age = ageString(animal?.birthdate ?? null);
   const sexLabel = animal?.sex
     ? `${animal.sex[0].toUpperCase()}${animal.sex.slice(1)}/${animal.fixed ? "Altered" : "Unaltered"}`
@@ -172,6 +183,19 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           </div>
+
+          {feedingQrSvg && (
+            <div className="hidden w-[112px] shrink-0 flex-col items-center sm:flex print:flex">
+              <div
+                className="h-[104px] w-[104px] overflow-hidden rounded-md border border-slate-200 p-0.5"
+                // QR is generated server-side from our own URL — no user input.
+                dangerouslySetInnerHTML={{ __html: feedingQrSvg }}
+              />
+              <span className="mt-1 text-center text-[10px] leading-tight text-slate-500">
+                Scan → {animal?.name}&apos;s feeding log
+              </span>
+            </div>
+          )}
         </div>
 
         {/* whitespace-pre-line preserves the line breaks the pre-check-in form

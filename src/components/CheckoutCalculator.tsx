@@ -50,7 +50,7 @@ type ExtraDogState = {
   checkedFees: string[]; // flat-fee rule ids
 };
 type RetailItem = { id: string; name: string; price: number; taxable: boolean };
-type OpenItemType = "Other" | "Price Adjustment" | "Tip";
+type OpenItemType = "Other" | "Price Adjustment" | "Tip" | "Discount";
 
 const NEW_CARD_VALUE = "__new__";
 
@@ -62,7 +62,7 @@ type PaymentRow = { method: PaymentMethodKey; amount: string };
 function fmtDay(iso: string) {
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
 }
-const OPEN_ITEM_TYPES: OpenItemType[] = ["Other", "Price Adjustment", "Tip"];
+const OPEN_ITEM_TYPES: OpenItemType[] = ["Tip", "Discount", "Price Adjustment", "Other"];
 
 export default function CheckoutCalculator({
   reservationId,
@@ -183,6 +183,7 @@ export default function CheckoutCalculator({
   // 15/18/20/25% quick buttons that show the dollar amount before you tap).
   const [tipBase, setTipBase] = useState<"grooming" | "ticket">("grooming");
   const [openType, setOpenType] = useState<OpenItemType>("Tip");
+  const [openIsPercent, setOpenIsPercent] = useState(false);
   const [openDesc, setOpenDesc] = useState("");
   const [openAmount, setOpenAmount] = useState("");
   const [payments, setPayments] = useState<PaymentRow[]>([{ method: "", amount: "" }]);
@@ -492,7 +493,13 @@ export default function CheckoutCalculator({
         unitPrice: oi.amount,
         lineTotal: oi.amount,
         lineKind:
-          oi.type === "Tip" ? "tip" : oi.type === "Price Adjustment" ? "adjustment" : "other",
+          oi.type === "Tip"
+            ? "tip"
+            : oi.type === "Discount"
+              ? "discount"
+              : oi.type === "Price Adjustment"
+                ? "adjustment"
+                : "other",
       });
     }
 
@@ -500,9 +507,27 @@ export default function CheckoutCalculator({
   }, [baseRate, effUnits, stayStart, stayEnd, animalName, animalId, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems, isGroomingReservation, extraDogs, extras]);
 
   function addOpenItem() {
-    const amount = Number(openAmount);
-    if (!amount || amount <= 0) return;
-    setOpenItems((items) => [...items, { type: openType, description: openDesc.trim(), amount }]);
+    const raw = Number(openAmount);
+    if (!raw || !Number.isFinite(raw)) return;
+    let amount = raw;
+    let desc = openDesc.trim();
+    if (openType === "Discount") {
+      // Kathleen: "no discounts applied yet when checking out" — a manual
+      // discount, entered as a positive number, SUBTRACTS. Percent mode
+      // computes off the pre-tip ticket.
+      if (openIsPercent) {
+        const pct = Math.abs(raw);
+        amount = -Math.round(preTipTicket * pct) / 100;
+        desc = desc || `${pct}% off ($${preTipTicket.toFixed(2)} ticket)`;
+      } else {
+        amount = -Math.abs(raw);
+      }
+      if (amount === 0) return;
+    } else if (openType === "Tip") {
+      if (raw <= 0) return; // negative tips aren't a thing
+    }
+    // Price Adjustment / Other may be entered negative on purpose.
+    setOpenItems((items) => [...items, { type: openType, description: desc, amount }]);
     setOpenDesc("");
     setOpenAmount("");
   }
@@ -1296,7 +1321,9 @@ export default function CheckoutCalculator({
                 {oi.description ? `: ${oi.description}` : ""}
               </span>
               <span className="flex items-center gap-2">
-                <span>${oi.amount.toFixed(2)}</span>
+                <span className={oi.amount < 0 ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}>
+                  {oi.amount < 0 ? "−" : ""}${Math.abs(oi.amount).toFixed(2)}
+                </span>
                 <button
                   type="button"
                   onClick={() => setOpenItems((items) => items.filter((_, idx) => idx !== i))}
@@ -1312,7 +1339,10 @@ export default function CheckoutCalculator({
               <span className="block text-slate-500 dark:text-slate-400">Type</span>
               <select
                 value={openType}
-                onChange={(e) => setOpenType(e.target.value as OpenItemType)}
+                onChange={(e) => {
+                  setOpenType(e.target.value as OpenItemType);
+                  setOpenIsPercent(false);
+                }}
                 className="mt-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 {OPEN_ITEM_TYPES.map((t) => (
@@ -1322,6 +1352,24 @@ export default function CheckoutCalculator({
                 ))}
               </select>
             </label>
+            {openType === "Discount" && (
+              <div className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setOpenIsPercent(false)}
+                  className={`px-2.5 py-1.5 font-semibold ${!openIsPercent ? "bg-indigo-600 text-white" : "bg-white text-[#565d6d] dark:bg-slate-900 dark:text-slate-300"}`}
+                >
+                  $
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpenIsPercent(true)}
+                  className={`px-2.5 py-1.5 font-semibold ${openIsPercent ? "bg-indigo-600 text-white" : "bg-white text-[#565d6d] dark:bg-slate-900 dark:text-slate-300"}`}
+                >
+                  %
+                </button>
+              </div>
+            )}
             <label className="flex-1 text-xs">
               <span className="block text-slate-500 dark:text-slate-400">Description</span>
               <input
@@ -1332,13 +1380,15 @@ export default function CheckoutCalculator({
               />
             </label>
             <label className="text-xs">
-              <span className="block text-slate-500 dark:text-slate-400">Amount</span>
+              <span className="block text-slate-500 dark:text-slate-400">
+                {openType === "Discount" ? (openIsPercent ? "% off" : "$ off") : "Amount"}
+              </span>
               <input
                 type="number"
                 step="0.01"
-                min="0.01"
                 value={openAmount}
                 onChange={(e) => setOpenAmount(e.target.value)}
+                placeholder={openType === "Discount" && openIsPercent ? "10" : ""}
                 className="mt-1 w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>

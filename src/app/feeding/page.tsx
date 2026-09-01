@@ -30,7 +30,7 @@ function ymdPT(iso: string) {
 export default async function FeedingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; meal?: string }>;
+  searchParams: Promise<{ date?: string; meal?: string; animal?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -108,6 +108,10 @@ export default async function FeedingPage({
   }
   rows.sort((x, y) => x.name.localeCompare(y.name));
 
+  // ?animal=<id> — deep link from the run-card QR code: show just that dog.
+  const focus = sp.animal ?? null;
+  const focusedRows = focus ? rows.filter((r) => r.animalId === focus || r.petId === focus) : rows;
+
   // All of today's logs (every meal) so the tabs can show progress counts and
   // the strip can show per-dog status dots.
   const petIds = rows.map((r) => r.petId);
@@ -124,8 +128,20 @@ export default async function FeedingPage({
     <main className="min-h-screen bg-slate-100 dark:bg-slate-950">
       <FacilityHeader session={session!} />
       <div className="mx-auto max-w-[1200px] px-4 py-5 sm:px-6">
+        {focus && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-300">
+            <span>
+              {focusedRows.length > 0
+                ? `Showing only ${focusedRows[0].name} (scanned QR code).`
+                : "That dog isn't checked in today — nothing to log."}
+            </span>
+            <a href={`/feeding?date=${date}`} className="font-semibold underline">
+              Show all dogs
+            </a>
+          </div>
+        )}
         <FeedingBoard
-          rows={rows}
+          rows={focusedRows}
           logs={(logRows ?? []) as never}
           date={date}
           meal={meal}

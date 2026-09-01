@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import FacilityCalendarBoard, { type ApptCard, type Specialist, type SpecialistBlock } from "@/components/FacilityCalendarBoard";
 import SpecialistBlockForm from "@/components/SpecialistBlockForm";
+import SpecialistScheduleManager from "@/components/SpecialistScheduleManager";
 import CalendarDateJump from "@/components/CalendarDateJump";
 import { todayLocal } from "@/lib/dates";
 import Link from "next/link";
@@ -41,11 +42,18 @@ export default async function FacilityCalendarPage({
   const supabase = createClient();
   const { data: specialistRows } = await supabase
     .from("staff")
-    .select("id, full_name")
+    .select("id, full_name, work_days")
     .eq("facility_id", session!.facilityId)
     .eq("is_specialist", true)
     .eq("active", true)
     .order("full_name");
+
+  // "Open a day off" overrides for the viewed date (Alan's ticket).
+  const { data: overrideRows } = await supabase
+    .from("specialist_day_overrides")
+    .select("id, staff_id, date")
+    .eq("facility_id", session!.facilityId)
+    .eq("date", dateStr);
 
   // Blackouts overlapping this day (vacation, sick day, lunch, etc.).
   const { data: blockRows } = await supabase
@@ -108,6 +116,14 @@ export default async function FacilityCalendarPage({
   }));
 
   const specialists: Specialist[] = (specialistRows ?? []).map((s) => ({ id: s.id, name: s.full_name }));
+
+  // Day-off math for the viewed date: a specialist with a weekly schedule
+  // that excludes this weekday is "off" unless an override opened the date.
+  const dow = new Date(`${dateStr}T12:00:00`).getDay();
+  const openedIds = new Set((overrideRows ?? []).map((o) => o.staff_id as string));
+  const dayOffIds = ((specialistRows ?? []) as { id: string; work_days: number[] | null }[])
+    .filter((s) => s.work_days != null && !s.work_days.includes(dow) && !openedIds.has(s.id))
+    .map((s) => s.id);
 
   const blocks: SpecialistBlock[] = ((blockRows as {
     id: string;

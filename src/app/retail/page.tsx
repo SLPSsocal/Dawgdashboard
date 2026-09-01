@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
-import { createRetailItem, retireRetailItem, reactivateRetailItem, setFacilityPrice, updateTaxRate } from "./actions";
+import { createRetailItem, updateRetailItem, retireRetailItem, reactivateRetailItem, setFacilityPrice, updateTaxRate } from "./actions";
 
 export default async function RetailPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await getSession();
@@ -29,9 +29,10 @@ export default async function RetailPage({ searchParams }: { searchParams: Promi
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-semibold">Items for Sale</h1>
         <p className="text-sm text-slate-400 dark:text-slate-500">
-          One shared catalog across all facilities — set a price override here if {session!.facilityName} charges
-          differently than the base price. Retail items and packages show up when checking a dog out or ringing up a
-          walk-in sale.
+          One shared catalog across all facilities. Add items below; edit any field right in the table and hit{" "}
+          <span className="font-medium text-slate-600 dark:text-slate-300">Save</span>. Set a price override if{" "}
+          {session!.facilityName} charges differently than the base price. Items and packages show up at checkout
+          and on walk-in sales.
         </p>
 
         <div className="mt-3">
@@ -116,15 +117,53 @@ export default async function RetailPage({ searchParams }: { searchParams: Promi
                 {active.map((item) => {
                   const override = overrideMap.get(item.id);
                   const setPriceWithIds = setFacilityPrice.bind(null, session!.facilityId, item.id);
+                  const editFormId = `edit-${item.id}`;
+                  // Every base field is editable in place; inputs in different
+                  // cells share one form via the form="…" attribute (tables
+                  // can't nest a single <form> across cells).
                   return (
                     <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800/60">
-                      <td className="px-4 py-2 font-medium sm:px-6">
-                        {item.name}
-                        {item.sku && <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">#{item.sku}</span>}
+                      <td className="px-4 py-2 sm:px-6">
+                        <form action={updateRetailItem.bind(null, item.id)} id={editFormId} />
+                        <input
+                          name="name"
+                          form={editFormId}
+                          defaultValue={item.name}
+                          required
+                          className="w-full min-w-[140px] rounded border border-transparent px-2 py-1 text-sm font-medium hover:border-slate-300 focus:border-indigo-400 focus:outline-none dark:bg-slate-900 dark:hover:border-slate-700"
+                        />
+                        <input
+                          name="sku"
+                          form={editFormId}
+                          defaultValue={item.sku ?? ""}
+                          placeholder="SKU"
+                          className="mt-0.5 w-full min-w-[140px] rounded border border-transparent px-2 py-0.5 text-xs text-slate-400 hover:border-slate-300 focus:border-indigo-400 focus:outline-none dark:bg-slate-900 dark:hover:border-slate-700"
+                        />
                       </td>
-                      <td className="px-2 py-2 text-slate-500 dark:text-slate-400 capitalize">{item.category}</td>
-                      <td className="px-2 py-2">${Number(item.base_price).toFixed(2)}</td>
-                      <td className="px-2 py-2 text-slate-400 dark:text-slate-500">{item.taxable ? "Yes" : "—"}</td>
+                      <td className="px-2 py-2">
+                        <select
+                          name="category"
+                          form={editFormId}
+                          defaultValue={item.category}
+                          className="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                        >
+                          <option value="retail">Retail</option>
+                          <option value="package">Package</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          name="base_price"
+                          form={editFormId}
+                          defaultValue={Number(item.base_price).toFixed(2)}
+                          className="w-20 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input type="checkbox" name="taxable" form={editFormId} defaultChecked={item.taxable} title="Taxable" />
+                      </td>
                       <td className="px-2 py-2">
                         <form action={setPriceWithIds} className="flex items-center gap-1">
                           <input
@@ -141,11 +180,21 @@ export default async function RetailPage({ searchParams }: { searchParams: Promi
                         </form>
                       </td>
                       <td className="px-4 py-2 text-right sm:px-6">
-                        <form action={retireRetailItem.bind(null, item.id)}>
-                          <button type="submit" className="text-xs text-red-500 underline dark:text-red-400" title="Hides it from checkout/sale pickers without deleting history">
-                            Retire
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="submit"
+                            form={editFormId}
+                            className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                            title="Save changes to name, SKU, category, base price, taxable"
+                          >
+                            Save
                           </button>
-                        </form>
+                          <form action={retireRetailItem.bind(null, item.id)}>
+                            <button type="submit" className="text-xs text-red-500 underline dark:text-red-400" title="Hides it from checkout/sale pickers without deleting history">
+                              Retire
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   );

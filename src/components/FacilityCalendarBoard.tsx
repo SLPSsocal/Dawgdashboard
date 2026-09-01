@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { assignSpecialist, rescheduleAppointment, saveGroomingPrice } from "@/app/facility-calendar/actions";
 import { deleteAvailabilityBlock } from "@/app/blocks/actions";
+import { openSpecialistDay } from "@/app/facility-calendar/schedule-actions";
 
 export type Specialist = { id: string; name: string };
 
@@ -116,11 +117,20 @@ export default function FacilityCalendarBoard({
   cards: initialCards,
   blocks = [],
   facilityId,
+  schedule,
 }: {
   specialists: Specialist[];
   cards: ApptCard[];
   blocks?: SpecialistBlock[];
   facilityId?: string;
+  /** Weekly-schedule day-off state for the viewed date (Alan's ticket). */
+  schedule?: {
+    dayOffIds: string[];
+    openedIds: string[];
+    facilityId: string;
+    date: string;
+    staffName?: string | null;
+  };
 }) {
   const [cards, setCards] = useState(initialCards);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -366,8 +376,18 @@ export default function FacilityCalendarBoard({
             {colId !== null && blocks.some((b) => b.specialistId === colId) && "🚫 "}
             {name}
           </span>
-          <span className="shrink-0 rounded-full bg-[#f1f2f5] px-1.5 py-0.5 text-[11px] font-medium text-[#565d6d] dark:bg-slate-800 dark:text-slate-400">
-            {items.length}
+          <span className="flex shrink-0 items-center gap-1">
+            {colId !== null && schedule?.openedIds.includes(colId) && (
+              <span
+                className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                title="Normally off today — this date was opened for them"
+              >
+                ☀️ opened
+              </span>
+            )}
+            <span className="rounded-full bg-[#f1f2f5] px-1.5 py-0.5 text-[11px] font-medium text-[#565d6d] dark:bg-slate-800 dark:text-slate-400">
+              {items.length}
+            </span>
           </span>
         </div>
         <div
@@ -416,6 +436,29 @@ export default function FacilityCalendarBoard({
             blocks
               .filter((b) => b.specialistId === colId)
               .map((b) => <BlockOverlay key={b.id} b={b} />)}
+          {/* Weekly-schedule day off: whole lane grayed with a one-click
+              "Open this day" (Alan: groomer wants to come in on their day
+              off → make them visible/bookable for just that date). */}
+          {colId !== null && schedule?.dayOffIds.includes(colId) && (
+            <div className="absolute inset-0 z-[2] flex flex-col items-center justify-start gap-2 bg-slate-100/90 px-2 pt-10 text-center [background-image:repeating-linear-gradient(45deg,transparent,transparent_8px,rgba(100,116,139,0.08)_8px,rgba(100,116,139,0.08)_16px)] dark:bg-slate-900/90">
+              <span className="text-lg">🌙</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Day off</span>
+              <button
+                type="button"
+                onClick={() =>
+                  startTransition(() =>
+                    openSpecialistDay(schedule.facilityId, colId, schedule.date, schedule.staffName).catch(() => {})
+                  )
+                }
+                className="rounded-[10px] bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                ☀️ Open this day
+              </button>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                Makes {name} bookable for this date only
+              </span>
+            </div>
+          )}
           {positioned.map(({ c, col, of, overlap }) => (
             <TimeCard key={c.id} c={c} draggable={droppable} col={col} of={of} overlap={overlap} warnOnOverlap={warnOnOverlap} />
           ))}

@@ -24,6 +24,24 @@ export async function createRetailItem(formData: FormData) {
   refresh();
 }
 
+// Edit an existing catalog item in place (Alan's ticket: managing items
+// should be as straightforward as Gingr's).
+export async function updateRetailItem(itemId: string, formData: FormData) {
+  const supabase = createClient();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) redirect("/retail?error=missing_name");
+  const sku = String(formData.get("sku") ?? "").trim() || null;
+  const category = String(formData.get("category") ?? "retail");
+  const base_price = Number(formData.get("base_price") ?? 0);
+  const taxable = formData.get("taxable") === "on";
+  const { error } = await supabase
+    .from("retail_items")
+    .update({ name, sku, category, base_price, taxable })
+    .eq("id", itemId);
+  if (error) redirect(`/retail?error=${encodeURIComponent(error.message)}`);
+  refresh();
+}
+
 export async function retireRetailItem(itemId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("retail_items").update({ active: false }).eq("id", itemId);

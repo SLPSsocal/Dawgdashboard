@@ -260,10 +260,41 @@ export async function getSpecialistConflicts(
     .lt("start_at", endISO)
     .gt("end_at", startISO);
 
-  const [{ data }, { data: blockData }] = await Promise.all([query, blocksQuery]);
+  // Weekly-schedule day off (unless that date was explicitly opened) warns
+  // exactly like a blackout block — same banner in the booking form.
+  const dayYmd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date(startISO));
+  const staffQuery = supabase.from("staff").select("work_days").eq("id", specialistId).maybeSingle();
+  const overrideQuery = supabase
+    .from("specialist_day_overrides")
+    .select("id")
+    .eq("staff_id", specialistId)
+    .eq("date", dayYmd)
+    .maybeSingle();
+
+  const [{ data }, { data: blockData }, { data: staffRow }, { data: openOverride }] = await Promise.all([
+    query,
+    blocksQuery,
+    staffQuery,
+    overrideQuery,
+  ]);
+  const workDays = (staffRow as { work_days: number[] | null } | null)?.work_days ?? null;
+  const dow = new Date(`${dayYmd}T12:00:00`).getDay();
+  const isDayOff = workDays != null && !workDays.includes(dow) && !openOverride;
   type Row = { id: string; start_date: string; end_date: string; animals: { name: string } | null };
   type BlockRow = { id: string; start_at: string; end_at: string; reason: string | null };
   return [
+    ...(isDayOff
+      ? [
+          {
+            id: `dayoff-${specialistId}-${dayYmd}`,
+            animalName: "",
+            startDate: startISO,
+            endDate: endISO,
+            isBlock: true,
+            reason: "scheduled day off — open this date on the Facility Calendar to make it official",
+          },
+        ]
+      : []),
     ...((data as unknown as Row[]) ?? []).map((r) => ({
       id: r.id,
       animalName: r.animals?.name ?? "Unknown",
