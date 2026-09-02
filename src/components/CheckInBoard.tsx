@@ -351,13 +351,16 @@ export default function CheckInBoard({
 
         {/* Desktop: grid rows */}
         <div className="hidden border-t border-[#edeff3] md:block dark:border-slate-800">
-          <div className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_auto] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
+          {/* Last column is a FIXED width: with `auto` it sized to ~230px of
+              buttons in data rows but 0px in this header (empty cell), so
+              every header label drifted right of its column (Krishan, Sep 2). */}
+          <div className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_236px] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
             <span>Dog</span><span>Parent</span><span>Service</span><span>Arrival</span><span>Departure</span><span>Pre-check-in</span><span />
           </div>
           {data.map((r) => (
             <div
               key={r.id}
-              className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_auto] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
+              className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_236px] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
             >
               <DogCell r={r} />
               <div className="min-w-0">
@@ -386,7 +389,7 @@ export default function CheckInBoard({
                 <div className="text-[12px] text-[#8a91a0] dark:text-slate-500">{relDay(r.endDate, todayStr, tomorrowStr)}</div>
               </div>
               <div><PrecheckinChip r={r} /></div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-end gap-1.5">
                 <AddGroomingButton r={r} />
                 <PrimaryAction r={r} />
                 <ReservationActionsMenu
