@@ -23,6 +23,8 @@ export type CheckInRow = {
   parentId: string | null;
   parentName: string | null;
   typeName: string | null;
+  /** Grooming service name, or boarding/daycare subtype (Private Play, …). */
+  serviceType?: string | null;
   lodgingName: string | null;
   startDate: string;
   endDate: string;
@@ -354,13 +356,13 @@ export default function CheckInBoard({
           {/* Last column is a FIXED width: with `auto` it sized to ~230px of
               buttons in data rows but 0px in this header (empty cell), so
               every header label drifted right of its column (Krishan, Sep 2). */}
-          <div className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_236px] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
-            <span>Dog</span><span>Parent</span><span>Service</span><span>Arrival</span><span>Departure</span><span>Pre-check-in</span><span />
+          <div className="grid grid-cols-[2fr_1.2fr_1.4fr_1fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
+            <span>Dog</span><span>Parent</span><span>Service</span><span>Type</span><span>Arrival</span><span>Departure</span><span>Pre-check-in</span><span />
           </div>
           {data.map((r) => (
             <div
               key={r.id}
-              className="grid grid-cols-[2fr_1.3fr_1.5fr_0.9fr_0.9fr_1fr_236px] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
+              className="grid grid-cols-[2fr_1.2fr_1.4fr_1fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
             >
               <DogCell r={r} />
               <div className="min-w-0">
@@ -379,6 +381,15 @@ export default function CheckInBoard({
                   <span className="truncate">{r.typeName ?? "—"}</span>
                 </div>
                 <div className="pl-3 text-[12px] text-[#8a91a0] dark:text-slate-500">{r.lodgingName ?? ""}</div>
+              </div>
+              <div className="min-w-0">
+                {r.serviceType ? (
+                  <span className="inline-block max-w-full truncate rounded-full bg-[#f1f2f5] px-2 py-0.5 text-[12px] font-medium text-[#565d6d] dark:bg-slate-800 dark:text-slate-300">
+                    {r.serviceType}
+                  </span>
+                ) : (
+                  <span className="text-[12px] text-[#c4c9d4] dark:text-slate-600">—</span>
+                )}
               </div>
               <div>
                 <div className="text-[13.5px] tabular-nums text-[#15181d] dark:text-slate-200">{fmtTime(r.startDate)}</div>
@@ -466,9 +477,14 @@ export default function CheckInBoard({
                   ● {r.alertNote}
                 </div>
               )}
-              <div className="mt-2 flex items-center gap-1.5 text-[13px] text-[#15181d] dark:text-slate-200">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[13px] text-[#15181d] dark:text-slate-200">
                 <span className={`h-1.5 w-1.5 rounded-full ${serviceTone(r.typeName).dot}`} />
                 {r.typeName ?? "—"}
+                {r.serviceType && (
+                  <span className="rounded-full bg-[#f1f2f5] px-2 py-0.5 text-[11.5px] font-medium text-[#565d6d] dark:bg-slate-800 dark:text-slate-300">
+                    {r.serviceType}
+                  </span>
+                )}
                 {r.lodgingName && <span className="text-[#8a91a0] dark:text-slate-500">{r.lodgingName}</span>}
               </div>
               <div className="mt-2 flex items-center justify-between rounded-lg bg-[#f5f6f8] px-2.5 py-1.5 text-[12.5px] dark:bg-slate-800/60">

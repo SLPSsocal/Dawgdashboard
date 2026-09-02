@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
 import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
+import { subtypeOptions } from "@/lib/serviceSubtypes";
 import Link from "next/link";
 
 type ReservationType = {
@@ -134,6 +135,15 @@ export default function BookingForm({
   const isEvaluation = type?.category === "evaluation";
   const usesTimeSlot = isGrooming || isEvaluation;
 
+  // Boarding/daycare "Type" (Private Play, In Daycare, …) — grooming's type
+  // is its service name, so it doesn't use this.
+  const typeOptions = subtypeOptions(type?.category);
+  const [serviceSubtype, setServiceSubtype] = useState("");
+  useEffect(() => {
+    const opts = subtypeOptions(reservationTypes.find((t) => t.id === typeId)?.category);
+    setServiceSubtype(opts[0] ?? "");
+  }, [typeId, reservationTypes]);
+
   // Evaluations are a fixed-length, fixed-slot block — no service picker,
   // no editable duration, just pick which of the offered hours works.
   useEffect(() => {
@@ -237,6 +247,7 @@ export default function BookingForm({
             // settings, just without double-writing that per-dog memory.
             specialistId: isGrooming ? specialistId || null : null,
             serviceName: isGrooming ? serviceName || null : null,
+            serviceSubtype: typeOptions.length > 0 ? serviceSubtype || null : null,
             groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
             belongings: belongings || null,
             notes: notes || null,
@@ -362,6 +373,33 @@ export default function BookingForm({
               </label>
             ))}
           </div>
+
+          {typeOptions.length > 0 && (
+            <div className="mt-3">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</span>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {typeOptions.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setServiceSubtype(opt)}
+                    className={`rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                      serviceSubtype === opt
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300"
+                        : "border-[#e3e5ea] bg-white text-[#565d6d] hover:border-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              {type?.category === "boarding" && serviceSubtype.startsWith("In Daycare") && (
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                  Daycare participation adds a charge at checkout.
+                </p>
+              )}
+            </div>
+          )}
 
           {type?.requiresLodging && (
             <label className="mt-3 block sm:max-w-xs">
@@ -618,6 +656,7 @@ export default function BookingForm({
             <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
               {type?.name ?? "—"}
               {isGrooming && serviceName ? ` · ${serviceName}` : ""}
+              {typeOptions.length > 0 && serviceSubtype ? ` · ${serviceSubtype}` : ""}
             </dd>
           </div>
           {type?.requiresLodging && (

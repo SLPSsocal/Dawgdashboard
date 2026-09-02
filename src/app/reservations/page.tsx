@@ -18,6 +18,7 @@ type Row = {
   end_date: string;
   gingr_reservation_id: string | null;
   grooming_service_name?: string | null;
+  service_subtype?: string | null;
   animals: {
     id: string;
     name: string;
@@ -44,6 +45,9 @@ function toRow(r: Row): CheckInRow {
     parentId: r.animals?.parents?.id ?? null,
     parentName: r.animals?.parents ? `${r.animals.parents.first_name} ${r.animals.parents.last_name}` : null,
     typeName: r.reservation_types?.name ?? null,
+    // "Type" column: grooming's is its service; boarding/daycare use the
+    // service_subtype picked at booking (Private Play, In Daycare, …).
+    serviceType: r.grooming_service_name ?? r.service_subtype ?? null,
     lodgingName: r.lodging_areas?.name ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
@@ -72,7 +76,7 @@ export default async function ReservationsPage() {
     .maybeSingle();
   const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
 
-  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name,
+  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype,
        animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name ),
        reservation_types ( name, category )`;

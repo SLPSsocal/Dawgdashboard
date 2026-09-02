@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import { updateReservation, getBookingGroupSiblings } from "../actions";
 import CancelReservationControls from "@/components/CancelReservationControls";
 import { overallVaccineStatus, vaccineShield, type VaccineExpirations } from "@/lib/vaccines";
+import { subtypeOptions } from "@/lib/serviceSubtypes";
 import { getProfileTagsFor } from "@/lib/profileTags";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
 import SendPrecheckinLink from "@/components/SendPrecheckinLink";
@@ -396,6 +397,33 @@ export default async function ReservationDetailPage({
                 </p>
               </label>
             )}
+
+            {(() => {
+              const curCategory = (types ?? []).find((t) => t.id === reservation.reservation_type_id)?.category ?? null;
+              const opts = subtypeOptions(curCategory);
+              if (opts.length === 0) return null;
+              return (
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Type</span>
+                  <select
+                    name="service_subtype"
+                    defaultValue={reservation.service_subtype ?? ""}
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="">—</option>
+                    {opts.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    Shows in the Type column on the check-in board. &quot;In Daycare&quot; carries an extra charge at
+                    checkout.
+                  </p>
+                </label>
+              );
+            })()}
 
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging</span>

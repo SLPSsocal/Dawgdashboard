@@ -125,6 +125,7 @@ export async function createReservation(payload: {
   durationMinutes: number | null; // grooming only
   specialistId: string | null;
   serviceName: string | null; // grooming service, for remembering duration/specialist
+  serviceSubtype?: string | null; // boarding/daycare Type (Private Play, In Daycare, …)
   groomingPrice?: number | null; // quoted grooming price — remembered for checkout prefill
   belongings: string | null;
   notes: string | null;
@@ -179,6 +180,7 @@ export async function createReservation(payload: {
       notes: payload.notes,
       booking_group_id: payload.bookingGroupId ?? null,
       grooming_service_name: payload.serviceName,
+      service_subtype: payload.serviceSubtype ?? null,
     })
     .select("id")
     .single();
@@ -386,10 +388,13 @@ export async function updateReservation(reservationId: string, performedBy: stri
   // otherwise wipe it out for non-grooming reservations.
   const hasServiceField = formData.has("grooming_service_name");
   const grooming_service_name = String(formData.get("grooming_service_name") ?? "") || null;
+  // Same absent-vs-empty logic for the boarding/daycare Type select.
+  const hasSubtypeField = formData.has("service_subtype");
+  const service_subtype = String(formData.get("service_subtype") ?? "") || null;
 
   const { data: before } = await supabase
     .from("reservations")
-    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name")
+    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype")
     .eq("id", reservationId)
     .maybeSingle();
 
@@ -402,6 +407,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
     belongings,
   };
   if (hasServiceField) updatePayload.grooming_service_name = grooming_service_name;
+  if (hasSubtypeField) updatePayload.service_subtype = service_subtype;
 
   const { error } = await supabase.from("reservations").update(updatePayload).eq("id", reservationId);
 
@@ -420,6 +426,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         notes,
         belongings,
         grooming_service_name: hasServiceField ? grooming_service_name : before.grooming_service_name,
+        service_subtype: hasSubtypeField ? service_subtype : before.service_subtype,
       },
       {
         start_date: "Arrival",
@@ -429,6 +436,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         notes: "Notes",
         belongings: "Belongings",
         grooming_service_name: "Service",
+        service_subtype: "Type",
       }
     );
     if (summary) await logHistory(reservationId, "modified", summary, performedBy);
