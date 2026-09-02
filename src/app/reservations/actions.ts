@@ -391,10 +391,15 @@ export async function updateReservation(reservationId: string, performedBy: stri
   // Same absent-vs-empty logic for the boarding/daycare Type select.
   const hasSubtypeField = formData.has("service_subtype");
   const service_subtype = String(formData.get("service_subtype") ?? "") || null;
+  // Quoted grooming price (given to the customer at booking; adjustable any
+  // time). Stored in grooming_service_prices — the same per-dog memory the
+  // booking form and checkout prefill from.
+  const groomingPriceRaw = String(formData.get("grooming_price") ?? "").trim();
+  const groomingPrice = groomingPriceRaw === "" ? null : Number(groomingPriceRaw);
 
   const { data: before } = await supabase
     .from("reservations")
-    .select("start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype")
+    .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype")
     .eq("id", reservationId)
     .maybeSingle();
 
@@ -413,6 +418,27 @@ export async function updateReservation(reservationId: string, performedBy: stri
 
   if (error) {
     redirect(`/reservations/${reservationId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // Remember/adjust the quote whenever a grooming service + price are on the form.
+  if (
+    hasServiceField &&
+    grooming_service_name &&
+    groomingPrice != null &&
+    Number.isFinite(groomingPrice) &&
+    groomingPrice >= 0 &&
+    before?.animal_id
+  ) {
+    await supabase.from("grooming_service_prices").upsert(
+      {
+        facility_id: before.facility_id,
+        animal_id: before.animal_id,
+        service_name: grooming_service_name,
+        price: groomingPrice,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "animal_id,service_name", ignoreDuplicates: false }
+    );
   }
 
   if (before) {

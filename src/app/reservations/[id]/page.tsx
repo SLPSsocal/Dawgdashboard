@@ -127,6 +127,18 @@ export default async function ReservationDetailPage({
         .order("name"),
     ]);
 
+  // Remembered quote for this dog + booked service (grooming_service_prices —
+  // the same memory the booking form and checkout prefill from).
+  const { data: rememberedPriceRow } =
+    animal && reservation.grooming_service_name
+      ? await supabase
+          .from("grooming_service_prices")
+          .select("price")
+          .eq("animal_id", animal.id)
+          .eq("service_name", reservation.grooming_service_name)
+          .maybeSingle()
+      : { data: null };
+
   // Specialist names feed the groomer + preferred-groomer selects.
   const { data: specialistRows } = await supabase
     .from("staff")
@@ -394,6 +406,25 @@ export default async function ReservationDetailPage({
                 </select>
                 <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                   Shows on the Facility Calendar and run card so the groomer knows what to do.
+                </p>
+              </label>
+            )}
+
+            {isGrooming && (
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Quoted Price ($)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  name="grooming_price"
+                  defaultValue={rememberedPriceRow?.price != null ? Number(rememberedPriceRow.price) : ""}
+                  placeholder="e.g. 90"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:max-w-[180px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  The quote given to {animal?.parents?.first_name ?? "the parent"} — remembered for this dog +
+                  service and prefilled at checkout. Change it here any time before checkout.
                 </p>
               </label>
             )}
