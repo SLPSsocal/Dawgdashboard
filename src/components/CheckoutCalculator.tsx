@@ -119,9 +119,11 @@ export default function CheckoutCalculator({
   /** Household dogs still checked in — they join this ticket, one invoice per family. */
   extraDogs?: ExtraDog[];
 }) {
-  const [numDogs, setNumDogs] = useState(householdRank ?? 1);
+  // Fully automatic (Krishan, Sep 2): the household rank is derived from the
+  // family's overlapping bookings server-side — no knob to bump, no way to
+  // forget it. The additional-dog rate just applies.
+  const numDogs = householdRank ?? 1;
   const autoDetectedDogs = (householdSize ?? 1) > 1;
-  const dogCountEdited = numDogs !== (householdRank ?? 1);
   // Late checkout is automatic: boarding pickups after 12:15 PM (noon + 15min
   // grace) pre-check the late fee so nobody has to remember the dropdown.
   // Staff can still untick it for an exception.
@@ -824,45 +826,13 @@ export default function CheckoutCalculator({
         </div>
       )}
 
-      {additionalDogRules.length > 0 && (
-        <div className={card}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={sectionLabel}>Household position</span>
-            {autoDetectedDogs && !dogCountEdited && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-                auto — {householdSize} dogs from this household on this stay
-              </span>
-            )}
-            {dogCountEdited && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                edited (auto said #{householdRank ?? 1})
-              </span>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {Array.from({ length: additionalDogRules.length + 1 }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setNumDogs(n)}
-                className={`h-9 min-w-[52px] rounded-[10px] border px-3 text-sm font-semibold transition-colors ${
-                  numDogs === n
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300"
-                    : "border-[#e3e5ea] bg-white text-[#565d6d] hover:border-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                }`}
-              >
-                #{n}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-[#8a91a0] dark:text-slate-500">
-            #1 = first dog (full price). #2+ applies that dog&apos;s additional-dog rate to this ticket —
-            each dog checks out on its own reservation.
-            {autoDetectedDogs
-              ? " Filled in from the household's overlapping bookings — change it if that's wrong."
-              : " No other dog from this household overlaps this stay, so it's set to #1."}
-          </p>
-        </div>
+      {/* Household pricing is automatic — no control, just a receipt of what
+          the system detected (Krishan: "there shouldn't be a setting here"). */}
+      {additionalDogRules.length > 0 && autoDetectedDogs && (
+        <p className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+          🏠 {householdSize} dogs from this household on this stay — additional-dog rates applied
+          automatically ({animalName} is dog #{numDogs}).
+        </p>
       )}
 
       {flatFeeRules.length > 0 && (
