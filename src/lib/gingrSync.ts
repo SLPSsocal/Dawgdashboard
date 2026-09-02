@@ -163,5 +163,35 @@ export async function syncGingrDay(facilityId: string, facilitySlug: string): Pr
     }
   }
 
+  // ---- reconcile: close rows that dropped OUT of the feed ----
+  // Gingr's endpoint only describes TODAY. A dog that checked out on a day
+  // nobody loaded the board stayed "checked_in" here forever — by Sep the
+  // board claimed 75 checked in / 91 reservations (Krishan, Sep 2). Any
+  // mirrored row that started before today and is no longer in the feed is
+  // over in Gingr's eyes, so close it here too: checked_in → checked_out,
+  // stale booked (no-show / handled in Gingr) → cancelled.
+  try {
+    const feedIdList = `(${gingrResIds.map((id) => `"${String(id)}"`).join(",")})`;
+    const todayYmd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
+    await supabase
+      .from("reservations")
+      .update({ status: "checked_out" })
+      .eq("facility_id", facilityId)
+      .not("gingr_reservation_id", "is", null)
+      .eq("status", "checked_in")
+      .lt("start_date", `${todayYmd}T00:00:00`)
+      .not("gingr_reservation_id", "in", feedIdList);
+    await supabase
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("facility_id", facilityId)
+      .not("gingr_reservation_id", "is", null)
+      .eq("status", "booked")
+      .lt("end_date", `${todayYmd}T00:00:00`)
+      .not("gingr_reservation_id", "in", feedIdList);
+  } catch {
+    // Reconciliation is best-effort; the upserts above already succeeded.
+  }
+
   return { ok: true, error: null, created, updated };
 }
