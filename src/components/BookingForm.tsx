@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
 import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
 import { subtypeOptions } from "@/lib/serviceSubtypes";
+import { estimateBooking, type BookingEstimate } from "@/app/reservations/estimate-actions";
 import Link from "next/link";
 
 type ReservationType = {
@@ -296,6 +297,48 @@ export default function BookingForm({
       ? `${startDate} (day visit)`
       : `${startDate} → ${endDate}`;
   const extraDogs = siblings.filter((s) => selectedSiblingIds.has(s.id));
+
+  // Live estimate (Mark + Alan S, Sep 3 — Gingr's "View Estimate"): what
+  // checkout will most likely charge for this booking, so staff can quote
+  // the parent before saving. Debounced; recomputed whenever anything that
+  // affects price changes. Same rules as the checkout calculator.
+  const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const extraDogKey = extraDogs.map((d) => d.id).join(",");
+  useEffect(() => {
+    if (!typeId || !startDate) {
+      setEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    setEstimateLoading(true);
+    const handle = setTimeout(() => {
+      estimateBooking({
+        facilityId,
+        reservationTypeId: typeId,
+        startDate,
+        endDate: usesTimeSlot ? startDate : endDate || startDate,
+        pickUpTime: usesTimeSlot ? null : pickUpTime || null,
+        dogNames: [animal?.name ?? "Dog", ...extraDogs.map((d) => d.name)],
+        groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
+        serviceName: isGrooming ? serviceName || null : null,
+      })
+        .then((e) => {
+          if (!cancelled) setEstimate(e);
+        })
+        .catch(() => {
+          if (!cancelled) setEstimate(null);
+        })
+        .finally(() => {
+          if (!cancelled) setEstimateLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facilityId, typeId, startDate, endDate, pickUpTime, usesTimeSlot, animal?.name, extraDogKey, isGrooming, groomingPrice, serviceName]);
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
@@ -693,6 +736,43 @@ export default function BookingForm({
           <p className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
             Pick-up after 12:15 PM adds the late check-out fee at checkout.
           </p>
+        )}
+
+        {/* Estimate — the quote to give the parent before saving. */}
+        {typeId && (estimate || estimateLoading) && (
+          <div className="mt-4 rounded-[10px] border border-[#e3e5ea] bg-[#f5f6f8] p-3 dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8a91a0] dark:text-slate-500">
+                Estimate
+              </span>
+              <span className="text-lg font-bold text-[#15181d] dark:text-slate-100">
+                {estimate ? `$${estimate.total.toFixed(2)}` : "…"}
+              </span>
+            </div>
+            {estimate && estimate.lines.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1 text-xs">
+                {estimate.lines.map((l, i) => (
+                  <li key={i} className="flex justify-between gap-3">
+                    <span className={l.kind === "discount" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300"}>
+                      {l.label}
+                    </span>
+                    <span className={`shrink-0 tabular-nums ${l.kind === "discount" ? "text-emerald-700 dark:text-emerald-400" : "text-slate-700 dark:text-slate-200"}`}>
+                      {l.amount < 0 ? "−" : ""}${Math.abs(l.amount).toFixed(2)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {estimate && estimate.lines.length === 0 && (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {isGrooming ? "Enter a grooming price above to see the estimate." : "No rate set for this service yet."}
+              </p>
+            )}
+            {estimate?.hint && <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{estimate.hint}</p>}
+            <p className="mt-2 text-[11px] text-[#8a91a0] dark:text-slate-500">
+              Before retail, tax and any adjustments at checkout.
+            </p>
+          </div>
         )}
 
         {error && (
