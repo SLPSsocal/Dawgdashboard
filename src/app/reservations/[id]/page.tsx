@@ -13,16 +13,12 @@ import GroomingNoteForm from "@/components/GroomingNoteForm";
 import CareLogForm from "@/components/CareLogForm";
 import { getCareLogsForReservation } from "@/app/care-logs/actions";
 import Link from "next/link";
+import { formatInZone, toDateTimeLocalInZone } from "@/lib/timezone";
 
-function toLocalInput(iso: string) {
-  // yyyy-MM-ddThh:mm for <input type="datetime-local">
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString([], {
+// This is a server component (renders in UTC on Vercel), so every date shown
+// or prefilled here has to be expressed in the facility's own timezone.
+function fmtDateTime(iso: string, tz: string) {
+  return formatInZone(iso, tz, {
     weekday: "short",
     month: "numeric",
     day: "numeric",
@@ -55,6 +51,13 @@ export default async function ReservationDetailPage({
     .eq("id", id)
     .maybeSingle();
   if (!reservation) notFound();
+
+  const { data: facilityRow } = await supabase
+    .from("facilities")
+    .select("timezone")
+    .eq("id", reservation.facility_id)
+    .maybeSingle();
+  const tz: string = facilityRow?.timezone ?? "America/New_York";
 
   const animal = reservation.animals as unknown as {
     id: string;
@@ -193,11 +196,11 @@ export default async function ReservationDetailPage({
           <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
             <div>
               <span className="text-slate-500 dark:text-slate-400">Arrives At: </span>
-              <span className="font-semibold">{fmtDateTime(reservation.start_date)}</span>
+              <span className="font-semibold">{fmtDateTime(reservation.start_date, tz)}</span>
             </div>
             <div>
               <span className="text-slate-500 dark:text-slate-400">Goes: </span>
-              <span className="font-semibold">{fmtDateTime(reservation.end_date)}</span>
+              <span className="font-semibold">{fmtDateTime(reservation.end_date, tz)}</span>
             </div>
             {isGrooming && reservation.grooming_service_name && (
               <div className="sm:col-span-2">
@@ -207,7 +210,7 @@ export default async function ReservationDetailPage({
             )}
           </div>
           <div className="mt-2 text-right text-xs text-slate-400 dark:text-slate-500">
-            Confirmed: {fmtDateTime(reservation.created_at)}
+            Confirmed: {fmtDateTime(reservation.created_at, tz)}
             {createdEntry?.performed_by ? ` by ${createdEntry.performed_by}` : ""}
           </div>
         </div>
@@ -356,7 +359,7 @@ export default async function ReservationDetailPage({
                 <input
                   name="start_date"
                   type="datetime-local"
-                  defaultValue={toLocalInput(reservation.start_date)}
+                  defaultValue={toDateTimeLocalInZone(reservation.start_date, tz)}
                   required
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
@@ -366,7 +369,7 @@ export default async function ReservationDetailPage({
                 <input
                   name="end_date"
                   type="datetime-local"
-                  defaultValue={toLocalInput(reservation.end_date)}
+                  defaultValue={toDateTimeLocalInZone(reservation.end_date, tz)}
                   required
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />

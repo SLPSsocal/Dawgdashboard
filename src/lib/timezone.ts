@@ -33,3 +33,34 @@ export function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: strin
   const offsetMs = naiveUtc.getTime() - zonedAsUtc.getTime();
   return new Date(naiveUtc.getTime() + offsetMs);
 }
+
+// Formats a stored UTC instant as wall-clock time at the facility. Server
+// components render on Vercel (UTC), so a bare `toLocaleString()` there shows
+// UTC — a 9:00 AM Pacific arrival came out as "4:00 PM" on the confirmation
+// page (Alan S, Sep 3). Always pass the facility's timezone.
+export function formatInZone(iso: string, timeZone: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Date(iso).toLocaleString("en-US", { ...opts, timeZone });
+}
+
+// yyyy-MM-ddThh:mm in the facility's zone, for <input type="datetime-local">.
+export function toDateTimeLocalInZone(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  const hour = String(Number(get("hour")) % 24).padStart(2, "0");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+}
+
+// Inverse of the above: a datetime-local value typed at the facility → UTC ISO.
+export function dateTimeLocalToUtcIso(value: string, timeZone: string): string {
+  const [date, time] = value.split("T");
+  if (!date || !time) return value;
+  return zonedTimeToUtc(date, time.slice(0, 5), timeZone).toISOString();
+}

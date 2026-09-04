@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { zonedTimeToUtc } from "@/lib/timezone";
+import { zonedTimeToUtc, dateTimeLocalToUtcIso } from "@/lib/timezone";
 
 function refresh() {
   revalidatePath("/reservations");
@@ -377,8 +377,8 @@ function diffFields(
 export async function updateReservation(reservationId: string, performedBy: string | null, formData: FormData) {
   const supabase = createClient();
 
-  const start_date = String(formData.get("start_date") ?? "");
-  const end_date = String(formData.get("end_date") ?? "");
+  const startInput = String(formData.get("start_date") ?? "");
+  const endInput = String(formData.get("end_date") ?? "");
   const reservation_type_id = String(formData.get("reservation_type_id") ?? "") || null;
   const lodging_area_id = String(formData.get("lodging_area_id") ?? "") || null;
   const notes = String(formData.get("notes") ?? "") || null;
@@ -402,6 +402,17 @@ export async function updateReservation(reservationId: string, performedBy: stri
     .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype")
     .eq("id", reservationId)
     .maybeSingle();
+
+  // The edit form's datetime-local values are wall-clock times at the
+  // facility; convert with its timezone (same as createReservation) instead
+  // of letting Postgres read them as UTC.
+  let tz = "America/New_York";
+  if (before?.facility_id) {
+    const { data: fac } = await supabase.from("facilities").select("timezone").eq("id", before.facility_id).maybeSingle();
+    tz = fac?.timezone ?? tz;
+  }
+  const start_date = dateTimeLocalToUtcIso(startInput, tz);
+  const end_date = dateTimeLocalToUtcIso(endInput, tz);
 
   const updatePayload: Record<string, unknown> = {
     start_date,

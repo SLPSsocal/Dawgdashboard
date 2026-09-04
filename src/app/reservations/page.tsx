@@ -10,6 +10,7 @@ import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
 import { syncGingrDay } from "@/lib/gingrSync";
 import Link from "next/link";
+import { formatInZone } from "@/lib/timezone";
 
 type Row = {
   id: string;
@@ -71,10 +72,11 @@ export default async function ReservationsPage() {
   // and Helcim all work on live dogs. Nothing ever writes back to Gingr.
   const { data: facilityRow } = await supabase
     .from("facilities")
-    .select("slug")
+    .select("slug, timezone")
     .eq("id", session!.facilityId)
     .maybeSingle();
   const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
+  const facilityTz: string = facilityRow?.timezone ?? "America/New_York";
 
   const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype,
        animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
@@ -313,7 +315,7 @@ export default async function ReservationsPage() {
                       </span>
                       <span className="text-[12px] text-[#8a91a0] sm:ml-auto dark:text-slate-500">
                         departs{" "}
-                        {new Date(o.departs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        {formatInZone(o.departs, facilityTz, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                       </span>
                     </div>
                   ))}

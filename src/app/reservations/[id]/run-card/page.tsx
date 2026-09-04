@@ -7,6 +7,7 @@ import { getBookingGroupSiblings } from "../../actions";
 import { stripHtml } from "@/lib/text";
 import { todayLocal } from "@/lib/dates";
 import QRCode from "qrcode";
+import { formatInZone } from "@/lib/timezone";
 
 function ageString(birthdate: string | null): string | null {
   if (!birthdate) return null;
@@ -29,8 +30,9 @@ function ageString(birthdate: string | null): string | null {
 // Compact: "Wed, Jul 15, 2:00 PM". Each rendered inside whitespace-nowrap so
 // a date can never be split across two lines — wrapping happens only at the
 // arrow between the two dates.
-function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString([], {
+function fmtDateTime(iso: string, tz: string) {
+  // Server-rendered — must format in the facility's zone, not the server's.
+  return formatInZone(iso, tz, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -57,6 +59,13 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
     .eq("id", id)
     .maybeSingle();
   if (!reservation) notFound();
+
+  const { data: facilityRow } = await supabase
+    .from("facilities")
+    .select("timezone")
+    .eq("id", reservation.facility_id)
+    .maybeSingle();
+  const tz: string = facilityRow?.timezone ?? "America/New_York";
 
   const animal = reservation.animals as unknown as {
     id: string;
@@ -177,9 +186,9 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
                 {reservation.grooming_service_name ? ` — ${reservation.grooming_service_name}` : ""}
               </div>
               <div className="flex flex-wrap items-baseline gap-x-2 text-base leading-snug">
-                <span className="whitespace-nowrap">{fmtDateTime(reservation.start_date)}</span>
+                <span className="whitespace-nowrap">{fmtDateTime(reservation.start_date, tz)}</span>
                 <span className="text-slate-400">→</span>
-                <span className="whitespace-nowrap font-bold">{fmtDateTime(reservation.end_date)}</span>
+                <span className="whitespace-nowrap font-bold">{fmtDateTime(reservation.end_date, tz)}</span>
               </div>
             </div>
           </div>
