@@ -73,6 +73,7 @@ export default async function ParentReservationHistoryPage({ params }: { params:
                 <th className="px-3 py-2">Start</th>
                 <th className="px-3 py-2">End</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -96,11 +97,20 @@ export default async function ParentReservationHistoryPage({ params }: { params:
                       {r.status.replace("_", " ")}
                     </span>
                   </td>
+                  <td className="px-3 py-2 text-right">
+                    {/* Alan S (Sep 3): no way to open/edit a booking from here. */}
+                    <Link
+                      href={`/reservations/${r.id}`}
+                      className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      Edit booking
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {reservations.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={7} className="px-3 py-6 text-center text-slate-400 dark:text-slate-500">
                     No reservations yet.
                   </td>
                 </tr>
