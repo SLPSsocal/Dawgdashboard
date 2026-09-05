@@ -107,7 +107,11 @@ export default function CheckInBoard({
 
   const checkedIn = filtered.filter((r) => r.status === "checked_in");
   const expected = filtered.filter((r) => r.status === "booked");
-  const expectedToday = expected.filter((r) => ymdPT(r.startDate) <= todayStr);
+  // Past-due bookings that never got checked in used to sit inside "Expected
+  // today" — staff read them as a bug (Sep 4 ticket). Keep them visible, but
+  // in their own clearly-labelled section so today's list is only today.
+  const overdue = expected.filter((r) => ymdPT(r.startDate) < todayStr);
+  const expectedToday = expected.filter((r) => ymdPT(r.startDate) === todayStr);
   const expectedTomorrow = expected.filter((r) => ymdPT(r.startDate) === tomorrowStr);
   const expectedFuture = expected.filter((r) => ymdPT(r.startDate) > tomorrowStr);
   const checkedOut = filtered.filter((r) => r.status === "checked_out");
@@ -115,7 +119,7 @@ export default function CheckInBoard({
   const pills: { key: Pill; label: string; count: number }[] = [
     { key: "all", label: "All", count: filtered.length },
     { key: "checked_in", label: "Checked in", count: checkedIn.length },
-    { key: "today", label: "Today", count: expectedToday.length },
+    { key: "today", label: "Today", count: expectedToday.length + overdue.length },
     { key: "tomorrow", label: "Tomorrow", count: expectedTomorrow.length },
     { key: "upcoming", label: "Upcoming", count: expectedFuture.length },
     { key: "checked_out", label: "Checked out", count: checkedOut.length },
@@ -577,6 +581,9 @@ export default function CheckInBoard({
 
       {show("checked_in") && (
         <Section title="Currently checked in" dot="bg-emerald-500" badge="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" data={checkedIn} alwaysShow={pill === "checked_in"} />
+      )}
+      {show("today") && (
+        <Section title="Overdue — booked earlier, never checked in" dot="bg-rose-500" badge="bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400" data={overdue} />
       )}
       {show("today") && (
         <Section title="Expected today" dot="bg-amber-500" badge="bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400" data={expectedToday} alwaysShow />
