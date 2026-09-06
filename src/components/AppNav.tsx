@@ -27,6 +27,7 @@ const MORE: Item[] = [
   { name: "Pricing", href: "/pricing" },
   { name: "Items for Sale", href: "/retail" },
   { name: "Waivers", href: "/waivers" },
+  { name: "Purchase Request", href: "/purchase-request" },
 ];
 const ADMIN: Item[] = [
   { name: "Admin Reports", href: "/admin" },
@@ -34,6 +35,7 @@ const ADMIN: Item[] = [
   { name: "Referral Sources", href: "/referral-sources" },
   { name: "Profile Tags", href: "/profile-tags" },
   { name: "Reported Issues", href: "/support" },
+  { name: "Purchase Requests", href: "/purchase-requests" },
 ];
 
 const ALL_GROUPS: { label: string; items: Item[] }[] = [
