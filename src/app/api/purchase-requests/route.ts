@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
+import { isPurchaseRequestUnlocked } from "@/lib/purchaseRequestGate";
 import { notifyPurchaseRequestCreated } from "@/lib/purchaseRequestNotify";
 import { validatePurchaseRequest, type CreatePurchaseRequestBody } from "@/lib/purchaseRequests";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -24,6 +25,10 @@ export async function POST(req: Request) {
 }
 
 async function createPurchaseRequest(req: Request) {
+  if (!(await isPurchaseRequestUnlocked())) {
+    return NextResponse.json({ error: "PIN required." }, { status: 401 });
+  }
+
   let raw: unknown;
   try {
     raw = await req.json();

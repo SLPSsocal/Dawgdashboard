@@ -36,12 +36,14 @@ export default function PurchaseRequestForm({
   facilities,
   defaultFacilityId,
   defaultRequestedBy,
+  showQueueLink = false,
 }: {
   facilities: Facility[];
   defaultFacilityId?: string;
   defaultRequestedBy?: string;
+  showQueueLink?: boolean;
 }) {
-  const [facilityId, setFacilityId] = useState(defaultFacilityId ?? facilities[0]?.id ?? "");
+  const [facilityId, setFacilityId] = useState(defaultFacilityId ?? "");
   const [requestedBy, setRequestedBy] = useState(defaultRequestedBy ?? "");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<DraftItem[]>([newItem()]);
@@ -160,12 +162,14 @@ export default function PurchaseRequestForm({
           >
             Submit another
           </button>
-          <Link
-            href="/purchase-requests"
-            className="inline-flex h-11 items-center justify-center rounded-[10px] border border-slate-300 px-4 text-[14px] font-medium text-slate-700 hover:border-slate-400 dark:border-slate-600 dark:text-slate-200"
-          >
-            View new requests
-          </Link>
+          {showQueueLink ? (
+            <Link
+              href="/purchase-requests"
+              className="inline-flex h-11 items-center justify-center rounded-[10px] border border-slate-300 px-4 text-[14px] font-medium text-slate-700 hover:border-slate-400 dark:border-slate-600 dark:text-slate-200"
+            >
+              View new requests
+            </Link>
+          ) : null}
         </div>
       </div>
     );
