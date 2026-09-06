@@ -7,15 +7,39 @@ type NotifyInput = {
   payload: CreatePurchaseRequestBody;
 };
 
+// Krishan (Slack owner account "Al") — not a secret; Slack member IDs are
+// mention handles. Override with PURCHASE_REQUEST_SLACK_MENTION.
+const DEFAULT_SLACK_MENTION = "<@U04CNB3SMRN>";
+
 function itemLine(item: CreatePurchaseRequestBody["items"][number]): string {
   const brand = item.brand ? ` (${item.brand})` : "";
   const urgent = item.urgent ? " — urgent" : "";
   return `• ${item.quantity}× ${item.item}${brand}${urgent}`;
 }
 
+/** Accepts `<@U…>`, a bare `U…` id, or empty (no mention). */
+export function formatSlackMention(raw?: string | null): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+  const mention = value.match(/^<@([A-Z0-9]+)>$/i);
+  if (mention) return `<@${mention[1]}>`;
+  const id = value.match(/^U[A-Z0-9]+$/i);
+  if (id) return `<@${id[0]}>`;
+  return value;
+}
+
+export function purchaseRequestSlackMention(): string | null {
+  const fromEnv = process.env.PURCHASE_REQUEST_SLACK_MENTION;
+  if (fromEnv !== undefined) return formatSlackMention(fromEnv);
+  return DEFAULT_SLACK_MENTION;
+}
+
 export function purchaseRequestWebhookBody(input: NotifyInput) {
+  const mention = purchaseRequestSlackMention();
   const lines = [
-    `🛒 New purchase request #${input.requestNumber} at ${input.facilityName}`,
+    mention
+      ? `${mention} 🛒 New purchase request #${input.requestNumber} at ${input.facilityName}`
+      : `🛒 New purchase request #${input.requestNumber} at ${input.facilityName}`,
     `Requested by ${input.payload.requestedBy}`,
     ...input.payload.items.map(itemLine),
   ];
