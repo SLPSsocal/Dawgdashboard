@@ -12,6 +12,18 @@ type RpcResult = {
 };
 
 export async function POST(req: Request) {
+  try {
+    return await createPurchaseRequest(req);
+  } catch (err) {
+    console.error("purchase request create failed", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not save the purchase request." },
+      { status: 500 }
+    );
+  }
+}
+
+async function createPurchaseRequest(req: Request) {
   let raw: unknown;
   try {
     raw = await req.json();

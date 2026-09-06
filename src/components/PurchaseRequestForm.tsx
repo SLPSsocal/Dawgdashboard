@@ -122,7 +122,12 @@ export default function PurchaseRequestForm({
         status: "new",
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit. Try again.");
+      const message = err instanceof Error ? err.message : "";
+      setError(
+        /fetch failed|Failed to fetch|NetworkError/i.test(message)
+          ? "Could not reach the server. Try again."
+          : message || "Could not submit. Try again."
+      );
     } finally {
       setSubmitting(false);
     }
