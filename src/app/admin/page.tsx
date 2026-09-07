@@ -50,6 +50,11 @@ const TOOLS = [
     blurb: "Everything submitted through the 💬 button — screenshots, notes, open/resolved status.",
   },
   {
+    href: "/purchase-requests",
+    title: "Purchase Requests",
+    blurb: "New staff supply requests (status = new) across every location.",
+  },
+  {
     href: "/referral-sources",
     title: "Referral Sources",
     blurb: "Options in the Referral Source dropdown on the New Parent form.",

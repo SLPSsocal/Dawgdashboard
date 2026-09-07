@@ -24,7 +24,15 @@ export async function loginQuick(formData: FormData) {
     facilityName,
   });
 
-  redirect("/reservations");
+  redirect(safeNextPath(String(formData.get("next") ?? "")));
+}
+
+function safeNextPath(raw: string): string {
+  const next = raw.trim();
+  if (!next.startsWith("/") || next.startsWith("//") || next.includes("://")) {
+    return "/reservations";
+  }
+  return next;
 }
 
 export async function loginWithPin(formData: FormData) {
@@ -59,5 +67,5 @@ export async function loginWithPin(formData: FormData) {
     facilityName,
   });
 
-  redirect("/reservations");
+  redirect(safeNextPath(String(formData.get("next") ?? "")));
 }

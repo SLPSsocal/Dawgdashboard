@@ -4,7 +4,12 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 // TEMPORARY: PIN entry is paused during build-out — see loginQuick in
 // ./actions.ts. This page is just a facility picker for now.
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; error?: string }>;
+}) {
+  const { next } = await searchParams;
   const supabase = createClient();
   const { data: facilities } = await supabase
     .from("facilities")
@@ -28,6 +33,7 @@ export default async function LoginPage() {
             <input type="hidden" name="facilityId" value={f.id} />
             <input type="hidden" name="facilitySlug" value={f.slug} />
             <input type="hidden" name="facilityName" value={f.name} />
+            {next ? <input type="hidden" name="next" value={next} /> : null}
             <button
               type="submit"
               className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-center font-medium hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"

@@ -255,3 +255,117 @@ create policy "app-trusted access" on invoice_line_items for all using (true) wi
 -- facilities table: readable by anyone (needed for the facility picker, pre-login)
 create policy "facilities readable for login picker" on facilities
   for select using (true);
+
+-- ----------------------------------------------------------------------------
+-- PURCHASE REQUESTS  (staff supply / PO requests — see also
+-- supabase/migrations/20260906220000_purchase_requests.sql)
+-- ----------------------------------------------------------------------------
+create table purchase_requests (
+  id uuid primary key default uuid_generate_v4(),
+  request_number integer generated always as identity unique,
+  facility_id uuid not null references facilities(id),
+  requested_by text not null,
+  notes text,
+  status text not null default 'new',  -- new | ordered | received | cancelled
+  created_at timestamptz not null default now()
+);
+
+create table purchase_request_items (
+  id uuid primary key default uuid_generate_v4(),
+  purchase_request_id uuid not null references purchase_requests(id) on delete cascade,
+  item text not null,
+  brand text,
+  quantity numeric(12, 2) not null,
+  urgent boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create index on purchase_requests (status, created_at desc);
+create index on purchase_request_items (purchase_request_id, sort_order);
+
+alter table purchase_requests enable row level security;
+alter table purchase_request_items enable row level security;
+create policy "app-trusted access" on purchase_requests for all using (true) with check (true);
+create policy "app-trusted access" on purchase_request_items for all using (true) with check (true);
+
+create or replace function create_purchase_request(
+  p_facility_id uuid,
+  p_requested_by text,
+  p_notes text,
+  p_items jsonb
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_id uuid;
+  v_number integer;
+  v_item jsonb;
+  v_idx integer := 0;
+  v_name text;
+  v_brand text;
+  v_qty numeric;
+begin
+  if p_facility_id is null then
+    raise exception 'facility is required';
+  end if;
+  if not exists (select 1 from facilities where id = p_facility_id) then
+    raise exception 'unknown facility';
+  end if;
+  if coalesce(trim(p_requested_by), '') = '' then
+    raise exception 'requested by is required';
+  end if;
+  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) < 1 then
+    raise exception 'at least one item is required';
+  end if;
+
+  insert into purchase_requests (facility_id, requested_by, notes, status)
+  values (
+    p_facility_id,
+    trim(p_requested_by),
+    nullif(trim(coalesce(p_notes, '')), ''),
+    'new'
+  )
+  returning id, request_number into v_id, v_number;
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_name := trim(coalesce(v_item->>'item', ''));
+    v_brand := nullif(trim(coalesce(v_item->>'brand', '')), '');
+    begin
+      v_qty := (v_item->>'quantity')::numeric;
+    exception
+      when others then
+        raise exception 'quantity must be a number greater than 0';
+    end;
+    if v_name = '' then
+      raise exception 'item name is required';
+    end if;
+    if v_qty is null or v_qty <= 0 then
+      raise exception 'quantity must be greater than 0';
+    end if;
+
+    insert into purchase_request_items (
+      purchase_request_id, item, brand, quantity, urgent, sort_order
+    ) values (
+      v_id,
+      v_name,
+      v_brand,
+      v_qty,
+      coalesce((v_item->>'urgent')::boolean, false),
+      v_idx
+    );
+    v_idx := v_idx + 1;
+  end loop;
+
+  return jsonb_build_object(
+    'id', v_id,
+    'request_number', v_number,
+    'status', 'new'
+  );
+end;
+$$;
+
+alter function create_purchase_request(uuid, text, text, jsonb) set search_path = public;
+grant execute on function create_purchase_request(uuid, text, text, jsonb) to anon, authenticated;
+
