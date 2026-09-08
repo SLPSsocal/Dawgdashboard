@@ -258,8 +258,25 @@ create policy "facilities readable for login picker" on facilities
 
 -- ----------------------------------------------------------------------------
 -- PURCHASE REQUESTS  (staff supply / PO requests — see also
--- supabase/migrations/20260906220000_purchase_requests.sql)
+-- supabase/migrations/20260906220000_purchase_requests.sql and
+-- supabase/migrations/20260908180000_purchase_catalog.sql)
+-- Catalog seed lives in the catalog migration (68 checklist rows).
 -- ----------------------------------------------------------------------------
+create table purchase_catalog_items (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  brand text not null,
+  typical_unit text not null,
+  pack_size text,
+  typical_unit_cost_usd numeric(12, 2),
+  category text not null,
+  notes text,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  unique (name, brand)
+);
+create index on purchase_catalog_items (active, category, sort_order, name);
+
 create table purchase_requests (
   id uuid primary key default uuid_generate_v4(),
   request_number integer generated always as identity unique,
@@ -273,6 +290,7 @@ create table purchase_requests (
 create table purchase_request_items (
   id uuid primary key default uuid_generate_v4(),
   purchase_request_id uuid not null references purchase_requests(id) on delete cascade,
+  catalog_item_id uuid references purchase_catalog_items(id),
   item text not null,
   brand text,
   quantity numeric(12, 2) not null,
@@ -282,9 +300,13 @@ create table purchase_request_items (
 );
 create index on purchase_requests (status, created_at desc);
 create index on purchase_request_items (purchase_request_id, sort_order);
+create index on purchase_request_items (catalog_item_id) where catalog_item_id is not null;
+create index on purchase_request_items (lower(trim(item)));
 
+alter table purchase_catalog_items enable row level security;
 alter table purchase_requests enable row level security;
 alter table purchase_request_items enable row level security;
+create policy "app-trusted access" on purchase_catalog_items for all using (true) with check (true);
 create policy "app-trusted access" on purchase_requests for all using (true) with check (true);
 create policy "app-trusted access" on purchase_request_items for all using (true) with check (true);
 
@@ -305,6 +327,9 @@ declare
   v_name text;
   v_brand text;
   v_qty numeric;
+  v_catalog_id uuid;
+  v_cat_name text;
+  v_cat_brand text;
 begin
   if p_facility_id is null then
     raise exception 'facility is required';
@@ -332,12 +357,31 @@ begin
   loop
     v_name := trim(coalesce(v_item->>'item', ''));
     v_brand := nullif(trim(coalesce(v_item->>'brand', '')), '');
+    v_catalog_id := null;
+    if coalesce(v_item->>'catalog_item_id', '') <> '' then
+      begin
+        v_catalog_id := (v_item->>'catalog_item_id')::uuid;
+      exception
+        when others then
+          raise exception 'invalid catalog item';
+      end;
+    end if;
     begin
       v_qty := (v_item->>'quantity')::numeric;
     exception
       when others then
         raise exception 'quantity must be a number greater than 0';
     end;
+    if v_catalog_id is not null then
+      select name, brand into v_cat_name, v_cat_brand
+      from purchase_catalog_items
+      where id = v_catalog_id;
+      if not found then
+        raise exception 'unknown catalog item';
+      end if;
+      v_name := v_cat_name;
+      v_brand := nullif(trim(v_cat_brand), '');
+    end if;
     if v_name = '' then
       raise exception 'item name is required';
     end if;
@@ -346,14 +390,15 @@ begin
     end if;
 
     insert into purchase_request_items (
-      purchase_request_id, item, brand, quantity, urgent, sort_order
+      purchase_request_id, item, brand, quantity, urgent, sort_order, catalog_item_id
     ) values (
       v_id,
       v_name,
       v_brand,
       v_qty,
       coalesce((v_item->>'urgent')::boolean, false),
-      v_idx
+      v_idx,
+      v_catalog_id
     );
     v_idx := v_idx + 1;
   end loop;
@@ -368,4 +413,61 @@ $$;
 
 alter function create_purchase_request(uuid, text, text, jsonb) set search_path = public;
 grant execute on function create_purchase_request(uuid, text, text, jsonb) to anon, authenticated;
+
+create or replace function purchase_catalog_last_requests(p_facility_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  with latest_by_catalog as (
+    select distinct on (pri.catalog_item_id)
+      pri.catalog_item_id as id,
+      pri.quantity,
+      pr.created_at as requested_at
+    from purchase_request_items pri
+    inner join purchase_requests pr on pr.id = pri.purchase_request_id
+    where pr.facility_id = p_facility_id
+      and pri.catalog_item_id is not null
+    order by pri.catalog_item_id, pr.created_at desc, pri.id desc
+  ),
+  latest_by_name as (
+    select distinct on (lower(trim(pri.item)))
+      lower(trim(pri.item)) as item_key,
+      pri.quantity,
+      pr.created_at as requested_at
+    from purchase_request_items pri
+    inner join purchase_requests pr on pr.id = pri.purchase_request_id
+    where pr.facility_id = p_facility_id
+      and pri.catalog_item_id is null
+    order by lower(trim(pri.item)), pr.created_at desc, pri.id desc
+  ),
+  combined as (
+    select
+      pci.id,
+      case
+        when c.requested_at is null then n.quantity
+        when n.requested_at is null then c.quantity
+        when c.requested_at >= n.requested_at then c.quantity
+        else n.quantity
+      end as quantity,
+      greatest(c.requested_at, n.requested_at) as requested_at
+    from purchase_catalog_items pci
+    left join latest_by_catalog c on c.id = pci.id
+    left join latest_by_name n on n.item_key = lower(trim(pci.name))
+  )
+  select coalesce(
+    jsonb_object_agg(
+      combined.id::text,
+      jsonb_build_object(
+        'quantity', combined.quantity,
+        'requestedAt', combined.requested_at
+      )
+    ) filter (where combined.requested_at is not null),
+    '{}'::jsonb
+  )
+  from combined;
+$$;
+
+grant execute on function purchase_catalog_last_requests(uuid) to anon, authenticated;
 

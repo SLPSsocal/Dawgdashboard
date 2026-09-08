@@ -51,6 +51,7 @@ async function createPurchaseRequest(req: Request) {
       brand: item.brand ?? "",
       quantity: item.quantity,
       urgent: Boolean(item.urgent),
+      catalog_item_id: item.catalogItemId ?? null,
     })),
   });
 
@@ -162,15 +163,41 @@ async function insertPurchaseRequestFallback(
     .single();
   if (headerError || !header) return null;
 
+  const catalogIds = [
+    ...new Set(
+      value.items
+        .map((item) => item.catalogItemId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const catalogById = new Map<string, { name: string; brand: string }>();
+  if (catalogIds.length > 0) {
+    const { data: catalogRows } = await supabase
+      .from("purchase_catalog_items")
+      .select("id, name, brand")
+      .in("id", catalogIds);
+    for (const row of catalogRows ?? []) {
+      catalogById.set(row.id, { name: row.name, brand: row.brand });
+    }
+    if (catalogIds.some((id) => !catalogById.has(id))) {
+      await supabase.from("purchase_requests").delete().eq("id", header.id);
+      return null;
+    }
+  }
+
   const { error: itemsError } = await supabase.from("purchase_request_items").insert(
-    value.items.map((item, index) => ({
-      purchase_request_id: header.id,
-      item: item.item,
-      brand: item.brand ?? null,
-      quantity: item.quantity,
-      urgent: Boolean(item.urgent),
-      sort_order: index,
-    }))
+    value.items.map((item, index) => {
+      const catalog = item.catalogItemId ? catalogById.get(item.catalogItemId) : undefined;
+      return {
+        purchase_request_id: header.id,
+        item: catalog?.name ?? item.item,
+        brand: catalog?.brand ?? item.brand ?? null,
+        quantity: item.quantity,
+        urgent: Boolean(item.urgent),
+        sort_order: index,
+        catalog_item_id: item.catalogItemId ?? null,
+      };
+    })
   );
   if (itemsError) {
     await supabase.from("purchase_requests").delete().eq("id", header.id);

@@ -3,6 +3,8 @@ export type PurchaseRequestItemInput = {
   brand?: string;
   quantity: number;
   urgent?: boolean;
+  /** Set when the row came from purchase_catalog_items; omitted for custom lines. */
+  catalogItemId?: string;
 };
 
 export type CreatePurchaseRequestBody = {
@@ -76,12 +78,16 @@ export function validatePurchaseRequest(raw: unknown): PurchaseRequestValidation
       return { ok: false, error: `Item ${index + 1} is invalid.` };
     }
     const rec = row as Record<string, unknown>;
+    const catalogItemId = String(rec.catalogItemId ?? rec.catalog_item_id ?? "").trim();
+    if (catalogItemId && !UUID_RE.test(catalogItemId)) {
+      return { ok: false, error: `Item ${index + 1} catalog id is invalid.` };
+    }
     const item = String(rec.item ?? "").trim();
     const brand = String(rec.brand ?? "").trim();
     const quantity = typeof rec.quantity === "number" ? rec.quantity : Number(rec.quantity);
     const urgent = Boolean(rec.urgent);
 
-    if (!item) {
+    if (!item && !catalogItemId) {
       return { ok: false, error: `Item ${index + 1} needs a name.` };
     }
     if (item.length > 200) {
@@ -98,10 +104,11 @@ export function validatePurchaseRequest(raw: unknown): PurchaseRequestValidation
     }
 
     items.push({
-      item,
+      item: item || "(catalog)",
       brand: brand || undefined,
       quantity,
       urgent,
+      catalogItemId: catalogItemId || undefined,
     });
   }
 
