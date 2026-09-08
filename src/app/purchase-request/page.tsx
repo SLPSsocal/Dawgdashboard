@@ -10,6 +10,7 @@ import {
   isPurchaseRequestUnlocked,
   purchaseRequestPinRequired,
 } from "@/lib/purchaseRequestGate";
+import { mapCatalogRow } from "@/lib/purchaseCatalog";
 
 export default async function PurchaseRequestPage({
   searchParams,
@@ -36,14 +37,22 @@ export default async function PurchaseRequestPage({
     .select("id, name, slug")
     .order("name");
 
+  const { data: catalogRows, error: catalogError } = await supabase
+    .from("purchase_catalog_items")
+    .select("id, name, brand, typical_unit, pack_size, category, notes, sort_order")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+
+  const catalog = (catalogRows ?? []).map(mapCatalogRow);
+
   const requestedBy =
     session?.staffName && session.staffName !== "Staff" ? session.staffName : "";
 
   const form = (
-    <PageShell width="md">
+    <PageShell width="lg">
       <PageHeader
         title="Purchase request"
-        description="Ask purchasing for supplies. Add every item on this page — one request, many rows."
+        description="Pick a facility, then enter quantities on the supply list — like a paper inventory sheet. Only rows with a quantity are submitted."
         action={
           session ? (
             <Link
@@ -60,12 +69,23 @@ export default async function PurchaseRequestPage({
           Couldn&apos;t load facilities. Refresh and try again.
         </p>
       )}
+      {catalogError && (
+        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Couldn&apos;t load the supply catalog. Apply{" "}
+          <code className="font-mono text-[12px]">
+            supabase/migrations/20260908180000_purchase_catalog.sql
+          </code>{" "}
+          in the Supabase SQL editor. {catalogError.message}
+        </p>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900">
         <PurchaseRequestForm
           facilities={facilities ?? []}
+          catalog={catalog}
           defaultFacilityId={session?.facilityId}
           defaultRequestedBy={requestedBy}
           showQueueLink={Boolean(session)}
+          hasAppHeader={Boolean(session)}
         />
       </div>
     </PageShell>
