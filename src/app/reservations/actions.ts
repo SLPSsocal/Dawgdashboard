@@ -380,8 +380,12 @@ export async function updateReservation(reservationId: string, performedBy: stri
   const startInput = String(formData.get("start_date") ?? "");
   const endInput = String(formData.get("end_date") ?? "");
   const reservation_type_id = String(formData.get("reservation_type_id") ?? "") || null;
+  // Lodging + belongings are hidden on the edit form for grooming
+  // reservations, so only write them when the fields were actually posted.
+  const hasLodgingField = formData.has("lodging_area_id");
   const lodging_area_id = String(formData.get("lodging_area_id") ?? "") || null;
   const notes = String(formData.get("notes") ?? "") || null;
+  const hasBelongingsField = formData.has("belongings");
   const belongings = String(formData.get("belongings") ?? "") || null;
   // Only present on the edit form when the reservation is a grooming type
   // (see reservations/[id]/page.tsx) — absent otherwise, which would
@@ -418,10 +422,10 @@ export async function updateReservation(reservationId: string, performedBy: stri
     start_date,
     end_date,
     reservation_type_id,
-    lodging_area_id,
     notes,
-    belongings,
   };
+  if (hasLodgingField) updatePayload.lodging_area_id = lodging_area_id;
+  if (hasBelongingsField) updatePayload.belongings = belongings;
   if (hasServiceField) updatePayload.grooming_service_name = grooming_service_name;
   if (hasSubtypeField) updatePayload.service_subtype = service_subtype;
 
@@ -459,9 +463,9 @@ export async function updateReservation(reservationId: string, performedBy: stri
         start_date,
         end_date,
         reservation_type_id,
-        lodging_area_id,
+        lodging_area_id: hasLodgingField ? lodging_area_id : before.lodging_area_id,
         notes,
-        belongings,
+        belongings: hasBelongingsField ? belongings : before.belongings,
         grooming_service_name: hasServiceField ? grooming_service_name : before.grooming_service_name,
         service_subtype: hasSubtypeField ? service_subtype : before.service_subtype,
       },

@@ -5,7 +5,7 @@ import PrintButton from "@/components/PrintButton";
 import { getProfileTagsFor } from "@/lib/profileTags";
 import { getBookingGroupSiblings } from "../../actions";
 import { stripHtml } from "@/lib/text";
-import { todayLocal } from "@/lib/dates";
+import { ymdLocal } from "@/lib/dates";
 import QRCode from "qrcode";
 import { formatInZone } from "@/lib/timezone";
 
@@ -104,24 +104,47 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
   const petKeys = animal
     ? [animal.id, ...(animal.gingr_animal_id != null ? [String(animal.gingr_animal_id)] : [])]
     : [];
-  const todayYmd = todayLocal();
+  // Daisy (Sep 7): staff sign off feeding + meds per AM/PM slot on the paper
+  // card, across the whole stay (Gingr-style) — not just "today". One row per
+  // stay day; a box is pre-ticked when that meal / med was already logged.
+  const stayStartYmd = ymdLocal(reservation.start_date);
+  const stayEndYmd = ymdLocal(reservation.end_date);
+  const stayDays: string[] = [];
+  for (
+    let d = new Date(`${stayStartYmd}T12:00:00Z`);
+    stayDays.length < 14;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const ymd = d.toISOString().slice(0, 10);
+    if (ymd > stayEndYmd) break;
+    stayDays.push(ymd);
+  }
+  if (stayDays.length === 0) stayDays.push(stayStartYmd);
+  const stayTruncated = stayDays[stayDays.length - 1] < stayEndYmd;
+
+  type FeedLog = { date: string; meal_time: string; amount: string | null; medication_administered: boolean };
   const [animalTags, siblings, feedLogsRes] = await Promise.all([
     animal ? getProfileTagsFor("animal", animal.id) : Promise.resolve([]),
     getBookingGroupSiblings(id, reservation.booking_group_id ?? null),
     petKeys.length
       ? supabase
           .from("feeding_logs")
-          .select("meal_time, amount, medication_administered")
+          .select("date, meal_time, amount, medication_administered")
           .in("pet_id", petKeys)
-          .eq("date", todayYmd)
-      : Promise.resolve({ data: [] as { meal_time: string; amount: string | null; medication_administered: boolean }[] }),
+          .gte("date", stayDays[0])
+          .lte("date", stayDays[stayDays.length - 1])
+      : Promise.resolve({ data: [] as FeedLog[] }),
   ]);
-  const feedLogs = feedLogsRes.data ?? [];
-  const mealSlots: { label: string; meal: string }[] = [
-    { label: "AM", meal: "Breakfast" },
-    { label: "Lunch", meal: "Lunch" },
-    { label: "PM", meal: "Dinner" },
+  const feedLogs: FeedLog[] = (feedLogsRes.data as FeedLog[] | null) ?? [];
+  // The tablet logs "Breakfast"/"Dinner"; older rows used "AM"/"PM".
+  const slots: { label: string; meals: string[] }[] = [
+    { label: "AM", meals: ["Breakfast", "AM"] },
+    { label: "PM", meals: ["Dinner", "PM"] },
   ];
+  const findLog = (ymd: string, meals: string[]) => feedLogs.find((f) => f.date === ymd && meals.includes(f.meal_time));
+  const hasMeds = Boolean(animal?.medications);
+  const dayLabel = (ymd: string) =>
+    new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric", timeZone: "UTC" });
   const isPoopEater = animalTags.some((t) => t.name === "Poop Eater");
   const isPeeDrinker = animalTags.some((t) => t.name === "Pee Drinker");
 
@@ -219,22 +242,10 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               <span className="font-semibold">Feeding:</span> {stripHtml(animal.feeding_instructions)}
             </p>
           )}
-          {animal && (
-            // Live status from today's feeding log; unlogged meals print as
-            // empty boxes staff can tick by hand on paper.
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-amber-800">
-              <span className="font-semibold">Today&apos;s meals:</span>
-              {mealSlots.map(({ label, meal }) => {
-                const log = feedLogs.find((f) => f.meal_time === meal);
-                const eaten = Boolean(log?.amount);
-                return (
-                  <span key={meal} className="whitespace-nowrap">
-                    {eaten ? "☑" : "☐"} {label}
-                    {log?.amount ? ` (${log.amount})` : ""}
-                    {log?.medication_administered ? " 💊" : ""}
-                  </span>
-                );
-              })}
+          {animal?.medications && (
+            <p className="mt-1 whitespace-pre-line break-words text-rose-800">
+              <span className="mr-1">💊</span>
+              <span className="font-semibold">Medications:</span> {stripHtml(animal.medications)}
             </p>
           )}
           {animal?.grooming_notes && (
@@ -281,9 +292,62 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
             <span className="font-semibold">Medical Notes / Allergies:</span> {stripHtml(animal.medical_notes)}
           </div>
         )}
-        {animal?.medications && (
-          <div className="mt-2 whitespace-pre-line break-words text-sm">
-            <span className="font-semibold">Medications:</span> {stripHtml(animal.medications)}
+        {animal && (
+          // Paper sign-off grid: one row per stay day, AM / PM boxes for
+          // feeding (and meds when the pet has any). Pre-ticked from the
+          // feeding log; blank boxes get initialed by hand.
+          <div className="mt-3 rounded-lg border-2 border-amber-300 p-2 text-sm">
+            <div className="flex items-baseline justify-between">
+              <span className="font-bold uppercase tracking-wide">🍽️ Feeding{hasMeds ? " & 💊 Meds" : ""} sign-off</span>
+              <span className="text-xs text-slate-500">initial each box when done</span>
+            </div>
+            <table className="mt-1.5 w-full border-collapse text-center text-xs">
+              <thead>
+                <tr className="text-slate-600">
+                  <th className="border border-slate-300 px-1 py-0.5 text-left">Day</th>
+                  {slots.map((sl) => (
+                    <th key={`f-${sl.label}`} className="border border-slate-300 px-1 py-0.5">
+                      {sl.label} Fed
+                    </th>
+                  ))}
+                  {hasMeds &&
+                    slots.map((sl) => (
+                      <th key={`m-${sl.label}`} className="border border-slate-300 px-1 py-0.5">
+                        {sl.label} Meds
+                      </th>
+                    ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stayDays.map((ymd) => (
+                  <tr key={ymd}>
+                    <td className="border border-slate-300 px-1 py-1 text-left font-medium">{dayLabel(ymd)}</td>
+                    {slots.map((sl) => {
+                      const log = findLog(ymd, sl.meals);
+                      const fed = Boolean(log?.amount);
+                      return (
+                        <td key={`f-${ymd}-${sl.label}`} className="border border-slate-300 px-1 py-1">
+                          <span className="text-base leading-none">{fed ? "☑" : "☐"}</span>
+                          {log?.amount ? <span className="ml-1 text-[10px] text-slate-500">{log.amount}</span> : null}
+                        </td>
+                      );
+                    })}
+                    {hasMeds &&
+                      slots.map((sl) => {
+                        const log = findLog(ymd, sl.meals);
+                        return (
+                          <td key={`m-${ymd}-${sl.label}`} className="border border-slate-300 px-1 py-1">
+                            <span className="text-base leading-none">{log?.medication_administered ? "☑" : "☐"}</span>
+                          </td>
+                        );
+                      })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {stayTruncated && (
+              <div className="mt-1 text-[10px] text-slate-500">First 14 days shown — reprint the card for the rest of the stay.</div>
+            )}
           </div>
         )}
         {/* Boxed and photo-included so checkout staff can verify every item

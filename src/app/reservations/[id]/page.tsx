@@ -459,6 +459,11 @@ export default async function ReservationDetailPage({
               );
             })()}
 
+            {/* Lodging + belongings only apply to stays. Grooming appointments
+                (Daisy, Sep 7) hide them; the update action leaves those columns
+                untouched when the fields are absent from the form. */}
+            {!isGrooming && (
+            <>
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging</span>
               <select
@@ -492,6 +497,8 @@ export default async function ReservationDetailPage({
                 />
               )}
             </label>
+            </>
+            )}
 
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
