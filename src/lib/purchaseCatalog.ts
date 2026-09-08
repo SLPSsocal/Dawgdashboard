@@ -28,6 +28,7 @@ export const CATALOG_CATEGORY_ORDER = [
   "medical/first aid",
   "groceries/snacks",
   "office",
+  "facilities",
 ];
 
 export function packHint(item: PurchaseCatalogItem): string {

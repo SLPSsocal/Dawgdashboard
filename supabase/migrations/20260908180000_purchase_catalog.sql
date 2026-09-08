@@ -7,6 +7,12 @@
 -- typical_unit_cost_usd is seeded for a later invoice-cost phase; the staff
 -- form does not show prices.
 --
+-- Seed is facility-store-only: House of Woof, Riverwalk, 4 Paws, Don Doggos.
+-- Pepper Tree / personal / Other / Ximino / Ohio deliveries are excluded.
+-- Re-running upserts active rows and deactivates known personal-only SKUs
+-- from an earlier seed. Freestyle Soft (purple) wipes stay locked as the
+-- preferred facility wipe line (NO SUBSTITUTES).
+--
 -- RLS matches the rest of the app: enabled + permissive "app-trusted" policies
 -- because staff use cookie PIN/facility login, not auth.uid(). See
 -- supabase/schema.sql and README.md.
@@ -54,7 +60,9 @@ create index if not exists purchase_request_items_item_lower_idx
   on purchase_request_items (lower(trim(item)));
 
 -- Seed / refresh catalog. Dedupe by name+brand. Re-running updates pack hints,
--- notes, and typical costs without wiping staff request history.
+-- notes, and typical costs without wiping staff request history. Gap-fill rows
+-- from the 2026 facility Expense Log (Fabuloso, Pedialyte, PPE, etc.) are
+-- included; costs stay null unless already known.
 insert into purchase_catalog_items (
   name, brand, typical_unit, pack_size, typical_unit_cost_usd, category, notes, sort_order, active
 )
@@ -81,16 +89,6 @@ from jsonb_to_recordset(($catalog$
     "sort_order": 10
   },
   {
-    "name": "Sensodyne Extra Whitening Sensitive Toothpaste, Mint",
-    "brand": "Sensodyne",
-    "typical_unit": "tube",
-    "pack_size": "4 oz",
-    "typical_unit_cost_usd": 6.97,
-    "category": "medical/first aid",
-    "notes": "Staff oral care",
-    "sort_order": 20
-  },
-  {
     "name": "Cottonelle Ultra Soft Toilet Paper",
     "brand": "Cottonelle",
     "typical_unit": "pack",
@@ -98,7 +96,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 11.67,
     "category": "paper goods",
     "notes": null,
-    "sort_order": 30
+    "sort_order": 20
   },
   {
     "name": "Charmin Ultra Soft Toilet Paper",
@@ -108,7 +106,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 19.96,
     "category": "paper goods",
     "notes": "Alt to Cottonelle",
-    "sort_order": 40
+    "sort_order": 30
   },
   {
     "name": "Bounty Paper Towels Select-a-Size",
@@ -118,7 +116,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 17.78,
     "category": "paper goods",
     "notes": null,
-    "sort_order": 50
+    "sort_order": 40
   },
   {
     "name": "Amazon Basics Dog Poop Leak Proof Bags with Dispenser",
@@ -128,7 +126,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 19.84,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 60
+    "sort_order": 50
   },
   {
     "name": "Dog Leash Slip Lead Braided Rope (2-pack)",
@@ -138,7 +136,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 13.67,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 70
+    "sort_order": 60
   },
   {
     "name": "Kiss blue leads / slip leads",
@@ -148,7 +146,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 80
+    "sort_order": 70
   },
   {
     "name": "Rubbermaid Commercial Gripper Wet Mop Handle",
@@ -158,7 +156,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 32.33,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 90
+    "sort_order": 80
   },
   {
     "name": "Humboldts Secret Garden Hose End Sprayer",
@@ -168,7 +166,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 33.92,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 100
+    "sort_order": 90
   },
   {
     "name": "Small Spring Clamps (metal clip)",
@@ -178,7 +176,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 9.99,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 110
+    "sort_order": 100
   },
   {
     "name": "Uineko Empty Spray Bottles Heavy Duty",
@@ -188,7 +186,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 14.5,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 120
+    "sort_order": 110
   },
   {
     "name": "LUFFWELL Dog Pooper Scooper (tray & spade)",
@@ -198,7 +196,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 25.64,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 130
+    "sort_order": 120
   },
   {
     "name": "Tide PODS laundry detergent pacs, Spring Meadow",
@@ -208,7 +206,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 21.98,
     "category": "laundry",
     "notes": null,
-    "sort_order": 140
+    "sort_order": 130
   },
   {
     "name": "Pine-Sol Multi-Surface Cleaner, Original Pine",
@@ -218,7 +216,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 150
+    "sort_order": 140
   },
   {
     "name": "Dawn Ultra Dishwashing Liquid",
@@ -228,7 +226,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 160
+    "sort_order": 150
   },
   {
     "name": "Febreze Air Mist Air Freshener, Twilight Lavender",
@@ -238,17 +236,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 170
-  },
-  {
-    "name": "Mighty Mint Rodent Repellent Spray",
-    "brand": "Mighty Mint",
-    "typical_unit": "bottle",
-    "pack_size": null,
-    "typical_unit_cost_usd": 33.11,
-    "category": "cleaning",
-    "notes": null,
-    "sort_order": 180
+    "sort_order": 160
   },
   {
     "name": "Freshpet Fresh Dog Food",
@@ -258,7 +246,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 190
+    "sort_order": 170
   },
   {
     "name": "Scoop Away Multi Cat Litter, Meadow Fresh",
@@ -268,7 +256,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 200
+    "sort_order": 180
   },
   {
     "name": "Weruva Pumpkin Patch Up! Pumpkin Puree",
@@ -278,7 +266,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 14.04,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 210
+    "sort_order": 190
   },
   {
     "name": "IAMS Proactive Health Adult Dog Food",
@@ -288,7 +276,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 220
+    "sort_order": 200
   },
   {
     "name": "Forticept Maxi-Wash",
@@ -298,7 +286,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies / grooming",
     "notes": null,
-    "sort_order": 230
+    "sort_order": 210
   },
   {
     "name": "Effersan disinfectant",
@@ -308,7 +296,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 240
+    "sort_order": 220
   },
   {
     "name": "Hydrogen peroxide",
@@ -318,7 +306,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "medical/first aid",
     "notes": null,
-    "sort_order": 250
+    "sort_order": 230
   },
   {
     "name": "Tylenol",
@@ -328,7 +316,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 10.52,
     "category": "medical/first aid",
     "notes": null,
-    "sort_order": 260
+    "sort_order": 240
   },
   {
     "name": "Cotton balls",
@@ -338,7 +326,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "grooming / medical",
     "notes": null,
-    "sort_order": 270
+    "sort_order": 250
   },
   {
     "name": "Grooming spray",
@@ -348,7 +336,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "grooming",
     "notes": null,
-    "sort_order": 280
+    "sort_order": 260
   },
   {
     "name": "Avont Pet Safe Dog Hair Dye (temporary)",
@@ -358,7 +346,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 16.99,
     "category": "grooming",
     "notes": null,
-    "sort_order": 290
+    "sort_order": 270
   },
   {
     "name": "Halloween dog hair bows (ghost pattern)",
@@ -368,7 +356,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 33.99,
     "category": "grooming",
     "notes": null,
-    "sort_order": 300
+    "sort_order": 280
   },
   {
     "name": "Halloween dog hair bows (ghost pattern)",
@@ -378,7 +366,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 17.59,
     "category": "grooming",
     "notes": null,
-    "sort_order": 310
+    "sort_order": 290
   },
   {
     "name": "Halloween dog bows ties & collars",
@@ -388,7 +376,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 19.99,
     "category": "grooming",
     "notes": null,
-    "sort_order": 320
+    "sort_order": 300
   },
   {
     "name": "Coca-Cola Classic 12-pack cans",
@@ -398,7 +386,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 7.29,
     "category": "groceries/snacks",
     "notes": "Soft-warn soda on submit still",
-    "sort_order": 330
+    "sort_order": 310
   },
   {
     "name": "Coca-Cola Zero Sugar 12-pack cans",
@@ -408,7 +396,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 7.29,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 340
+    "sort_order": 320
   },
   {
     "name": "Sprite 12-pack cans",
@@ -418,7 +406,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 7.29,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 350
+    "sort_order": 330
   },
   {
     "name": "Coca-Cola Flavors Mini Cans Variety Pack",
@@ -428,7 +416,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 360
+    "sort_order": 340
   },
   {
     "name": "Gatorade Sports Drink Variety Pack",
@@ -438,7 +426,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": "Soft-warn liquid Gatorade",
-    "sort_order": 370
+    "sort_order": 350
   },
   {
     "name": "Gatorade Zero On the Go powder sticks",
@@ -448,7 +436,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 380
+    "sort_order": 360
   },
   {
     "name": "Hot Pockets Pepperoni Pizza (frozen)",
@@ -458,7 +446,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 390
+    "sort_order": 370
   },
   {
     "name": "Hot Pockets Philly Steak and Cheese (frozen)",
@@ -468,7 +456,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 400
+    "sort_order": 380
   },
   {
     "name": "Jimmy Dean Sausage Egg & Cheese Croissant (frozen)",
@@ -478,7 +466,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 410
+    "sort_order": 390
   },
   {
     "name": "Jimmy Dean Sausage Egg & Cheese English Muffin / Biscuit",
@@ -488,7 +476,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 420
+    "sort_order": 400
   },
   {
     "name": "Cheetos Crunchy Flamin Hot Party Size",
@@ -498,7 +486,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 430
+    "sort_order": 410
   },
   {
     "name": "Doritos Cool Ranch Party Size",
@@ -508,7 +496,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 440
+    "sort_order": 420
   },
   {
     "name": "Nabisco Crowd Favorites Cookie Variety",
@@ -518,7 +506,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 450
+    "sort_order": 430
   },
   {
     "name": "Pop-Tarts Variety / Frosted Brown Sugar Cinnamon",
@@ -528,7 +516,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 460
+    "sort_order": 440
   },
   {
     "name": "Rice Krispies Treats Original",
@@ -538,7 +526,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 470
+    "sort_order": 450
   },
   {
     "name": "Once Upon a Farm Tractor Wheel oat bars",
@@ -548,7 +536,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": "Confirm pack next invoice",
-    "sort_order": 480
+    "sort_order": 460
   },
   {
     "name": "Great Value Purified Drinking Water",
@@ -558,7 +546,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "groceries/snacks",
     "notes": null,
-    "sort_order": 490
+    "sort_order": 470
   },
   {
     "name": "Great Value Disposable Paper Plates 8.5in",
@@ -568,7 +556,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 5.58,
     "category": "paper goods",
     "notes": null,
-    "sort_order": 500
+    "sort_order": 480
   },
   {
     "name": "Great Value Red Disposable Plastic Party Cups 18 oz",
@@ -578,7 +566,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 4.28,
     "category": "paper goods",
     "notes": null,
-    "sort_order": 510
+    "sort_order": 490
   },
   {
     "name": "Sharpie Tank Style Highlighters",
@@ -588,7 +576,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "office",
     "notes": null,
-    "sort_order": 520
+    "sort_order": 500
   },
   {
     "name": "Dry erase markers",
@@ -598,7 +586,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 13.26,
     "category": "office",
     "notes": null,
-    "sort_order": 530
+    "sort_order": 510
   },
   {
     "name": "Pens (office / facility)",
@@ -608,17 +596,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "office",
     "notes": null,
-    "sort_order": 540
-  },
-  {
-    "name": "Brother LC401XL ink (black + colors)",
-    "brand": "Brother",
-    "typical_unit": "cartridge set",
-    "pack_size": "XL black + color",
-    "typical_unit_cost_usd": 107.83,
-    "category": "office",
-    "notes": null,
-    "sort_order": 550
+    "sort_order": 520
   },
   {
     "name": "Receipt / thermal paper",
@@ -628,7 +606,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "office",
     "notes": null,
-    "sort_order": 560
+    "sort_order": 530
   },
   {
     "name": "Command Large Utility hooks",
@@ -638,7 +616,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "office",
     "notes": null,
-    "sort_order": 570
+    "sort_order": 540
   },
   {
     "name": "OFF! FamilyCare Insect Repellent",
@@ -648,7 +626,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "medical/first aid",
     "notes": null,
-    "sort_order": 580
+    "sort_order": 550
   },
   {
     "name": "Trash bags",
@@ -658,7 +636,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 590
+    "sort_order": 560
   },
   {
     "name": "Dish soap (bulk)",
@@ -668,7 +646,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "cleaning",
     "notes": null,
-    "sort_order": 600
+    "sort_order": 570
   },
   {
     "name": "Laundry soap (bulk)",
@@ -678,7 +656,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "laundry",
     "notes": null,
-    "sort_order": 610
+    "sort_order": 580
   },
   {
     "name": "Cat litter (general)",
@@ -688,7 +666,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 620
+    "sort_order": 590
   },
   {
     "name": "Dog bowls",
@@ -698,7 +676,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": null,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 630
+    "sort_order": 600
   },
   {
     "name": "Fanny pack / waist bag (staff walk)",
@@ -708,7 +686,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 9.99,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 640
+    "sort_order": 610
   },
   {
     "name": "Colored duct tape assortment",
@@ -718,7 +696,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 17.99,
     "category": "office",
     "notes": null,
-    "sort_order": 650
+    "sort_order": 620
   },
   {
     "name": "Feeny leash holder",
@@ -728,7 +706,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 40.71,
     "category": "dog supplies",
     "notes": null,
-    "sort_order": 660
+    "sort_order": 630
   },
   {
     "name": "Apron (grooming/staff)",
@@ -738,7 +716,7 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 7.82,
     "category": "grooming",
     "notes": null,
-    "sort_order": 670
+    "sort_order": 640
   },
   {
     "name": "Equate Sensitive Fragrance-Free Wipes",
@@ -748,7 +726,147 @@ from jsonb_to_recordset(($catalog$
     "typical_unit_cost_usd": 2.23,
     "category": "cleaning",
     "notes": "Prefer Freestyle 648 instead",
+    "sort_order": 650
+  },
+  {
+    "name": "Fabuloso Multi-Purpose Cleaner",
+    "brand": "Fabuloso",
+    "typical_unit": "bottle",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "cleaning",
+    "notes": "HOW / RIV inventory",
+    "sort_order": 660
+  },
+  {
+    "name": "Windex glass cleaner",
+    "brand": "Windex",
+    "typical_unit": "bottle",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "cleaning",
+    "notes": null,
+    "sort_order": 670
+  },
+  {
+    "name": "Mr. Clean multi-purpose cleaner",
+    "brand": "Mr. Clean",
+    "typical_unit": "bottle",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "cleaning",
+    "notes": null,
     "sort_order": 680
+  },
+  {
+    "name": "Paper towels (generic)",
+    "brand": "generic",
+    "typical_unit": "pack",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "paper goods",
+    "notes": "Alt to Bounty",
+    "sort_order": 690
+  },
+  {
+    "name": "Pedialyte",
+    "brand": "Pedialyte",
+    "typical_unit": "bottle",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "medical/first aid",
+    "notes": null,
+    "sort_order": 700
+  },
+  {
+    "name": "Face mask",
+    "brand": "generic",
+    "typical_unit": "box / pack",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "medical/first aid",
+    "notes": "PPE",
+    "sort_order": 710
+  },
+  {
+    "name": "Liquid Roach Bait",
+    "brand": "generic",
+    "typical_unit": "bottle",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "cleaning",
+    "notes": null,
+    "sort_order": 720
+  },
+  {
+    "name": "Trash cans",
+    "brand": "generic",
+    "typical_unit": "each",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "cleaning",
+    "notes": null,
+    "sort_order": 730
+  },
+  {
+    "name": "Igloo cooler jug",
+    "brand": "Igloo",
+    "typical_unit": "each",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "facilities",
+    "notes": null,
+    "sort_order": 740
+  },
+  {
+    "name": "Ice chest / ice",
+    "brand": "generic",
+    "typical_unit": "each",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "facilities",
+    "notes": null,
+    "sort_order": 750
+  },
+  {
+    "name": "Black out curtains",
+    "brand": "generic",
+    "typical_unit": "pack",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "facilities",
+    "notes": null,
+    "sort_order": 760
+  },
+  {
+    "name": "Automatic Ball Launcher",
+    "brand": "generic",
+    "typical_unit": "each",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "dog supplies",
+    "notes": null,
+    "sort_order": 770
+  },
+  {
+    "name": "Pill pockets",
+    "brand": "Greenies / generic",
+    "typical_unit": "pouch",
+    "pack_size": null,
+    "typical_unit_cost_usd": null,
+    "category": "dog supplies",
+    "notes": null,
+    "sort_order": 780
+  },
+  {
+    "name": "Shut off valve",
+    "brand": "generic",
+    "typical_unit": "each",
+    "pack_size": "hose attachment",
+    "typical_unit_cost_usd": null,
+    "category": "facilities",
+    "notes": null,
+    "sort_order": 790
   }
 ]
 $catalog$)::jsonb) as x(
@@ -769,6 +887,16 @@ on conflict on constraint purchase_catalog_items_name_brand_key do update set
   notes = excluded.notes,
   sort_order = excluded.sort_order,
   active = true;
+
+-- Personal / Pepper Tree-only SKUs from an earlier seed. Keep history rows;
+-- hide from the staff checklist. These are not in the facility-store seed.
+update purchase_catalog_items
+set active = false
+where (name, brand) in (
+  ('Sensodyne Extra Whitening Sensitive Toothpaste, Mint', 'Sensodyne'),
+  ('Mighty Mint Rodent Repellent Spray', 'Mighty Mint'),
+  ('Brother LC401XL ink (black + colors)', 'Brother')
+);
 
 -- Lock the preferred wipe line: exact Freestyle Soft (purple) packaging, no substitutes.
 do $$

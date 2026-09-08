@@ -260,7 +260,7 @@ create policy "facilities readable for login picker" on facilities
 -- PURCHASE REQUESTS  (staff supply / PO requests — see also
 -- supabase/migrations/20260906220000_purchase_requests.sql and
 -- supabase/migrations/20260908180000_purchase_catalog.sql)
--- Catalog seed lives in the catalog migration (68 checklist rows).
+-- Catalog seed lives in the catalog migration (79 facility-store checklist rows).
 -- ----------------------------------------------------------------------------
 create table purchase_catalog_items (
   id uuid primary key default uuid_generate_v4(),
