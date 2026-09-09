@@ -223,9 +223,21 @@ export default async function ParentDetailPage({
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Tags</h2>
-          <div className="mt-2">
+        {/* Collapsed by default (Celeste, Sep 4): the full checkbox grid ate the
+            page; the assigned tags already show as chips next to the name. */}
+        <details className="group mt-6 rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+            <span className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                🏷️ Tags{assignedTags.length > 0 ? ` (${assignedTags.length})` : ""}
+              </h2>
+              <span className="text-xs text-slate-400 dark:text-slate-500 group-open:hidden">
+                {assignedTags.length > 0 ? assignedTags.map((t) => `${t.icon} ${t.name}`).join(" · ") : "None yet — tap to add"}
+              </span>
+            </span>
+            <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
+          </summary>
+          <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-800">
             <ProfileTagEditor
               targetType="parent"
               targetId={id}
@@ -234,7 +246,7 @@ export default async function ParentDetailPage({
               staffName={session!.staffName}
             />
           </div>
-        </div>
+        </details>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">Waivers</h2>
