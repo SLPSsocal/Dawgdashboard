@@ -5,7 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import LodgingCalendar, { type CalArea, type CalReservation, type LodgingBlock } from "@/components/LodgingCalendar";
 import LodgingBlockForm from "@/components/LodgingBlockForm";
-import { createLodgingArea } from "@/app/lodging/actions";
+import { createLodgingArea, setLodgingCameraUrl } from "@/app/lodging/actions";
 import { todayLocal } from "@/lib/dates";
 import Link from "next/link";
 
@@ -69,7 +69,7 @@ export default async function LodgingCalendarPage({
   const supabase = createClient();
   const { data: areas } = await supabase
     .from("lodging_areas")
-    .select("id, name, area_type, capacity")
+    .select("id, name, area_type, capacity, camera_url")
     .eq("facility_id", session!.facilityId)
     .eq("active", true)
     .order("name");
@@ -128,6 +128,7 @@ export default async function LodgingCalendarPage({
     name: a.name,
     area_type: a.area_type,
     capacity: a.capacity,
+    cameraUrl: (a as { camera_url?: string | null }).camera_url ?? null,
   }));
 
   const weekLabel = `${new Date(`${weekStart}T00:00:00`).toLocaleDateString([], {
@@ -258,6 +259,54 @@ export default async function LodgingCalendarPage({
               Add
             </button>
           </form>
+        </details>
+
+        {/* Suite camera links (Staff, Sep 4): paste each suite's live-camera
+            URL once; the board + calendar then show a 📷 link per suite. */}
+        <details className="group mt-3 rounded-[14px] border border-[#e3e5ea] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              📷 Suite cameras{" "}
+              <span className="font-normal text-slate-400 dark:text-slate-500">
+                ({calAreas.filter((a) => a.cameraUrl).length}/{calAreas.length} linked)
+              </span>
+            </h2>
+            <span className="text-slate-400 transition-transform group-open:rotate-180 dark:text-slate-500">▾</span>
+          </summary>
+          <div className="flex flex-col gap-2 border-t border-slate-100 p-4 dark:border-slate-800">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Paste the link that opens each suite&apos;s camera (from your camera app or NVR). Leave blank to remove.
+            </p>
+            {calAreas.map((a) => (
+              <form key={a.id} action={setLodgingCameraUrl} className="flex items-center gap-2">
+                <input type="hidden" name="area_id" value={a.id} />
+                <span className="w-28 shrink-0 truncate text-sm font-medium text-slate-700 dark:text-slate-300">{a.name}</span>
+                <input
+                  name="camera_url"
+                  type="url"
+                  defaultValue={a.cameraUrl ?? ""}
+                  placeholder="https://…"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Save
+                </button>
+                {a.cameraUrl && (
+                  <a
+                    href={a.cameraUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    Open ↗
+                  </a>
+                )}
+              </form>
+            ))}
+          </div>
         </details>
 
         {(!areas || areas.length === 0) ? (

@@ -26,6 +26,8 @@ export type CheckInRow = {
   /** Grooming service name, or boarding/daycare subtype (Private Play, …). */
   serviceType?: string | null;
   lodgingName: string | null;
+  /** Live-camera link for the assigned suite, when one is set up. */
+  lodgingCameraUrl?: string | null;
   startDate: string;
   endDate: string;
   phone: string | null;
@@ -384,7 +386,21 @@ export default function CheckInBoard({
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${serviceTone(r.typeName).dot}`} />
                   <span className="truncate">{r.typeName ?? "—"}</span>
                 </div>
-                <div className="pl-3 text-[12px] text-[#8a91a0] dark:text-slate-500">{r.lodgingName ?? ""}</div>
+                <div className="pl-3 text-[12px] text-[#8a91a0] dark:text-slate-500">
+                  {r.lodgingName ?? ""}
+                  {r.lodgingName && r.lodgingCameraUrl && (
+                    <a
+                      href={r.lodgingCameraUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open ${r.lodgingName} camera`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="ml-1 hover:opacity-70"
+                    >
+                      📷
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="min-w-0">
                 {r.serviceType ? (
@@ -489,7 +505,23 @@ export default function CheckInBoard({
                     {r.serviceType}
                   </span>
                 )}
-                {r.lodgingName && <span className="text-[#8a91a0] dark:text-slate-500">{r.lodgingName}</span>}
+                {r.lodgingName && (
+                  <span className="text-[#8a91a0] dark:text-slate-500">
+                    {r.lodgingName}
+                    {r.lodgingCameraUrl && (
+                      <a
+                        href={r.lodgingCameraUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Open ${r.lodgingName} camera`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="ml-1 hover:opacity-70"
+                      >
+                        📷
+                      </a>
+                    )}
+                  </span>
+                )}
               </div>
               <div className="mt-2 flex items-center justify-between rounded-lg bg-[#f5f6f8] px-2.5 py-1.5 text-[12.5px] dark:bg-slate-800/60">
                 <span>

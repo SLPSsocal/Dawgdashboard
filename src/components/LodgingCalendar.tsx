@@ -9,6 +9,8 @@ export type CalArea = {
   name: string;
   area_type: string;
   capacity: number;
+  /** Optional live-camera link for this suite (opens in a new tab). */
+  cameraUrl?: string | null;
 };
 
 export type LodgingBlock = {
@@ -151,7 +153,17 @@ export default function LodgingCalendar({
     );
   }
 
-  function Row({ areaId, label, capacity }: { areaId: string | null; label: string; capacity?: number }) {
+  function Row({
+    areaId,
+    label,
+    capacity,
+    cameraUrl,
+  }: {
+    areaId: string | null;
+    label: string;
+    capacity?: number;
+    cameraUrl?: string | null;
+  }) {
     const key = areaId ?? "unassigned";
     const isOver = overRow === key;
     const rowProps = {
@@ -191,6 +203,18 @@ export default function LodgingCalendar({
           <span className="truncate">
             {hasBlock && "🔧 "}
             {label}
+            {cameraUrl && (
+              <a
+                href={cameraUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open ${label} camera`}
+                onClick={(e) => e.stopPropagation()}
+                className="ml-1 text-[12px] hover:opacity-70"
+              >
+                📷
+              </a>
+            )}
           </span>
           {capacity != null && (
             <span
@@ -294,7 +318,7 @@ export default function LodgingCalendar({
                 )}
               </div>
               {g.areas.map((a) => (
-                <Row key={a.id} areaId={a.id} label={a.name} capacity={a.capacity} />
+                <Row key={a.id} areaId={a.id} label={a.name} capacity={a.capacity} cameraUrl={a.cameraUrl} />
               ))}
             </Fragment>
           );

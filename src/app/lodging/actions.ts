@@ -41,3 +41,27 @@ export async function assignLodging(reservationId: string, lodgingAreaId: string
   revalidatePath("/lodging/calendar");
   revalidatePath("/reservations");
 }
+
+// Suite camera link (Staff, Sep 4): an optional live-camera URL per lodging
+// area, so the board and lodging calendar can open that suite's camera.
+export async function setLodgingCameraUrl(formData: FormData) {
+  const supabase = createClient();
+  const areaId = String(formData.get("area_id") ?? "");
+  const raw = String(formData.get("camera_url") ?? "").trim();
+  if (!areaId) return;
+  let cameraUrl: string | null = null;
+  if (raw) {
+    // Only http(s) links — never javascript: or anything else clickable.
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const u = new URL(withScheme);
+      if (u.protocol === "http:" || u.protocol === "https:") cameraUrl = u.toString();
+    } catch {
+      cameraUrl = null;
+    }
+  }
+  const { error } = await supabase.from("lodging_areas").update({ camera_url: cameraUrl }).eq("id", areaId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/lodging/calendar");
+  revalidatePath("/reservations");
+}
