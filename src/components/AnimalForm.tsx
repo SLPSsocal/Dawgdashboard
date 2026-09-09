@@ -129,6 +129,9 @@ export default function AnimalForm({
   showParentPicker?: boolean;
   showActiveToggle?: boolean;
 }) {
+  // Weight / birthdate / "how long" are required when creating a pet, but most
+  // Gingr-imported pets are missing them — don't block staff from saving edits.
+  const strict = !defaults;
   return (
     <form action={action} className="flex flex-col gap-4">
       {error && (
@@ -181,7 +184,7 @@ export default function AnimalForm({
         </label>
         <Field label="Breed" name="breed" defaultValue={defaults?.breed} required />
         <Field label="Color / Markings" name="color_markings" defaultValue={defaults?.color_markings} />
-        <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" required />
+        <Field label="Weight (lbs)" name="weight_lbs" defaultValue={defaults?.weight_lbs} type="number" required={strict} />
         <label className="block">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sex</span>
           <select
@@ -194,7 +197,7 @@ export default function AnimalForm({
             <option value="female">Female</option>
           </select>
         </label>
-        <Field label="Birthdate" name="birthdate" defaultValue={defaults?.birthdate} type="date" required />
+        <Field label="Birthdate" name="birthdate" defaultValue={defaults?.birthdate} type="date" required={strict} />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
@@ -206,7 +209,7 @@ export default function AnimalForm({
         label="How long have you had this pet?"
         name="owned_since_note"
         defaultValue={defaults?.owned_since_note}
-        required
+        required={strict}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
