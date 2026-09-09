@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import AnimalPicker, { type AnimalOption } from "@/components/AnimalPicker";
 import { createReservation, getGroomingMemory, getSpecialistConflicts, getSiblingAnimals } from "@/app/reservations/actions";
 import { subtypeOptions } from "@/lib/serviceSubtypes";
+import GroomingAddonsField from "@/components/GroomingAddonsField";
+import { addonsTotal, type GroomingAddon } from "@/lib/groomingAddons";
 import { estimateBooking, type BookingEstimate } from "@/app/reservations/estimate-actions";
 import Link from "next/link";
 
@@ -96,6 +98,9 @@ export default function BookingForm({
   // this dog's remembered price for the service, else the menu's min price.
   const [groomingPrice, setGroomingPrice] = useState<string>("");
   const [priceTouched, setPriceTouched] = useState(false);
+  // Extra grooming services (de-shed, teeth, special shampoo …) booked with
+  // the main one (Daisy + Kathleen) — each its own line at checkout.
+  const [groomingAddons, setGroomingAddons] = useState<GroomingAddon[]>([]);
   const [belongings, setBelongings] = useState("");
   const [notes, setNotes] = useState("");
   const [lastGroomedNote, setLastGroomedNote] = useState<string | null>(null);
@@ -250,6 +255,7 @@ export default function BookingForm({
             serviceName: isGrooming ? serviceName || null : null,
             serviceSubtype: typeOptions.length > 0 ? serviceSubtype || null : null,
             groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
+            groomingAddons: isGrooming ? groomingAddons : [],
             belongings: belongings || null,
             notes: notes || null,
             bookingGroupId,
@@ -305,6 +311,7 @@ export default function BookingForm({
   const [estimate, setEstimate] = useState<BookingEstimate | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
   const extraDogKey = extraDogs.map((d) => d.id).join(",");
+  const addonsKey = groomingAddons.map((a) => `${a.name}:${a.price}`).join("|");
   useEffect(() => {
     if (!typeId || !startDate) {
       setEstimate(null);
@@ -322,6 +329,7 @@ export default function BookingForm({
         dogNames: [animal?.name ?? "Dog", ...extraDogs.map((d) => d.name)],
         groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
         serviceName: isGrooming ? serviceName || null : null,
+        groomingAddons: isGrooming ? groomingAddons : [],
       })
         .then((e) => {
           if (!cancelled) setEstimate(e);
@@ -338,7 +346,7 @@ export default function BookingForm({
       clearTimeout(handle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facilityId, typeId, startDate, endDate, pickUpTime, usesTimeSlot, animal?.name, extraDogKey, isGrooming, groomingPrice, serviceName]);
+  }, [facilityId, typeId, startDate, endDate, pickUpTime, usesTimeSlot, animal?.name, extraDogKey, isGrooming, groomingPrice, serviceName, addonsKey]);
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
@@ -581,6 +589,16 @@ export default function BookingForm({
                 </p>
               </label>
             )}
+            {isGrooming && (
+              <div className="sm:col-span-2">
+                <GroomingAddonsField
+                  menu={groomingServices}
+                  mainService={serviceName}
+                  value={groomingAddons}
+                  onChange={setGroomingAddons}
+                />
+              </div>
+            )}
             {!isGrooming && (
               <div className="block">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Duration</span>
@@ -719,6 +737,14 @@ export default function BookingForm({
               <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Price</dt>
               <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
                 ${Number(groomingPrice).toFixed(2)}
+              </dd>
+            </div>
+          )}
+          {isGrooming && groomingAddons.length > 0 && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Add-ons</dt>
+              <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+                {groomingAddons.map((a) => a.name).join(", ")} · ${addonsTotal(groomingAddons).toFixed(2)}
               </dd>
             </div>
           )}

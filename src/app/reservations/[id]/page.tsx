@@ -14,6 +14,8 @@ import CareLogForm from "@/components/CareLogForm";
 import { getCareLogsForReservation } from "@/app/care-logs/actions";
 import Link from "next/link";
 import { formatInZone, toDateTimeLocalInZone } from "@/lib/timezone";
+import GroomingAddonsField from "@/components/GroomingAddonsField";
+import { addonsTotal, parseGroomingAddons } from "@/lib/groomingAddons";
 
 // This is a server component (renders in UTC on Vercel), so every date shown
 // or prefilled here has to be expressed in the facility's own timezone.
@@ -124,7 +126,7 @@ export default async function ReservationDetailPage({
         .order("created_at", { ascending: false }),
       supabase
         .from("grooming_menu_items")
-        .select("name")
+        .select("name, min_price")
         .eq("facility_id", session!.facilityId)
         .eq("active", true)
         .order("name"),
@@ -172,6 +174,7 @@ export default async function ReservationDetailPage({
   const vaxShield = vaccineShield(vaxStatus);
   const currentType = (types ?? []).find((t) => t.id === reservation.reservation_type_id) ?? null;
   const isGrooming = currentType?.category === "grooming";
+  const groomingAddons = parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -206,6 +209,15 @@ export default async function ReservationDetailPage({
               <div className="sm:col-span-2">
                 <span className="text-slate-500 dark:text-slate-400">Service: </span>
                 <span className="font-semibold">✂️ {reservation.grooming_service_name}</span>
+              </div>
+            )}
+            {isGrooming && groomingAddons.length > 0 && (
+              <div className="sm:col-span-2">
+                <span className="text-slate-500 dark:text-slate-400">Add-ons: </span>
+                <span className="font-semibold">
+                  {groomingAddons.map((a) => `${a.name} ($${a.price.toFixed(2)})`).join(", ")}
+                </span>
+                <span className="text-slate-400 dark:text-slate-500"> · ${addonsTotal(groomingAddons).toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -430,6 +442,14 @@ export default async function ReservationDetailPage({
                   service and prefilled at checkout. Change it here any time before checkout.
                 </p>
               </label>
+            )}
+
+            {isGrooming && (
+              <GroomingAddonsField
+                menu={(groomingServices ?? []).map((s) => ({ name: s.name, minPrice: (s as { min_price?: number | null }).min_price ?? null }))}
+                mainService={reservation.grooming_service_name ?? null}
+                defaultValue={groomingAddons}
+              />
             )}
 
             {(() => {

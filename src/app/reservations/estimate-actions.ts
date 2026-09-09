@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
 
 // "View Estimate" for the booking form (Mark + Alan S, Sep 3 — Gingr shows
 // the expected cost before the reservation is saved so staff can quote the
@@ -49,6 +50,7 @@ export async function estimateBooking(input: {
   dogNames: string[]; // primary first; length = household dogs on this booking
   groomingPrice: number | null;
   serviceName: string | null;
+  groomingAddons?: GroomingAddon[] | null;
 }): Promise<BookingEstimate | null> {
   const supabase = createClient();
   const { data: type } = await supabase
@@ -131,6 +133,11 @@ export async function estimateBooking(input: {
         amount: input.groomingPrice,
         kind: "service",
       });
+    }
+    if (isGrooming) {
+      for (const addon of parseGroomingAddons(input.groomingAddons ?? [])) {
+        if (addon.price > 0) lines.push({ label: `${who(name)}${addon.name} (add-on)`, amount: addon.price, kind: "service" });
+      }
     }
   });
 

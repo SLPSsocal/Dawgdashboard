@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { parseGroomingAddons } from "@/lib/groomingAddons";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import PrintButton from "@/components/PrintButton";
@@ -207,6 +208,9 @@ export default async function RunCardPage({ params }: { params: Promise<{ id: st
               <div className="text-sm font-semibold text-slate-600">
                 {type?.name ?? "Reservation"}
                 {reservation.grooming_service_name ? ` — ${reservation.grooming_service_name}` : ""}
+                {parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons).length > 0
+                  ? ` + ${parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons).map((a) => a.name).join(", ")}`
+                  : ""}
               </div>
               <div className="flex flex-wrap items-baseline gap-x-2 text-base leading-snug">
                 <span className="whitespace-nowrap">{fmtDateTime(reservation.start_date, tz)}</span>

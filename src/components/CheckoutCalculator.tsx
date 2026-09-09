@@ -35,6 +35,7 @@ export type ExtraDog = {
   typeName: string | null;
   isGrooming: boolean;
   bookedGroomingService: string | null;
+  bookedGroomingAddons?: { name: string; price: number }[];
   rules: PricingRule[];
   rememberedPrices: RememberedPrice[];
   initialRetailRows: { itemId: string; qty: number }[];
@@ -86,6 +87,7 @@ export default function CheckoutCalculator({
   householdRank,
   householdSize,
   bookedGroomingService,
+  bookedGroomingAddons = [],
   isGroomingReservation,
   extraDogs = [],
 }: {
@@ -114,6 +116,8 @@ export default function CheckoutCalculator({
   householdSize?: number;
   /** The grooming service booked on THIS reservation — prefills as a ticket line. */
   bookedGroomingService?: string | null;
+  /** Add-on services booked with it (de-shed, teeth, …) — each its own line. */
+  bookedGroomingAddons?: { name: string; price: number }[];
   /** True when this reservation's type is a grooming appointment. */
   isGroomingReservation?: boolean;
   /** Household dogs still checked in — they join this ticket, one invoice per family. */
@@ -174,10 +178,11 @@ export default function CheckoutCalculator({
   // couldn't tell a grooming reservation from a plain daycare one, let alone
   // adjust its price (Kath + Krishan, Aug 30).
   const [groomingRows, setGroomingRows] = useState<{ service: string; price: number }[]>(() => {
-    if (!bookedGroomingService) return [];
+    const addonRows = bookedGroomingAddons.map((a) => ({ service: a.name, price: a.price }));
+    if (!bookedGroomingService) return addonRows;
     const remembered = rememberedPrices.find((p) => p.service_name === bookedGroomingService);
     const item = groomingItems.find((g) => g.name === bookedGroomingService);
-    return [{ service: bookedGroomingService, price: remembered?.price ?? item?.min_price ?? 0 }];
+    return [{ service: bookedGroomingService, price: remembered?.price ?? item?.min_price ?? 0 }, ...addonRows];
   });
   const [retailRows, setRetailRows] = useState<{ itemId: string; qty: number }[]>(initialRetailRows ?? []);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
@@ -241,9 +246,10 @@ export default function CheckoutCalculator({
         include: true,
         stayStart: dStart,
         stayEnd: dStay && todayYmd > dStart ? todayYmd : dEnd,
-        groomingRows: d.bookedGroomingService
-          ? [{ service: d.bookedGroomingService, price: remembered?.price ?? 0 }]
-          : [],
+        groomingRows: [
+          ...(d.bookedGroomingService ? [{ service: d.bookedGroomingService, price: remembered?.price ?? 0 }] : []),
+          ...(d.bookedGroomingAddons ?? []).map((a) => ({ service: a.name, price: a.price })),
+        ],
         retailRows: d.initialRetailRows,
         checkedFees: lateNow ? lateFeeIdsOf(d.rules, d.rateUnit) : [],
       };
@@ -897,7 +903,7 @@ export default function CheckoutCalculator({
           <p className="mt-1 text-xs text-[#8a91a0] dark:text-slate-500">
             ✂️ <span className="font-medium text-[#565d6d] dark:text-slate-300">{bookedGroomingService}</span> was
             booked on this appointment — the price below prefills from the quote/last visit. Adjust it here; the
-            new number is remembered for next time. Extras (de-shed, flea bath, …) go on as added services.
+            new number is remembered for next time. Booked add-ons are listed below it; more extras go on with + Add Service.
           </p>
         )}
         {!bookedGroomingService && isGroomingReservation && (

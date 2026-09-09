@@ -29,7 +29,7 @@ type Row = {
     gingr_animal_id: number | string | null;
     parents: { id: string; first_name: string; last_name: string; phone: string | null } | null;
   } | null;
-  lodging_areas: { name: string } | null;
+  lodging_areas: { name: string; camera_url?: string | null } | null;
   reservation_types: { name: string; category?: string | null } | null;
 };
 
@@ -50,6 +50,7 @@ function toRow(r: Row): CheckInRow {
     // service_subtype picked at booking (Private Play, In Daycare, …).
     serviceType: r.grooming_service_name ?? r.service_subtype ?? null,
     lodgingName: r.lodging_areas?.name ?? null,
+    lodgingCameraUrl: r.lodging_areas?.camera_url ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
     phone: r.animals?.parents?.phone ?? null,
@@ -80,7 +81,7 @@ export default async function ReservationsPage() {
 
   const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype,
        animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
-       lodging_areas ( name ),
+       lodging_areas ( name, camera_url ),
        reservation_types ( name, category )`;
 
   // Facility-local day, NOT UTC — 5pm PT is already "tomorrow" in UTC, which

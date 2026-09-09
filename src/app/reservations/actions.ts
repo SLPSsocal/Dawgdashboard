@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { describeAddons, parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { zonedTimeToUtc, dateTimeLocalToUtcIso } from "@/lib/timezone";
@@ -127,6 +128,7 @@ export async function createReservation(payload: {
   serviceName: string | null; // grooming service, for remembering duration/specialist
   serviceSubtype?: string | null; // boarding/daycare Type (Private Play, In Daycare, …)
   groomingPrice?: number | null; // quoted grooming price — remembered for checkout prefill
+  groomingAddons?: GroomingAddon[] | null; // extra grooming services (de-shed, teeth, …) with quoted prices
   belongings: string | null;
   notes: string | null;
   bookingGroupId?: string | null; // links siblings booked together in one pass
@@ -181,6 +183,7 @@ export async function createReservation(payload: {
       booking_group_id: payload.bookingGroupId ?? null,
       grooming_service_name: payload.serviceName,
       service_subtype: payload.serviceSubtype ?? null,
+      grooming_addons: payload.serviceName ? parseGroomingAddons(payload.groomingAddons ?? []) : [],
     })
     .select("id")
     .single();
@@ -400,10 +403,14 @@ export async function updateReservation(reservationId: string, performedBy: stri
   // booking form and checkout prefill from.
   const groomingPriceRaw = String(formData.get("grooming_price") ?? "").trim();
   const groomingPrice = groomingPriceRaw === "" ? null : Number(groomingPriceRaw);
+  // Add-on services come as a JSON hidden field from the GroomingAddonsField
+  // editor; absent on non-grooming forms.
+  const hasAddonsField = formData.has("grooming_addons");
+  const grooming_addons = parseGroomingAddons(String(formData.get("grooming_addons") ?? "[]"));
 
   const { data: before } = await supabase
     .from("reservations")
-    .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype")
+    .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype, grooming_addons")
     .eq("id", reservationId)
     .maybeSingle();
 
@@ -428,6 +435,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
   if (hasBelongingsField) updatePayload.belongings = belongings;
   if (hasServiceField) updatePayload.grooming_service_name = grooming_service_name;
   if (hasSubtypeField) updatePayload.service_subtype = service_subtype;
+  if (hasAddonsField) updatePayload.grooming_addons = grooming_addons;
 
   const { error } = await supabase.from("reservations").update(updatePayload).eq("id", reservationId);
 
@@ -458,7 +466,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
 
   if (before) {
     const summary = diffFields(
-      before,
+      { ...before, grooming_addons: describeAddons(parseGroomingAddons(before.grooming_addons)) },
       {
         start_date,
         end_date,
@@ -468,6 +476,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         belongings: hasBelongingsField ? belongings : before.belongings,
         grooming_service_name: hasServiceField ? grooming_service_name : before.grooming_service_name,
         service_subtype: hasSubtypeField ? service_subtype : before.service_subtype,
+        grooming_addons: hasAddonsField ? describeAddons(grooming_addons) : describeAddons(parseGroomingAddons(before.grooming_addons)),
       },
       {
         start_date: "Arrival",
@@ -478,6 +487,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         belongings: "Belongings",
         grooming_service_name: "Service",
         service_subtype: "Type",
+        grooming_addons: "Add-ons",
       }
     );
     if (summary) await logHistory(reservationId, "modified", summary, performedBy);

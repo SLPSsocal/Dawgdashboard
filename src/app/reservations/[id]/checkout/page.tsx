@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
@@ -204,6 +205,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     typeName: string | null;
     isGrooming: boolean;
     bookedGroomingService: string | null;
+    bookedGroomingAddons: GroomingAddon[];
     rules: NonNullable<typeof rules>;
     rememberedPrices: { service_name: string; price: number }[];
     initialRetailRows: { itemId: string; qty: number }[];
@@ -214,7 +216,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     const { data: hereNow } = await supabase
       .from("reservations")
       .select(
-        `id, animal_id, start_date, end_date, grooming_service_name,
+        `id, animal_id, start_date, end_date, grooming_service_name, grooming_addons,
          animals!inner ( id, name, parent_id, gingr_animal_id ),
          reservation_types ( id, name, base_rate, rate_unit, category )`
       )
@@ -229,6 +231,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
       start_date: string;
       end_date: string;
       grooming_service_name: string | null;
+      grooming_addons?: unknown;
       animals: { id: string; name: string; gingr_animal_id: number | string | null } | null;
       reservation_types: { id: string; name: string; base_rate: string; rate_unit: string; category: string | null } | null;
     };
@@ -271,6 +274,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
         typeName: rType?.name ?? null,
         isGrooming: rType?.category === "grooming",
         bookedGroomingService: r.grooming_service_name,
+        bookedGroomingAddons: parseGroomingAddons(r.grooming_addons),
         rules: rulesFor(rType?.id) as NonNullable<typeof rules>,
         rememberedPrices: ((extraRemembered ?? []) as { animal_id: string; service_name: string; price: number }[])
           .filter((p) => p.animal_id === r.animal_id)
@@ -340,6 +344,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             householdRank={householdRank}
             householdSize={householdSize}
             bookedGroomingService={(reservation.grooming_service_name as string | null) ?? null}
+            bookedGroomingAddons={parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons)}
             isGroomingReservation={type?.category === "grooming"}
             extraDogs={extraDogs as unknown as Parameters<typeof CheckoutCalculator>[0]["extraDogs"]}
           />

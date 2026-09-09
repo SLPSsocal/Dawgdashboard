@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { describeAddons, parseGroomingAddons } from "@/lib/groomingAddons";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
@@ -21,6 +22,7 @@ type ReservationRow = {
   end_date: string;
   specialist_id: string | null;
   grooming_service_name: string | null;
+  grooming_addons?: unknown;
   animals: { id: string; name: string; breed: string | null } | null;
   reservation_types: { name: string; category: string | null } | null;
 };
@@ -67,7 +69,7 @@ export default async function FacilityCalendarPage({
   const { data: resData } = await supabase
     .from("reservations")
     .select(
-      `id, status, start_date, end_date, specialist_id, grooming_service_name,
+      `id, status, start_date, end_date, specialist_id, grooming_service_name, grooming_addons,
        animals ( id, name, breed ),
        reservation_types ( name, category )`
     )
@@ -109,6 +111,7 @@ export default async function FacilityCalendarPage({
     typeName: r.reservation_types?.name ?? null,
     category: r.reservation_types?.category ?? null,
     serviceName: r.grooming_service_name,
+    addons: describeAddons(parseGroomingAddons(r.grooming_addons)) || null,
     specialistId: r.specialist_id,
     time: r.start_date,
     endTime: r.end_date,
