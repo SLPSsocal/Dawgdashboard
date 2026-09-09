@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { assignSpecialist, rescheduleAppointment, saveGroomingPrice } from "@/app/facility-calendar/actions";
 import { deleteAvailabilityBlock } from "@/app/blocks/actions";
@@ -25,6 +25,8 @@ export type ApptCard = {
   typeName: string | null;
   category: string | null;
   serviceName: string | null;
+  /** "De-shed ($25), Teeth ($10)" — extra grooming services booked with it. */
+  addons?: string | null;
   specialistId: string | null;
   time: string; // ISO timestamp (start)
   endTime: string; // ISO timestamp (end) — falls back to a default block if equal to start
@@ -36,7 +38,11 @@ export type ApptCard = {
 // block length only for the (now rare) case a reservation has no real
 // duration on it.
 const DEFAULT_BLOCK_MIN = 45;
-const PX_PER_MIN = 1.4;
+// Vertical scale. "Compact" (Kath, Sep 4: "make the space for the time
+// smaller") halves the hour height so a whole day fits without scrolling.
+const PX_PER_MIN_NORMAL = 1.4;
+const PX_PER_MIN_COMPACT = 0.8;
+const VIEW_PREFS_KEY = "facility_calendar_view";
 const LANE_WIDTH = 200;
 
 function minutesOfDay(iso: string) {
@@ -133,6 +139,32 @@ export default function FacilityCalendarBoard({
   };
 }) {
   const [cards, setCards] = useState(initialCards);
+  // View prefs (Kath, Sep 4): hide the read-only Daycare + Boarding lane, and
+  // a compact time scale. Remembered per browser.
+  const [hideIncoming, setHideIncoming] = useState(false);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIEW_PREFS_KEY);
+      if (raw) {
+        const v = JSON.parse(raw) as { hideIncoming?: boolean; compact?: boolean };
+        setHideIncoming(Boolean(v.hideIncoming));
+        setCompact(Boolean(v.compact));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  function savePrefs(next: { hideIncoming: boolean; compact: boolean }) {
+    setHideIncoming(next.hideIncoming);
+    setCompact(next.compact);
+    try {
+      window.localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  const pxPerMin = compact ? PX_PER_MIN_COMPACT : PX_PER_MIN_NORMAL;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -235,8 +267,8 @@ export default function FacilityCalendarBoard({
       <div
         style={{
           position: "absolute",
-          top: (startMin - rangeStart) * PX_PER_MIN,
-          height: Math.max((endMin - startMin) * PX_PER_MIN, 24),
+          top: (startMin - rangeStart) * pxPerMin,
+          height: Math.max((endMin - startMin) * pxPerMin, 24),
           left: 2,
           right: 2,
         }}
@@ -263,7 +295,7 @@ export default function FacilityCalendarBoard({
     );
   }
 
-  const gridHeight = (rangeEnd - rangeStart) * PX_PER_MIN;
+  const gridHeight = (rangeEnd - rangeStart) * pxPerMin;
   const hourMarks = useMemo(() => {
     const marks: number[] = [];
     for (let m = rangeStart; m <= rangeEnd; m += 60) marks.push(m);
@@ -271,7 +303,7 @@ export default function FacilityCalendarBoard({
   }, [rangeStart, rangeEnd]);
 
   function topFor(iso: string) {
-    return (minutesOfDay(iso) - rangeStart) * PX_PER_MIN;
+    return (minutesOfDay(iso) - rangeStart) * pxPerMin;
   }
 
   function TimeCard({
@@ -319,7 +351,7 @@ export default function FacilityCalendarBoard({
           top: topFor(c.time),
           left: `calc(${col * widthPct}% + 3px)`,
           width: `calc(${widthPct}% - 6px)`,
-          minHeight: durationOf(c) * PX_PER_MIN,
+          minHeight: durationOf(c) * pxPerMin,
         }}
         className={`overflow-hidden rounded-[10px] border border-l-[3px] bg-white px-2 py-1 text-xs shadow-sm dark:bg-slate-900 ${
           c.category === "grooming"
@@ -343,7 +375,8 @@ export default function FacilityCalendarBoard({
           <span className="shrink-0 text-[10px] font-medium text-[#8a91a0] dark:text-slate-500">{fmtTime(c.time)}</span>
         </div>
         <div className="truncate text-[10px] text-[#8a91a0] dark:text-slate-500">
-          {c.breed ?? "—"} · {c.serviceName ?? c.typeName ?? "—"} {c.status === "checked_in" ? "🟢" : ""}
+          {c.breed ?? "—"} · {c.serviceName ?? c.typeName ?? "—"}
+          {c.addons ? ` + ${c.addons}` : ""} {c.status === "checked_in" ? "🟢" : ""}
         </div>
       </div>
     );
@@ -427,7 +460,7 @@ export default function FacilityCalendarBoard({
           {hourMarks.map((m) => (
             <div
               key={m}
-              style={{ top: (m - rangeStart) * PX_PER_MIN }}
+              style={{ top: (m - rangeStart) * pxPerMin }}
               className="absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800/70"
             />
           ))}
@@ -476,9 +509,30 @@ export default function FacilityCalendarBoard({
         <span className="inline-flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Evaluations ({evaluations.length})
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => savePrefs({ hideIncoming: !hideIncoming, compact })}
+          title={hideIncoming ? "Show the Daycare + Boarding lane" : "Hide the Daycare + Boarding lane"}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors ${
+            hideIncoming
+              ? "border-slate-200 text-slate-400 line-through dark:border-slate-700 dark:text-slate-500"
+              : "border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+          }`}
+        >
           <span className="h-1.5 w-1.5 rounded-full bg-violet-500" /> Daycare + Boarding ({incoming.length})
-        </span>
+          <span className="text-[10px] no-underline">{hideIncoming ? "(hidden)" : "✕"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => savePrefs({ hideIncoming, compact: !compact })}
+          className={`ml-auto rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+            compact
+              ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+              : "border-slate-200 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400"
+          }`}
+        >
+          {compact ? "▤ Compact" : "▥ Roomy"}
+        </button>
       </div>
       {specialists.length === 0 && (
         <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
@@ -490,13 +544,13 @@ export default function FacilityCalendarBoard({
           x-only scroll container won't reliably stick to page scroll. */}
       <div className="flex max-h-[75vh] gap-3 overflow-auto pb-2">
         {/* Hour label rail */}
-        <div className="flex shrink-0 flex-col" style={{ width: 46 }}>
+        <div className="flex shrink-0 flex-col" style={{ width: 40 }}>
           <div className="h-[30px]" />
           <div className="relative" style={{ height: gridHeight }}>
             {hourMarks.map((m) => (
               <div
                 key={m}
-                style={{ top: (m - rangeStart) * PX_PER_MIN }}
+                style={{ top: (m - rangeStart) * pxPerMin }}
                 className="absolute right-0 -translate-y-1/2 text-[11px] text-slate-400 dark:text-slate-500"
               >
                 {fmtHourMark(m)}
@@ -526,13 +580,15 @@ export default function FacilityCalendarBoard({
           droppable={false}
           accent="border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/20"
         />
-        <Lane
-          colId="incoming"
-          name="Daycare + Boarding"
-          items={incoming}
-          droppable={false}
-          accent="border-[#e3e5ea] bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/40"
-        />
+        {!hideIncoming && (
+          <Lane
+            colId="incoming"
+            name="Daycare + Boarding"
+            items={incoming}
+            droppable={false}
+            accent="border-[#e3e5ea] bg-violet-50/30 dark:border-slate-700 dark:bg-slate-900/40"
+          />
+        )}
       </div>
 
       {/* Manage panel — bottom sheet on phones, floating card on desktop. */}
@@ -546,7 +602,8 @@ export default function FacilityCalendarBoard({
                   {panelCard.status === "checked_in" && <span className="ml-1.5 text-[12px]">🟢 here</span>}
                 </div>
                 <div className="truncate text-[12px] text-[#8a91a0] dark:text-slate-500">
-                  {panelCard.breed ?? "—"} · {panelCard.serviceName ?? panelCard.typeName ?? "—"} ·{" "}
+                  {panelCard.breed ?? "—"} · {panelCard.serviceName ?? panelCard.typeName ?? "—"}
+                  {panelCard.addons ? ` + ${panelCard.addons}` : ""} ·{" "}
                   {fmtTime(panelCard.time)}–{fmtTime(panelCard.endTime)}
                 </div>
               </div>
