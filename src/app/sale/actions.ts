@@ -123,7 +123,7 @@ export async function getOpenInvoicesForParent(parentId: string) {
     .from("invoices")
     .select("id, total, created_at, facilities ( name )")
     .eq("parent_id", parentId)
-    .neq("status", "paid")
+    .eq("status", "open")
     .order("created_at", { ascending: true });
   type Row = { id: string; total: number; created_at: string; facilities: { name: string } | null };
   return ((data as unknown as Row[]) ?? []).map((r) => ({

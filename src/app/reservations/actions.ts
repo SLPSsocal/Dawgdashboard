@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { describeAddons, parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rollDepositsIntoStoreCredit } from "@/app/reservations/deposit-actions";
 import { zonedTimeToUtc, dateTimeLocalToUtcIso } from "@/lib/timezone";
 
 function refresh() {
@@ -90,6 +91,8 @@ export async function cancelReservation(reservationId: string, reason: string | 
     .eq("id", reservationId);
   if (error) throw new Error(error.message);
   await logHistory(reservationId, "cancelled", reason, performedBy ?? null);
+  // Paid deposits roll into the parent's store credit (Krishan, Sep 10).
+  await rollDepositsIntoStoreCredit(reservationId, performedBy ?? null);
   refresh();
 }
 

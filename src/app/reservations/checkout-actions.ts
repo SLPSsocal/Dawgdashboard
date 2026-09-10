@@ -13,6 +13,7 @@ export type LineKind =
   | "retail"
   | "tip"
   | "adjustment"
+  | "deposit"
   | "other";
 
 export type CheckoutLineItem = {
@@ -43,6 +44,11 @@ export async function completeCheckout(
     adjustedEndDate?: string;
     /** Non-card tenders collected now (cash / store_credit / admin_credit). */
     tenders?: { method: string; amount: number }[];
+    /** Prepaid deposit invoices consumed by this checkout (marked 'applied'). */
+    depositsApplied?: { invoiceId: string; amount: number }[];
+    /** Deposit money beyond the bill — becomes store credit (Krishan, Sep 10). */
+    depositExcessToCredit?: number;
+    staffName?: string | null;
     /** Other household reservations checking out on THIS invoice (one bill
         per family, not per dog — Krishan, Aug 30). */
     additionalReservations?: {
@@ -145,6 +151,41 @@ export async function completeCheckout(
         type: t.method,
       }))
     );
+  }
+
+  // Store credit is a ledger: spending it has to write a negative row or the
+  // parent's balance never goes down (it didn't, before Sep 10).
+  const creditSpent = validTenders.filter((t) => t.method === "store_credit").reduce((s, t) => s + t.amount, 0);
+  if (creditSpent > 0 && payload.parentId) {
+    await supabase.from("store_credit_transactions").insert({
+      parent_id: payload.parentId,
+      facility_id: payload.facilityId,
+      amount: -creditSpent,
+      reason: `Used at checkout (invoice ${invoice.id})`,
+      created_by: payload.staffName ?? "Checkout",
+    });
+  }
+
+  // Prepaid deposits: consume them (so they can't be applied twice) and
+  // bank any excess as store credit.
+  const depositIds = (payload.depositsApplied ?? []).map((d) => d.invoiceId);
+  if (depositIds.length > 0) {
+    await supabase
+      .from("invoices")
+      .update({ status: "applied" })
+      .in("id", depositIds)
+      .eq("kind", "deposit")
+      .eq("status", "paid");
+  }
+  const excess = Math.round((payload.depositExcessToCredit ?? 0) * 100) / 100;
+  if (excess > 0 && payload.parentId) {
+    await supabase.from("store_credit_transactions").insert({
+      parent_id: payload.parentId,
+      facility_id: payload.facilityId,
+      amount: excess,
+      reason: `Deposit left over after checkout (invoice ${invoice.id})`,
+      created_by: payload.staffName ?? "Checkout",
+    });
   }
 
   // Remember what was actually charged per animal per grooming service, so

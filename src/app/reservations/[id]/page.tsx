@@ -15,6 +15,9 @@ import { getCareLogsForReservation } from "@/app/care-logs/actions";
 import Link from "next/link";
 import { formatInZone, toDateTimeLocalInZone } from "@/lib/timezone";
 import GroomingAddonsField from "@/components/GroomingAddonsField";
+import DepositPanel from "@/components/DepositPanel";
+import { estimateBooking } from "@/app/reservations/estimate-actions";
+import { getPaidDeposits, getStoreCreditBalance } from "@/app/reservations/deposit-actions";
 import { addonsTotal, parseGroomingAddons } from "@/lib/groomingAddons";
 
 // This is a server component (renders in UTC on Vercel), so every date shown
@@ -175,6 +178,38 @@ export default async function ReservationDetailPage({
   const currentType = (types ?? []).find((t) => t.id === reservation.reservation_type_id) ?? null;
   const isGrooming = currentType?.category === "grooming";
   const groomingAddons = parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons);
+
+  // Deposit panel (Gelica, Sep 4): suggested amount = 50% of this dog's
+  // estimated stay (same math as the booking-form estimate), editable.
+  const canDeposit = Boolean(animal?.parents) && (reservation.status === "booked" || reservation.status === "checked_in");
+  const [paidDeposits, depositCards, storeCreditBalance, depositEstimate] = canDeposit
+    ? await Promise.all([
+        getPaidDeposits([id]),
+        supabase
+          .from("payment_methods")
+          .select("id, card_brand, last4")
+          .eq("facility_id", reservation.facility_id)
+          .eq("parent_id", animal!.parents!.id)
+          .order("created_at", { ascending: false })
+          .then((r) => r.data ?? []),
+        getStoreCreditBalance(animal!.parents!.id, reservation.facility_id),
+        reservation.reservation_type_id
+          ? estimateBooking({
+              facilityId: reservation.facility_id,
+              reservationTypeId: reservation.reservation_type_id,
+              startDate: toDateTimeLocalInZone(reservation.start_date, tz).slice(0, 10),
+              endDate: toDateTimeLocalInZone(reservation.end_date, tz).slice(0, 10),
+              pickUpTime: toDateTimeLocalInZone(reservation.end_date, tz).slice(11, 16),
+              dogNames: [animal!.name],
+              groomingPrice: rememberedPriceRow?.price != null ? Number(rememberedPriceRow.price) : null,
+              serviceName: reservation.grooming_service_name ?? null,
+              groomingAddons,
+            }).catch(() => null)
+          : Promise.resolve(null),
+      ])
+    : [[], [], 0, null];
+  const depositSuggested =
+    depositEstimate && depositEstimate.total > 0 ? Math.round(depositEstimate.total * 50) / 100 : null;
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -538,6 +573,21 @@ export default async function ReservationDetailPage({
             </button>
           </form>
         </div>
+
+        {canDeposit && animal?.parents && (
+          <DepositPanel
+            reservationId={id}
+            facilityId={reservation.facility_id}
+            parentId={animal.parents.id}
+            animalName={animal.name}
+            staffName={session!.staffName}
+            suggestedAmount={depositSuggested}
+            estimateTotal={depositEstimate?.total ?? null}
+            deposits={paidDeposits}
+            savedCards={depositCards}
+            storeCreditBalance={storeCreditBalance}
+          />
+        )}
 
         {animal && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

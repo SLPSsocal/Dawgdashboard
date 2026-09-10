@@ -78,12 +78,18 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <h1 className="text-xl font-semibold">Invoice</h1>
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              invoice.status === "paid"
-                ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
-                : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              invoice.status === "open"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                : "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
             }`}
           >
-            {invoice.status === "paid" ? "Paid" : "Open"}
+            {invoice.status === "paid"
+              ? "Paid"
+              : invoice.status === "applied"
+                ? "Deposit · applied at checkout"
+                : invoice.status === "credited"
+                  ? "Deposit · moved to store credit"
+                  : "Open"}
           </span>
         </div>
 

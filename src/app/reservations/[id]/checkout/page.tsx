@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
 import CheckoutCalculator from "@/components/CheckoutCalculator";
 import { getRetailCatalogForFacility } from "@/lib/retailPricing";
+import { getPaidDeposits } from "@/app/reservations/deposit-actions";
 import Link from "next/link";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
@@ -285,6 +286,10 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  // Prepaid deposits for every dog that might be on this ticket — applied as
+  // a credit at checkout, leftovers roll into store credit (Krishan, Sep 10).
+  const deposits = await getPaidDeposits([id, ...extraDogs.map((d) => d.reservationId)]);
+
   return (
     <main className="min-h-screen bg-[#f5f6f8] dark:bg-slate-950">
       <FacilityHeader session={session!} />
@@ -347,6 +352,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             bookedGroomingAddons={parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons)}
             isGroomingReservation={type?.category === "grooming"}
             extraDogs={extraDogs as unknown as Parameters<typeof CheckoutCalculator>[0]["extraDogs"]}
+            deposits={deposits}
           />
         </div>
       </div>

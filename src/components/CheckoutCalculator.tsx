@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeCheckout, type CheckoutLineItem } from "@/app/reservations/checkout-actions";
+import type { PaidDeposit } from "@/app/reservations/deposit-actions";
 import { chargeSavedCard } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
 import Link from "next/link";
@@ -90,6 +91,7 @@ export default function CheckoutCalculator({
   bookedGroomingAddons = [],
   isGroomingReservation,
   extraDogs = [],
+  deposits = [],
 }: {
   reservationId: string;
   facilityId: string;
@@ -122,6 +124,8 @@ export default function CheckoutCalculator({
   isGroomingReservation?: boolean;
   /** Household dogs still checked in — they join this ticket, one invoice per family. */
   extraDogs?: ExtraDog[];
+  /** Paid, unapplied deposits for this reservation + household extras. */
+  deposits?: PaidDeposit[];
 }) {
   // Fully automatic (Krishan, Sep 2): the household rank is derived from the
   // family's overlapping bookings server-side — no knob to bump, no way to
@@ -590,7 +594,28 @@ export default function CheckoutCalculator({
   }
   const taxableSubtotal = lineItems.filter((li) => li.taxable).reduce((sum, li) => sum + li.lineTotal, 0);
   const taxAmount = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
-  const total = subtotal + taxAmount;
+  const preDepositTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+  // Prepaid deposits (Krishan, Sep 10): applied against the whole ticket;
+  // anything beyond the bill becomes store credit for the parent.
+  const ticketReservationIds = [reservationId, ...includedExtras.map((d) => d.reservationId)];
+  const ticketDeposits = deposits.filter((d) => ticketReservationIds.includes(d.reservationId));
+  const depositTotal = Math.round(ticketDeposits.reduce((s2, d) => s2 + d.amount, 0) * 100) / 100;
+  const depositApplied = Math.min(depositTotal, Math.max(0, preDepositTotal));
+  const depositExcess = Math.round((depositTotal - depositApplied) * 100) / 100;
+  const total = Math.round((preDepositTotal - depositApplied) * 100) / 100;
+  const submittedLineItems: CheckoutLineItem[] =
+    depositApplied > 0
+      ? [
+          ...lineItems,
+          {
+            description: `Prepaid deposit${ticketDeposits.length > 1 ? ` (${ticketDeposits.length} payments)` : ""}`,
+            quantity: 1,
+            unitPrice: -depositApplied,
+            lineTotal: -depositApplied,
+            lineKind: "deposit",
+          },
+        ]
+      : lineItems;
   // A blank amount on a single payment line means "the whole ticket".
   const allocated = payments.reduce((sum, p) => {
     if (!p.method) return sum;
@@ -652,8 +677,10 @@ export default function CheckoutCalculator({
           facilityId,
           parentId,
           animalId,
-          lineItems,
+          lineItems: submittedLineItems,
           taxAmount,
+          depositsApplied: ticketDeposits.map((d) => ({ invoiceId: d.invoiceId, amount: d.amount })),
+          depositExcessToCredit: depositExcess,
           ...(datesAdjusted ? { adjustedStartDate: stayStart, adjustedEndDate: stayEnd } : {}),
           // One family bill: every included household dog checks out on THIS
           // invoice, with any date corrections applied to its reservation.
@@ -675,8 +702,8 @@ export default function CheckoutCalculator({
           markPaid:
             !usingNewCard &&
             !savedCardPayment &&
-            effectiveAllocated > 0 &&
-            Math.abs(total - nonCardTotal) < 0.005,
+            ((effectiveAllocated > 0 && Math.abs(total - nonCardTotal) < 0.005) ||
+              (depositApplied > 0 && Math.abs(total) < 0.005)),
           // Record HOW the money arrived — cash/store-credit/admin-credit
           // rows were previously not written anywhere, so a "paid" invoice
           // had no tender trail to reconcile the cash drawer against.
@@ -1407,6 +1434,21 @@ export default function CheckoutCalculator({
               Sales tax {taxRate}% on ${taxableSubtotal.toFixed(2)} retail
             </span>
             <span className="tabular-nums text-[#15181d] dark:text-slate-100">${taxAmount.toFixed(2)}</span>
+          </div>
+        )}
+        {depositTotal > 0 && (
+          <div className="flex justify-between gap-3 py-1">
+            <span className="text-[13px] text-[#565d6d] dark:text-slate-400">
+              Prepaid deposit
+              {depositExcess > 0 && (
+                <span className="ml-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                  (${depositExcess.toFixed(2)} extra → store credit)
+                </span>
+              )}
+            </span>
+            <span className="tabular-nums font-medium text-emerald-600 dark:text-emerald-400">
+              −${depositApplied.toFixed(2)}
+            </span>
           </div>
         )}
         <div className="mt-2 flex items-baseline justify-between border-t border-[#edeff3] pt-2.5 dark:border-slate-800">

@@ -202,18 +202,19 @@ export default function LodgingCalendar({
         >
           <span className="truncate">
             {hasBlock && "🔧 "}
-            {label}
-            {cameraUrl && (
+            {cameraUrl ? (
               <a
                 href={cameraUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Open ${label} camera`}
                 onClick={(e) => e.stopPropagation()}
-                className="ml-1 text-[12px] hover:opacity-70"
+                className="text-indigo-600 hover:underline dark:text-indigo-400"
               >
-                📷
+                {label} <span aria-hidden>📷</span>
               </a>
+            ) : (
+              label
             )}
           </span>
           {capacity != null && (

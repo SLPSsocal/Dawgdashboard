@@ -57,6 +57,25 @@ function relDay(iso: string, todayStr: string, tomorrowStr: string) {
 type TagRecord = Record<string, { icon: string; name: string; note?: string | null }[]>;
 type GroomingTodayRecord = Record<string, { reservationId: string; time: string; service: string | null }>;
 
+/** Suite name on the board. When the suite has a camera link (Lodging Calendar →
+    Suite cameras) the name itself opens the camera in a new tab (Krishan, Sep 10). */
+function LodgingLink({ name, cameraUrl }: { name: string | null; cameraUrl?: string | null }) {
+  if (!name) return <span className="text-[#c3c7cf] dark:text-slate-600">—</span>;
+  if (!cameraUrl) return <span className="text-[#15181d] dark:text-slate-200">{name}</span>;
+  return (
+    <a
+      href={cameraUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${name} camera`}
+      onClick={(e) => e.stopPropagation()}
+      className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+    >
+      {name} <span aria-hidden>📷</span>
+    </a>
+  );
+}
+
 export default function CheckInBoard({
   rows,
   checkedOutToday = [],
@@ -362,13 +381,13 @@ export default function CheckInBoard({
           {/* Last column is a FIXED width: with `auto` it sized to ~230px of
               buttons in data rows but 0px in this header (empty cell), so
               every header label drifted right of its column (Krishan, Sep 2). */}
-          <div className="grid grid-cols-[2fr_1.2fr_1.4fr_1fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
-            <span>Dog</span><span>Parent</span><span>Service</span><span>Type</span><span>Arrival</span><span>Departure</span><span>Pre-check-in</span><span />
+          <div className="grid grid-cols-[2fr_1.2fr_1.3fr_0.9fr_0.9fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#8a91a0] dark:text-slate-500">
+            <span>Dog</span><span>Parent</span><span>Service</span><span>Type</span><span>Lodging</span><span>Arrival</span><span>Departure</span><span>Pre-check-in</span><span />
           </div>
           {data.map((r) => (
             <div
               key={r.id}
-              className="grid grid-cols-[2fr_1.2fr_1.4fr_1fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
+              className="grid grid-cols-[2fr_1.2fr_1.3fr_0.9fr_0.9fr_0.85fr_0.85fr_0.9fr_236px] items-center gap-3 border-t border-[#edeff3] px-4 py-2.5 transition-colors hover:bg-[#fafbfc] dark:border-slate-800 dark:hover:bg-slate-800/40"
             >
               <DogCell r={r} />
               <div className="min-w-0">
@@ -386,21 +405,6 @@ export default function CheckInBoard({
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${serviceTone(r.typeName).dot}`} />
                   <span className="truncate">{r.typeName ?? "—"}</span>
                 </div>
-                <div className="pl-3 text-[12px] text-[#8a91a0] dark:text-slate-500">
-                  {r.lodgingName ?? ""}
-                  {r.lodgingName && r.lodgingCameraUrl && (
-                    <a
-                      href={r.lodgingCameraUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`Open ${r.lodgingName} camera`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="ml-1 hover:opacity-70"
-                    >
-                      📷
-                    </a>
-                  )}
-                </div>
               </div>
               <div className="min-w-0">
                 {r.serviceType ? (
@@ -410,6 +414,9 @@ export default function CheckInBoard({
                 ) : (
                   <span className="text-[12px] text-[#c4c9d4] dark:text-slate-600">—</span>
                 )}
+              </div>
+              <div className="min-w-0 text-[13.5px]">
+                <LodgingLink name={r.lodgingName} cameraUrl={r.lodgingCameraUrl} />
               </div>
               <div>
                 <div className="text-[13.5px] tabular-nums text-[#15181d] dark:text-slate-200">{fmtTime(r.startDate)}</div>
@@ -506,20 +513,8 @@ export default function CheckInBoard({
                   </span>
                 )}
                 {r.lodgingName && (
-                  <span className="text-[#8a91a0] dark:text-slate-500">
-                    {r.lodgingName}
-                    {r.lodgingCameraUrl && (
-                      <a
-                        href={r.lodgingCameraUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={`Open ${r.lodgingName} camera`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="ml-1 hover:opacity-70"
-                      >
-                        📷
-                      </a>
-                    )}
+                  <span className="text-[12.5px]">
+                    <LodgingLink name={r.lodgingName} cameraUrl={r.lodgingCameraUrl} />
                   </span>
                 )}
               </div>

@@ -120,7 +120,7 @@ export default async function ParentDetailPage({
     facilities: { name: string } | null;
   };
   const invoiceRows = (invoices as unknown as InvoiceRow[]) ?? [];
-  const openBalance = invoiceRows.filter((i) => i.status !== "paid").reduce((sum, i) => sum + Number(i.total), 0);
+  const openBalance = invoiceRows.filter((i) => i.status === "open").reduce((sum, i) => sum + Number(i.total), 0);
 
   type CreditRow = { amount: number; facility_id: string; facilities: { name: string } | null };
   const creditRows = (creditTx as unknown as CreditRow[]) ?? [];
@@ -419,12 +419,18 @@ export default async function ParentDetailPage({
                     <span className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          inv.status === "paid"
-                            ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                          inv.status === "open"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                            : "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
                         }`}
                       >
-                        {inv.status === "paid" ? "Paid" : "Open"}
+                        {inv.status === "paid"
+                          ? "Paid"
+                          : inv.status === "applied"
+                            ? "Deposit · applied"
+                            : inv.status === "credited"
+                              ? "Deposit · to store credit"
+                              : "Open"}
                       </span>
                       <span className="font-medium">{money(Number(inv.total))}</span>
                     </span>
