@@ -26,6 +26,9 @@ export default function DepositPanel({
   deposits,
   savedCards,
   storeCreditBalance,
+  quickAmounts = [],
+  title = "💵 Deposit / advance payment",
+  className = "mt-4",
 }: {
   reservationId: string;
   facilityId: string;
@@ -37,6 +40,10 @@ export default function DepositPanel({
   deposits: PaidDeposit[];
   savedCards: { id: string; card_brand: string | null; last4: string | null }[];
   storeCreditBalance: number;
+  /** One-tap amounts (Mark, Sep 10 — "apply toward the full balance or a specific portion"). */
+  quickAmounts?: { label: string; amount: number }[];
+  title?: string;
+  className?: string;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(suggestedAmount != null ? suggestedAmount.toFixed(2) : "");
@@ -81,9 +88,9 @@ export default function DepositPanel({
     "rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
   return (
-    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div className={`${className} rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">💵 Deposit / advance payment</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h2>
         {paidTotal > 0 && (
           <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
             ${paidTotal.toFixed(2)} prepaid
@@ -141,13 +148,37 @@ export default function DepositPanel({
           </button>
         </div>
       ) : (
+        <>
+        {quickAmounts.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {quickAmounts
+              .filter((q) => q.amount > 0)
+              .map((q) => {
+                const on = Math.abs(amt - Math.round(q.amount * 100) / 100) < 0.005;
+                return (
+                  <button
+                    key={q.label}
+                    type="button"
+                    onClick={() => setAmount(q.amount.toFixed(2))}
+                    className={`rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                      on
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    }`}
+                  >
+                    {q.label} · ${q.amount.toFixed(2)}
+                  </button>
+                );
+              })}
+          </div>
+        )}
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="block">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               Amount{" "}
               {suggestedAmount != null && (
                 <span className="font-normal text-slate-400">
-                  (50% of ${estimateTotal?.toFixed(2)} est.)
+                  {quickAmounts.length > 0 ? `(est. $${estimateTotal?.toFixed(2)} total)` : `(50% of $${estimateTotal?.toFixed(2)} est.)`}
                 </span>
               )}
             </span>
@@ -190,9 +221,10 @@ export default function DepositPanel({
             disabled={pending}
             className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
           >
-            {pending ? "Working…" : tender === "new_card" ? "Continue to card" : `Take $${amt > 0 ? amt.toFixed(2) : "0.00"} deposit`}
+            {pending ? "Working…" : tender === "new_card" ? "Continue to card" : `Apply $${amt > 0 ? amt.toFixed(2) : "0.00"}`}
           </button>
         </div>
+        </>
       )}
       {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>

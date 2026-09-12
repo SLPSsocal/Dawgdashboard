@@ -19,6 +19,8 @@ import DepositPanel from "@/components/DepositPanel";
 import { estimateBooking } from "@/app/reservations/estimate-actions";
 import { getPaidDeposits, getStoreCreditBalance } from "@/app/reservations/deposit-actions";
 import { addonsTotal, parseGroomingAddons } from "@/lib/groomingAddons";
+import DaycareDaysField from "@/components/DaycareDaysField";
+import { parseDaycareDates } from "@/lib/daycareAddon";
 
 // This is a server component (renders in UTC on Vercel), so every date shown
 // or prefilled here has to be expressed in the facility's own timezone.
@@ -177,6 +179,24 @@ export default async function ReservationDetailPage({
   const vaxShield = vaccineShield(vaxStatus);
   const currentType = (types ?? []).find((t) => t.id === reservation.reservation_type_id) ?? null;
   const isGrooming = currentType?.category === "grooming";
+  // Facility's daycare add-on for this boarding type (hint text only — the
+  // estimate/checkout look it up again with the stay's own effective date).
+  let daycarePerDay: number | null = null;
+  if (currentType?.category === "boarding") {
+    const stayYmd = String(reservation.start_date).slice(0, 10);
+    const { data: dcRules } = await supabase
+      .from("pricing_rules")
+      .select("reservation_type_id, amount")
+      .eq("facility_id", session!.facilityId)
+      .eq("rule_type", "flat_fee")
+      .ilike("label", "%daycare%")
+      .lte("effective_date", stayYmd)
+      .or(`retired_date.is.null,retired_date.gt.${stayYmd}`);
+    const match =
+      (dcRules ?? []).find((r) => r.reservation_type_id === currentType.id) ??
+      (dcRules ?? []).find((r) => !r.reservation_type_id);
+    daycarePerDay = match ? Number(match.amount) : null;
+  }
   const groomingAddons = parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons);
 
   // Deposit panel (Gelica, Sep 4): suggested amount = 50% of this dog's
@@ -204,6 +224,7 @@ export default async function ReservationDetailPage({
               groomingPrice: rememberedPriceRow?.price != null ? Number(rememberedPriceRow.price) : null,
               serviceName: reservation.grooming_service_name ?? null,
               groomingAddons,
+              daycareDates: parseDaycareDates((reservation as { daycare_dates?: unknown }).daycare_dates),
             }).catch(() => null)
           : Promise.resolve(null),
       ])
@@ -513,6 +534,19 @@ export default async function ReservationDetailPage({
                 </label>
               );
             })()}
+
+            {/* Daycare days during a boarding stay (Mark, Sep 10) — each
+                picked day bills the facility's daycare add-on at checkout. */}
+            {currentType?.category === "boarding" && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                <DaycareDaysField
+                  startDate={toDateTimeLocalInZone(reservation.start_date, tz).slice(0, 10)}
+                  endDate={toDateTimeLocalInZone(reservation.end_date, tz).slice(0, 10)}
+                  defaultValue={parseDaycareDates((reservation as { daycare_dates?: unknown }).daycare_dates)}
+                  perDayPrice={daycarePerDay}
+                />
+              </div>
+            )}
 
             {/* Lodging + belongings only apply to stays. Grooming appointments
                 (Daisy, Sep 7) hide them; the update action leaves those columns

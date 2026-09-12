@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { describeAddons, parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
+import { describeDaycareDates, parseDaycareDates } from "@/lib/daycareAddon";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { rollDepositsIntoStoreCredit } from "@/app/reservations/deposit-actions";
@@ -132,6 +133,7 @@ export async function createReservation(payload: {
   serviceSubtype?: string | null; // boarding/daycare Type (Private Play, In Daycare, …)
   groomingPrice?: number | null; // quoted grooming price — remembered for checkout prefill
   groomingAddons?: GroomingAddon[] | null; // extra grooming services (de-shed, teeth, …) with quoted prices
+  daycareDates?: string[] | null; // boarding only: days the dog joins daycare (YYYY-MM-DD)
   belongings: string | null;
   notes: string | null;
   bookingGroupId?: string | null; // links siblings booked together in one pass
@@ -187,6 +189,7 @@ export async function createReservation(payload: {
       grooming_service_name: payload.serviceName,
       service_subtype: payload.serviceSubtype ?? null,
       grooming_addons: payload.serviceName ? parseGroomingAddons(payload.groomingAddons ?? []) : [],
+      daycare_dates: parseDaycareDates(payload.daycareDates ?? []),
     })
     .select("id")
     .single();
@@ -322,6 +325,110 @@ export async function getSpecialistConflicts(
   ];
 }
 
+// Suite availability for the booking form (Mark, Sep 10 — Gingr shows which
+// suites are already taken on each day of the requested stay right in the
+// booking screen, so staff don't flip to the lodging calendar and back).
+// Returns every lodging-backed reservation and block touching the window;
+// the form lays them out per suite × day. Checkout day is free (end-exclusive),
+// matching the lodging calendar.
+export type LodgingOccupant = {
+  reservationId: string;
+  animalName: string;
+  lodgingAreaId: string;
+  startYmd: string;
+  endYmd: string; // exclusive
+  status: string;
+};
+export type LodgingBlockSpan = { lodgingAreaId: string; startYmd: string; endYmd: string; reason: string | null };
+
+export async function getLodgingAvailability(
+  facilityId: string,
+  startYmd: string,
+  endYmd: string
+): Promise<{ occupants: LodgingOccupant[]; blocks: LodgingBlockSpan[] }> {
+  const supabase = createClient();
+  if (!facilityId || !startYmd) return { occupants: [], blocks: [] };
+  const windowEnd = endYmd && endYmd > startYmd ? endYmd : startYmd;
+  // One day of slack each side so timezone edges don't hide a neighbour.
+  const lo = `${startYmd}T00:00:00`;
+  const hi = `${windowEnd}T23:59:59`;
+
+  const [{ data: resRows }, { data: blockRows }] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select("id, lodging_area_id, start_date, end_date, status, animals ( name ), reservation_types ( requires_lodging )")
+      .eq("facility_id", facilityId)
+      .in("status", ["booked", "checked_in"])
+      .not("lodging_area_id", "is", null)
+      .lte("start_date", hi)
+      .gte("end_date", lo),
+    supabase
+      .from("availability_blocks")
+      .select("lodging_area_id, start_at, end_at, reason")
+      .eq("facility_id", facilityId)
+      .eq("block_type", "lodging")
+      .lte("start_at", hi)
+      .gte("end_at", lo),
+  ]);
+
+  type ResRow = {
+    id: string;
+    lodging_area_id: string | null;
+    start_date: string;
+    end_date: string;
+    status: string;
+    animals: { name: string } | null;
+    reservation_types: { requires_lodging: boolean | null } | null;
+  };
+  const occupants: LodgingOccupant[] = ((resRows as unknown as ResRow[]) ?? [])
+    .filter((r) => r.lodging_area_id && r.reservation_types?.requires_lodging !== false)
+    .map((r) => ({
+      reservationId: r.id,
+      animalName: r.animals?.name ?? "Booked",
+      lodgingAreaId: r.lodging_area_id as string,
+      startYmd: String(r.start_date).slice(0, 10),
+      endYmd: String(r.end_date).slice(0, 10),
+      status: r.status,
+    }));
+  const blocks: LodgingBlockSpan[] = ((blockRows as { lodging_area_id: string; start_at: string; end_at: string; reason: string | null }[]) ?? []).map(
+    (b) => ({
+      lodgingAreaId: b.lodging_area_id,
+      startYmd: String(b.start_at).slice(0, 10),
+      endYmd: String(b.end_at).slice(0, 10),
+      reason: b.reason,
+    })
+  );
+  return { occupants, blocks };
+}
+
+// Inline lodging change from the check-in board (Al, Sep 11) — same write
+// the lodging calendar's drag-and-drop does, plus a history entry.
+export async function setReservationLodging(
+  reservationId: string,
+  lodgingAreaId: string | null,
+  performedBy?: string | null
+) {
+  const supabase = createClient();
+  const { data: before } = await supabase
+    .from("reservations")
+    .select("lodging_area_id, lodging_areas ( name )")
+    .eq("id", reservationId)
+    .maybeSingle();
+  const { error } = await supabase.from("reservations").update({ lodging_area_id: lodgingAreaId }).eq("id", reservationId);
+  if (error) throw new Error(error.message);
+  let afterName: string | null = null;
+  if (lodgingAreaId) {
+    const { data: area } = await supabase.from("lodging_areas").select("name").eq("id", lodgingAreaId).maybeSingle();
+    afterName = area?.name ?? null;
+  }
+  const beforeName = (before as unknown as { lodging_areas?: { name: string } | null } | null)?.lodging_areas?.name ?? null;
+  if ((before?.lodging_area_id ?? null) !== lodgingAreaId) {
+    await logHistory(reservationId, "modified", `Lodging: ${beforeName ?? "Unassigned"} → ${afterName ?? "Unassigned"}`, performedBy ?? null);
+  }
+  refresh();
+  revalidatePath("/lodging/calendar");
+}
+
 export async function deleteReservation(reservationId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("reservations").delete().eq("id", reservationId);
@@ -410,10 +517,14 @@ export async function updateReservation(reservationId: string, performedBy: stri
   // editor; absent on non-grooming forms.
   const hasAddonsField = formData.has("grooming_addons");
   const grooming_addons = parseGroomingAddons(String(formData.get("grooming_addons") ?? "[]"));
+  // Daycare days on a boarding stay — posted as a JSON list by the
+  // DaycareDaysField editor; absent on non-boarding forms.
+  const hasDaycareField = formData.has("daycare_dates");
+  const daycare_dates = parseDaycareDates(String(formData.get("daycare_dates") ?? "[]"));
 
   const { data: before } = await supabase
     .from("reservations")
-    .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype, grooming_addons")
+    .select("facility_id, animal_id, start_date, end_date, reservation_type_id, lodging_area_id, notes, belongings, grooming_service_name, service_subtype, grooming_addons, daycare_dates")
     .eq("id", reservationId)
     .maybeSingle();
 
@@ -439,6 +550,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
   if (hasServiceField) updatePayload.grooming_service_name = grooming_service_name;
   if (hasSubtypeField) updatePayload.service_subtype = service_subtype;
   if (hasAddonsField) updatePayload.grooming_addons = grooming_addons;
+  if (hasDaycareField) updatePayload.daycare_dates = daycare_dates;
 
   const { error } = await supabase.from("reservations").update(updatePayload).eq("id", reservationId);
 
@@ -469,7 +581,11 @@ export async function updateReservation(reservationId: string, performedBy: stri
 
   if (before) {
     const summary = diffFields(
-      { ...before, grooming_addons: describeAddons(parseGroomingAddons(before.grooming_addons)) },
+      {
+        ...before,
+        grooming_addons: describeAddons(parseGroomingAddons(before.grooming_addons)),
+        daycare_dates: describeDaycareDates(parseDaycareDates(before.daycare_dates)),
+      },
       {
         start_date,
         end_date,
@@ -480,6 +596,9 @@ export async function updateReservation(reservationId: string, performedBy: stri
         grooming_service_name: hasServiceField ? grooming_service_name : before.grooming_service_name,
         service_subtype: hasSubtypeField ? service_subtype : before.service_subtype,
         grooming_addons: hasAddonsField ? describeAddons(grooming_addons) : describeAddons(parseGroomingAddons(before.grooming_addons)),
+        daycare_dates: hasDaycareField
+          ? describeDaycareDates(daycare_dates)
+          : describeDaycareDates(parseDaycareDates(before.daycare_dates)),
       },
       {
         start_date: "Arrival",
@@ -491,6 +610,7 @@ export async function updateReservation(reservationId: string, performedBy: stri
         grooming_service_name: "Service",
         service_subtype: "Type",
         grooming_addons: "Add-ons",
+        daycare_dates: "Daycare days",
       }
     );
     if (summary) await logHistory(reservationId, "modified", summary, performedBy);

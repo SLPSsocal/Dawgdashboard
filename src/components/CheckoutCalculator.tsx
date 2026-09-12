@@ -6,6 +6,7 @@ import { completeCheckout, type CheckoutLineItem } from "@/app/reservations/chec
 import type { PaidDeposit } from "@/app/reservations/deposit-actions";
 import { chargeSavedCard } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
+import { describeDaycareDates, isDaycareAddonRule } from "@/lib/daycareAddon";
 import Link from "next/link";
 
 type SavedCard = { id: string; card_brand: string | null; last4: string | null };
@@ -41,6 +42,8 @@ export type ExtraDog = {
   rememberedPrices: RememberedPrice[];
   initialRetailRows: { itemId: string; qty: number }[];
   careNote: string | null;
+  /** Days this boarding dog joined daycare (billed per day via the daycare add-on rule). */
+  daycareDates?: string[];
 };
 
 type ExtraDogState = {
@@ -50,6 +53,7 @@ type ExtraDogState = {
   groomingRows: { service: string; price: number }[];
   retailRows: { itemId: string; qty: number }[];
   checkedFees: string[]; // flat-fee rule ids
+  daycareDays: number;
 };
 type RetailItem = { id: string; name: string; price: number; taxable: boolean };
 type OpenItemType = "Other" | "Price Adjustment" | "Tip" | "Discount";
@@ -92,6 +96,7 @@ export default function CheckoutCalculator({
   isGroomingReservation,
   extraDogs = [],
   deposits = [],
+  daycareDates = [],
 }: {
   reservationId: string;
   facilityId: string;
@@ -126,6 +131,8 @@ export default function CheckoutCalculator({
   extraDogs?: ExtraDog[];
   /** Paid, unapplied deposits for this reservation + household extras. */
   deposits?: PaidDeposit[];
+  /** Days this boarding dog joined daycare (Mark, Sep 10) — bills the daycare add-on rule per day. */
+  daycareDates?: string[];
 }) {
   // Fully automatic (Krishan, Sep 2): the household rank is derived from the
   // family's overlapping bookings server-side — no knob to bump, no way to
@@ -256,10 +263,15 @@ export default function CheckoutCalculator({
         ],
         retailRows: d.initialRetailRows,
         checkedFees: lateNow ? lateFeeIdsOf(d.rules, d.rateUnit) : [],
+        daycareDays: (d.daycareDates ?? []).length,
       };
     }
     return init;
   });
+  // Daycare days during a boarding stay: prefilled from the reservation's
+  // picked days, adjustable here if the dog joined more or fewer.
+  const [daycareDays, setDaycareDays] = useState<number>(daycareDates.length);
+  const daycareRule = useMemo(() => rules.find(isDaycareAddonRule) ?? null, [rules]);
   function patchExtra(reservationId: string, patch: Partial<ExtraDogState>) {
     setExtras((prev) => ({ ...prev, [reservationId]: { ...prev[reservationId], ...patch } }));
   }
@@ -324,7 +336,9 @@ export default function CheckoutCalculator({
   const additionalDogRules = rules
     .filter((r) => r.rule_type === "additional_animal_discount")
     .sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0));
-  const flatFeeRules = rules.filter((r) => r.rule_type === "flat_fee");
+  // The daycare add-on is per-day, not a one-off tick — it gets its own
+  // control (below) instead of a place in this checkbox list.
+  const flatFeeRules = rules.filter((r) => r.rule_type === "flat_fee" && !isDaycareAddonRule(r));
 
   const bestMultiDayRule = useMemo(() => {
     const eligible = multiDayRules.filter((r) => effUnits >= (r.threshold ?? Infinity));
@@ -381,6 +395,18 @@ export default function CheckoutCalculator({
       if (checkedFees.has(rule.id)) {
         lines.push({ description: rule.label, quantity: 1, unitPrice: rule.amount, lineTotal: rule.amount, lineKind: "fee" });
       }
+    }
+
+    if (daycareRule && daycareDays > 0) {
+      const per = Number(daycareRule.amount);
+      const which = daycareDays === daycareDates.length && daycareDates.length > 0 ? ` (${describeDaycareDates(daycareDates)})` : "";
+      lines.push({
+        description: `${extraDogs.length > 0 ? `${animalName} — ` : ""}Daycare × ${daycareDays} day${daycareDays === 1 ? "" : "s"} @ $${per.toFixed(2)}${which}`,
+        quantity: daycareDays,
+        unitPrice: per,
+        lineTotal: per * daycareDays,
+        lineKind: "fee",
+      });
     }
 
     for (const row of groomingRows) {
@@ -443,7 +469,7 @@ export default function CheckoutCalculator({
           lineKind: "discount",
         });
       }
-      for (const rule of d.rules.filter((r) => r.rule_type === "flat_fee")) {
+      for (const rule of d.rules.filter((r) => r.rule_type === "flat_fee" && !isDaycareAddonRule(r))) {
         if (s.checkedFees.includes(rule.id)) {
           lines.push({
             description: `${d.animalName} — ${rule.label}`,
@@ -453,6 +479,17 @@ export default function CheckoutCalculator({
             lineKind: "fee",
           });
         }
+      }
+      const dDaycare = d.rules.find(isDaycareAddonRule);
+      if (dDaycare && s.daycareDays > 0) {
+        const per = Number(dDaycare.amount);
+        lines.push({
+          description: `${d.animalName} — Daycare × ${s.daycareDays} day${s.daycareDays === 1 ? "" : "s"} @ $${per.toFixed(2)}`,
+          quantity: s.daycareDays,
+          unitPrice: per,
+          lineTotal: per * s.daycareDays,
+          lineKind: "fee",
+        });
       }
       for (const row of s.groomingRows) {
         if (row.service) {
@@ -516,7 +553,7 @@ export default function CheckoutCalculator({
     }
 
     return lines;
-  }, [baseRate, effUnits, stayStart, stayEnd, animalName, animalId, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems, isGroomingReservation, extraDogs, extras]);
+  }, [baseRate, effUnits, stayStart, stayEnd, animalName, animalId, rateUnit, bestMultiDayRule, numDogs, additionalDogRules, flatFeeRules, checkedFees, groomingRows, retailRows, retailItems, openItems, isGroomingReservation, extraDogs, extras, daycareRule, daycareDays, daycareDates]);
 
   function addOpenItem() {
     const raw = Number(openAmount);
@@ -856,6 +893,29 @@ export default function CheckoutCalculator({
               Departure defaults to today so an early or late pickup bills the real stay — adjust if needed.
             </p>
           )}
+          {rateUnit === "per_night" && (daycareRule || daycareDates.length > 0) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/20">
+              <span className="font-medium text-[#15181d] dark:text-slate-100">☀️ Daycare days</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={daycareDays}
+                onChange={(e) => setDaycareDays(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              {daycareRule ? (
+                <span className="text-xs text-amber-800 dark:text-amber-300">
+                  × ${Number(daycareRule.amount).toFixed(2)}/day
+                  {daycareDates.length > 0 ? ` · booked: ${describeDaycareDates(daycareDates)}` : ""}
+                </span>
+              ) : (
+                <span className="text-xs text-amber-800 dark:text-amber-300">
+                  {daycareDates.length} day{daycareDates.length === 1 ? "" : "s"} booked, but no daycare add-on rule exists for this facility — nothing billed.
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -992,7 +1052,8 @@ export default function CheckoutCalculator({
         if (!s) return null;
         const dUnits = extraUnitsOf(d, s);
         const dStay = d.rateUnit === "per_night" || d.rateUnit === "per_day";
-        const dFlatFees = d.rules.filter((r) => r.rule_type === "flat_fee");
+        const dFlatFees = d.rules.filter((r) => r.rule_type === "flat_fee" && !isDaycareAddonRule(r));
+        const dDaycareRule = d.rules.find(isDaycareAddonRule) ?? null;
         return (
           <div
             key={d.reservationId}
@@ -1086,6 +1147,20 @@ export default function CheckoutCalculator({
                       );
                     })}
                   </div>
+                )}
+                {d.rateUnit === "per_night" && dDaycareRule && (
+                  <label className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] border border-amber-200 bg-amber-50/60 px-2.5 py-1.5 text-[13px] dark:border-amber-900 dark:bg-amber-950/20">
+                    <span className="font-medium">☀️ Daycare days</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={s.daycareDays}
+                      onChange={(e) => patchExtra(d.reservationId, { daycareDays: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                      className="w-16 rounded-lg border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                    <span className="text-xs text-amber-800 dark:text-amber-300">× ${Number(dDaycareRule.amount).toFixed(2)}/day</span>
+                  </label>
                 )}
 
                 <div className="mt-3">

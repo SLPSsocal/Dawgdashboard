@@ -8,6 +8,9 @@ import { subtypeOptions } from "@/lib/serviceSubtypes";
 import GroomingAddonsField from "@/components/GroomingAddonsField";
 import { addonsTotal, type GroomingAddon } from "@/lib/groomingAddons";
 import { estimateBooking, type BookingEstimate } from "@/app/reservations/estimate-actions";
+import DaycareDaysField from "@/components/DaycareDaysField";
+import SuiteAvailabilityGrid, { type GridArea } from "@/components/SuiteAvailabilityGrid";
+import { describeDaycareDates, stayDays } from "@/lib/daycareAddon";
 import Link from "next/link";
 
 type ReservationType = {
@@ -25,7 +28,9 @@ type GroomingService = {
   maxPrice?: number | null;
 };
 type Specialist = { id: string; name: string };
-type LodgingArea = { id: string; name: string };
+type LodgingArea = GridArea;
+/** Facility's daycare add-on (per day) per reservation type; typeId null = any type. */
+export type DaycareAddonRate = { typeId: string | null; amount: number };
 
 const FALLBACK_DURATION = 45;
 const EVAL_DEFAULT_DURATION = 240;
@@ -61,6 +66,7 @@ export default function BookingForm({
   initialAnimal,
   initialTypeId,
   staffName,
+  daycareAddonRates = [],
 }: {
   facilityId: string;
   animals: AnimalOption[];
@@ -74,6 +80,7 @@ export default function BookingForm({
   /** Preselects a reservation type (e.g. the board's "+ Grooming" shortcut). */
   initialTypeId?: string | null;
   staffName?: string | null;
+  daycareAddonRates?: DaycareAddonRate[];
 }) {
   const router = useRouter();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -149,6 +156,19 @@ export default function BookingForm({
     const opts = subtypeOptions(reservationTypes.find((t) => t.id === typeId)?.category);
     setServiceSubtype(opts[0] ?? "");
   }, [typeId, reservationTypes]);
+
+  // Daycare days on a boarding stay (Mark, Sep 10): picking "In Daycare"
+  // starts with every day of the stay selected; staff untick the days the
+  // parent doesn't want. Cleared when the subtype changes away.
+  const inDaycare = type?.category === "boarding" && serviceSubtype.startsWith("In Daycare");
+  const [daycareDates, setDaycareDates] = useState<string[]>([]);
+  useEffect(() => {
+    setDaycareDates(inDaycare ? stayDays(startDate, endDate) : []);
+    // Only re-seed when the subtype flips — date changes are handled by the field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inDaycare]);
+  const daycarePerDay =
+    (daycareAddonRates.find((r) => r.typeId === typeId) ?? daycareAddonRates.find((r) => r.typeId === null))?.amount ?? null;
 
   // Evaluations are a fixed-length, fixed-slot block — no service picker,
   // no editable duration, just pick which of the offered hours works.
@@ -256,6 +276,7 @@ export default function BookingForm({
             serviceSubtype: typeOptions.length > 0 ? serviceSubtype || null : null,
             groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
             groomingAddons: isGrooming ? groomingAddons : [],
+            daycareDates: inDaycare ? daycareDates : [],
             belongings: belongings || null,
             notes: notes || null,
             bookingGroupId,
@@ -312,6 +333,7 @@ export default function BookingForm({
   const [estimateLoading, setEstimateLoading] = useState(false);
   const extraDogKey = extraDogs.map((d) => d.id).join(",");
   const addonsKey = groomingAddons.map((a) => `${a.name}:${a.price}`).join("|");
+  const daycareKey = inDaycare ? daycareDates.join(",") : "";
   useEffect(() => {
     if (!typeId || !startDate) {
       setEstimate(null);
@@ -330,6 +352,7 @@ export default function BookingForm({
         groomingPrice: isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 ? Number(groomingPrice) : null,
         serviceName: isGrooming ? serviceName || null : null,
         groomingAddons: isGrooming ? groomingAddons : [],
+        daycareDates: inDaycare ? daycareDates : [],
       })
         .then((e) => {
           if (!cancelled) setEstimate(e);
@@ -346,7 +369,7 @@ export default function BookingForm({
       clearTimeout(handle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facilityId, typeId, startDate, endDate, pickUpTime, usesTimeSlot, animal?.name, extraDogKey, isGrooming, groomingPrice, serviceName, addonsKey]);
+  }, [facilityId, typeId, startDate, endDate, pickUpTime, usesTimeSlot, animal?.name, extraDogKey, isGrooming, groomingPrice, serviceName, addonsKey, daycareKey]);
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1fr_340px]">
@@ -444,30 +467,48 @@ export default function BookingForm({
                   </button>
                 ))}
               </div>
-              {type?.category === "boarding" && serviceSubtype.startsWith("In Daycare") && (
-                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                  Daycare participation adds a charge at checkout.
-                </p>
+              {inDaycare && (
+                <div className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                  <DaycareDaysField
+                    startDate={startDate}
+                    endDate={endDate || startDate}
+                    value={daycareDates}
+                    onChange={setDaycareDates}
+                    perDayPrice={daycarePerDay}
+                  />
+                </div>
               )}
             </div>
           )}
 
           {type?.requiresLodging && (
-            <label className="mt-3 block sm:max-w-xs">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging Area</span>
-              <select
+            <>
+              <label className="mt-3 block sm:max-w-xs">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Lodging Area</span>
+                <select
+                  value={lodgingAreaId}
+                  onChange={(e) => setLodgingAreaId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option value="">— Unassigned —</option>
+                  {lodgingAreas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {/* Which suites are already taken on each night of this stay
+                  (Mark, Sep 10) — same data as the lodging calendar, in-line. */}
+              <SuiteAvailabilityGrid
+                facilityId={facilityId}
+                areas={lodgingAreas}
+                startDate={startDate}
+                endDate={usesTimeSlot ? startDate : endDate || startDate}
                 value={lodgingAreaId}
-                onChange={(e) => setLodgingAreaId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              >
-                <option value="">— Unassigned —</option>
-                {lodgingAreas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setLodgingAreaId}
+              />
+            </>
           )}
         </StepCard>
 
@@ -732,6 +773,21 @@ export default function BookingForm({
             <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">When</dt>
             <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">{summaryDates}</dd>
           </div>
+          {inDaycare && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Daycare</dt>
+              <dd className="text-right font-semibold text-[#15181d] dark:text-slate-100">
+                {daycareDates.length === 0
+                  ? "No days picked"
+                  : `${daycareDates.length} day${daycareDates.length === 1 ? "" : "s"} · ${describeDaycareDates(daycareDates)}`}
+                {daycarePerDay != null && daycareDates.length > 0 && (
+                  <span className="block text-xs font-medium text-amber-700 dark:text-amber-400">
+                    +${(daycarePerDay * daycareDates.length).toFixed(2)} ({daycareDates.length} × ${daycarePerDay.toFixed(2)})
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
           {isGrooming && groomingPrice !== "" && Number(groomingPrice) > 0 && (
             <div className="flex items-start justify-between gap-3">
               <dt className="shrink-0 text-[#8a91a0] dark:text-slate-500">Price</dt>

@@ -20,6 +20,7 @@ type Row = {
   gingr_reservation_id: string | null;
   grooming_service_name?: string | null;
   service_subtype?: string | null;
+  lodging_area_id?: string | null;
   animals: {
     id: string;
     name: string;
@@ -46,10 +47,12 @@ function toRow(r: Row): CheckInRow {
     parentId: r.animals?.parents?.id ?? null,
     parentName: r.animals?.parents ? `${r.animals.parents.first_name} ${r.animals.parents.last_name}` : null,
     typeName: r.reservation_types?.name ?? null,
+    category: r.reservation_types?.category ?? null,
     // "Type" column: grooming's is its service; boarding/daycare use the
     // service_subtype picked at booking (Private Play, In Daycare, …).
     serviceType: r.grooming_service_name ?? r.service_subtype ?? null,
     lodgingName: r.lodging_areas?.name ?? null,
+    lodgingAreaId: r.lodging_area_id ?? null,
     lodgingCameraUrl: r.lodging_areas?.camera_url ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
@@ -79,7 +82,7 @@ export default async function ReservationsPage() {
   const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
   const facilityTz: string = facilityRow?.timezone ?? "America/New_York";
 
-  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype,
+  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype, lodging_area_id,
        animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name, camera_url ),
        reservation_types ( name, category )`;
@@ -88,7 +91,7 @@ export default async function ReservationsPage() {
   // misclassified evening daycare departures as overnight stays.
   const todayStr = todayLocal();
 
-  const [{ data, error }, { data: checkedOutData }, { data: allTypes }] = await Promise.all([
+  const [{ data, error }, { data: checkedOutData }, { data: allTypes }, { data: lodgingAreaRows }] = await Promise.all([
     supabase
       .from("reservations")
       .select(selectCols)
@@ -108,6 +111,13 @@ export default async function ReservationsPage() {
     supabase
       .from("reservation_types")
       .select("name")
+      .eq("facility_id", session!.facilityId)
+      .eq("active", true)
+      .order("name"),
+    // Suites for the inline lodging picker on each board row (Al, Sep 11).
+    supabase
+      .from("lodging_areas")
+      .select("id, name")
       .eq("facility_id", session!.facilityId)
       .eq("active", true)
       .order("name"),
@@ -370,6 +380,7 @@ export default async function ReservationsPage() {
               parentTags={parentTagsObj}
               freshMeals={freshMeals}
               groomingToday={groomingToday}
+              lodgingAreas={lodgingAreaRows ?? []}
             />
           )}
         </div>

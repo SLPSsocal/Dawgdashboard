@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
+import { parseDaycareDates } from "@/lib/daycareAddon";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import FacilityHeader from "@/components/FacilityHeader";
@@ -211,13 +212,14 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     rememberedPrices: { service_name: string; price: number }[];
     initialRetailRows: { itemId: string; qty: number }[];
     careNote: string | null;
+    daycareDates: string[];
   };
   const extraDogs: ExtraDogData[] = [];
   if (animal?.parents) {
     const { data: hereNow } = await supabase
       .from("reservations")
       .select(
-        `id, animal_id, start_date, end_date, grooming_service_name, grooming_addons,
+        `id, animal_id, start_date, end_date, grooming_service_name, grooming_addons, daycare_dates,
          animals!inner ( id, name, parent_id, gingr_animal_id ),
          reservation_types ( id, name, base_rate, rate_unit, category )`
       )
@@ -233,6 +235,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
       end_date: string;
       grooming_service_name: string | null;
       grooming_addons?: unknown;
+      daycare_dates?: unknown;
       animals: { id: string; name: string; gingr_animal_id: number | string | null } | null;
       reservation_types: { id: string; name: string; base_rate: string; rate_unit: string; category: string | null } | null;
     };
@@ -282,6 +285,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           .map((p) => ({ service_name: p.service_name, price: Number(p.price) })),
         initialRetailRows: care.retailRows,
         careNote: care.careNote,
+        daycareDates: parseDaycareDates(r.daycare_dates),
       });
     }
   }
@@ -301,7 +305,14 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           ← Check-in board
         </Link>
         <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.01em] text-[#15181d] dark:text-slate-50">
-          Checkout —{" "}
+          Checkout{" "}
+          <Link
+            href={`/reservations/${id}/estimate`}
+            className="ml-1 align-middle text-[13px] font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            (just the estimate / apply a payment)
+          </Link>{" "}
+          —{" "}
           {extraDogs.length > 0
             ? [animal?.name ?? "Unknown", ...extraDogs.map((d) => d.animalName)].join(" + ")
             : animal?.name ?? "Unknown"}
@@ -352,6 +363,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             bookedGroomingAddons={parseGroomingAddons((reservation as { grooming_addons?: unknown }).grooming_addons)}
             isGroomingReservation={type?.category === "grooming"}
             extraDogs={extraDogs as unknown as Parameters<typeof CheckoutCalculator>[0]["extraDogs"]}
+            daycareDates={parseDaycareDates((reservation as { daycare_dates?: unknown }).daycare_dates)}
             deposits={deposits}
           />
         </div>

@@ -20,6 +20,8 @@ export default function ReservationActionsMenu({
   parentName,
   status,
   performedBy,
+  align = "right",
+  variant = "dots",
 }: {
   reservationId: string;
   animalId: string;
@@ -28,6 +30,10 @@ export default function ReservationActionsMenu({
   parentName?: string | null;
   status: string;
   performedBy?: string | null;
+  /** Which edge the dropdown hangs from — "left" when the button sits next to the dog's name (Al, Sep 11). */
+  align?: "left" | "right";
+  /** Gingr-style "≡" trigger instead of "⋮". */
+  variant?: "dots" | "lines";
 }) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -108,12 +114,20 @@ export default function ReservationActionsMenu({
     <div className="relative inline-block" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500"
+        title="Reservation actions"
+        aria-label="Reservation actions"
+        className={`rounded-md border border-slate-300 hover:border-slate-500 dark:border-slate-700 dark:hover:border-slate-500 ${
+          variant === "lines" ? "px-1.5 py-0.5 text-[13px] leading-none text-[#565d6d] dark:text-slate-300" : "px-2 py-1 text-xs"
+        }`}
       >
-        ⋮
+        {variant === "lines" ? "≡" : "⋮"}
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <div
+          className={`absolute z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900 ${
+            align === "left" ? "left-0" : "right-0"
+          }`}
+        >
           <LinkItem href={`/reservations/${reservationId}`} icon="🕐" label="Edit Reservation" />
           <StubItem icon="📦" label="Add to Reservation" reason="Needs a services/line-items model — not built yet" />
           <LinkItem href={`/animals/${animalId}`} icon="🐾" label="Edit Animal" />
@@ -181,7 +195,12 @@ export default function ReservationActionsMenu({
           />
 
           <Divider />
-          <LinkItem href={`/reservations/${reservationId}/checkout`} icon="💲" label="View Estimate / Checkout" />
+          {/* Two separate items (Mark, Sep 10): the estimate page quotes and
+              applies prepayments without starting a checkout. */}
+          <LinkItem href={`/reservations/${reservationId}/estimate`} icon="🧾" label="View Estimate / Apply Payment" />
+          {status !== "checked_out" && status !== "cancelled" && (
+            <LinkItem href={`/reservations/${reservationId}/checkout`} icon="💲" label="Checkout" />
+          )}
           <LinkItem href={`/reservations/${reservationId}`} icon="📋" label="View Reservation Details" />
           {/* New tab so printing doesn't navigate staff away from the board (Kath, Aug 19) */}
           <LinkItem href={`/reservations/${reservationId}/run-card`} icon="🖨️" label="Print Run Card" newTab />

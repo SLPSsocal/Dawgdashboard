@@ -17,7 +17,8 @@ export default async function NewReservationPage({
   const { animal_id: animalIdParam, category: categoryParam } = await searchParams;
 
   const supabase = createClient();
-  const [{ data: animals }, { data: types }, { data: areas }, { data: groomingItems }, { data: staffRows }] =
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const [{ data: animals }, { data: types }, { data: areas }, { data: groomingItems }, { data: staffRows }, { data: daycareRules }] =
     await Promise.all([
       // Animals are shared across facilities, so any dog can be booked here.
       supabase
@@ -31,7 +32,12 @@ export default async function NewReservationPage({
         .eq("facility_id", session!.facilityId)
         .eq("active", true)
         .order("name"),
-      supabase.from("lodging_areas").select("id, name").eq("facility_id", session!.facilityId).order("name"),
+      supabase
+        .from("lodging_areas")
+        .select("id, name, area_type, capacity")
+        .eq("facility_id", session!.facilityId)
+        .eq("active", true)
+        .order("name"),
       supabase
         .from("grooming_menu_items")
         .select("name, default_duration_minutes, min_price, max_price")
@@ -45,7 +51,22 @@ export default async function NewReservationPage({
         .eq("is_specialist", true)
         .eq("active", true)
         .order("full_name"),
+      // Per-facility daycare add-on for boarding stays (label contains
+      // "daycare") — Don Doggos is $10/day; other facilities set their own.
+      supabase
+        .from("pricing_rules")
+        .select("reservation_type_id, label, rule_type, amount")
+        .eq("facility_id", session!.facilityId)
+        .eq("rule_type", "flat_fee")
+        .ilike("label", "%daycare%")
+        .lte("effective_date", todayYmd)
+        .or(`retired_date.is.null,retired_date.gt.${todayYmd}`),
     ]);
+
+  const daycareAddonRates = (daycareRules ?? []).map((r) => ({
+    typeId: r.reservation_type_id as string | null,
+    amount: Number(r.amount),
+  }));
 
   type AnimalRow = {
     id: string;
@@ -127,6 +148,7 @@ export default async function NewReservationPage({
             initialAnimal={initialAnimal}
             initialTypeId={initialTypeId}
             staffName={session!.staffName}
+            daycareAddonRates={daycareAddonRates}
           />
         </div>
       </div>

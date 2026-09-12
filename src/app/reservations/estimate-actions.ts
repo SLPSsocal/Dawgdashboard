@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { parseGroomingAddons, type GroomingAddon } from "@/lib/groomingAddons";
+import { describeDaycareDates, isDaycareAddonRule, parseDaycareDates } from "@/lib/daycareAddon";
 
 // "View Estimate" for the booking form (Mark + Alan S, Sep 3 — Gingr shows
 // the expected cost before the reservation is saved so staff can quote the
@@ -51,6 +52,11 @@ export async function estimateBooking(input: {
   groomingPrice: number | null;
   serviceName: string | null;
   groomingAddons?: GroomingAddon[] | null;
+  /** Boarding stays only: the specific days the dog joins daycare (Mark, Sep 10). */
+  daycareDates?: string[] | null;
+  /** Household rank of the FIRST dog (existing reservations: derived from
+      the family's overlapping stays). Defaults to 1 for a fresh booking. */
+  primaryRank?: number;
 }): Promise<BookingEstimate | null> {
   const supabase = createClient();
   const { data: type } = await supabase
@@ -103,9 +109,12 @@ export async function estimateBooking(input: {
   const dogs = input.dogNames.length > 0 ? input.dogNames : ["Dog"];
   const many = dogs.length > 1;
   const who = (name: string) => (many ? `${name} — ` : "");
+  const daycareDates = parseDaycareDates(input.daycareDates ?? []);
+  const daycareRule = type.category === "boarding" ? rules.find(isDaycareAddonRule) ?? null : null;
+  const rankBase = Math.max(1, input.primaryRank ?? 1);
 
   dogs.forEach((name, i) => {
-    const rank = i + 1;
+    const rank = rankBase + i;
     const baseTotal = rate * units;
     // A grooming type bills $0/session; its price is the service line.
     if (!(isGrooming && rate === 0)) {
@@ -127,6 +136,14 @@ export async function estimateBooking(input: {
     if (lateFee) {
       lines.push({ label: `${who(name)}${lateFee.label}`, amount: Number(lateFee.amount), kind: "fee" });
     }
+    if (daycareRule && daycareDates.length > 0) {
+      const per = Number(daycareRule.amount);
+      lines.push({
+        label: `${who(name)}Daycare × ${daycareDates.length} day${daycareDates.length === 1 ? "" : "s"} @ $${per.toFixed(2)} (${describeDaycareDates(daycareDates)})`,
+        amount: per * daycareDates.length,
+        kind: "fee",
+      });
+    }
     if (isGrooming && input.groomingPrice != null && input.groomingPrice > 0) {
       lines.push({
         label: `${who(name)}${input.serviceName ?? "Grooming"}`,
@@ -144,7 +161,9 @@ export async function estimateBooking(input: {
   const total = Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100;
 
   let hint: string | null = null;
-  if (isStay && !bestMultiDay) {
+  if (type.category === "boarding" && daycareDates.length > 0 && !daycareRule) {
+    hint = "Daycare days picked, but this facility has no daycare add-on pricing rule yet — add one under Pricing Rules (label containing “daycare”) to price them.";
+  } else if (isStay && !bestMultiDay) {
     const next = multiDay
       .filter((r) => units < (r.threshold ?? Infinity))
       .sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0))[0];

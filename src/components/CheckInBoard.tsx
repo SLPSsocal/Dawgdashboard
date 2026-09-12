@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import ReservationActionsMenu from "@/components/ReservationActionsMenu";
 import ProfileTagBadges from "@/components/ProfileTagBadges";
 import SendFormButton from "@/components/SendFormButton";
-import { checkInReservation } from "@/app/reservations/actions";
+import { checkInReservation, setReservationLodging } from "@/app/reservations/actions";
 import { serviceTone } from "@/lib/serviceColors";
 import Link from "next/link";
 
@@ -23,9 +23,12 @@ export type CheckInRow = {
   parentId: string | null;
   parentName: string | null;
   typeName: string | null;
+  /** Reservation type category (boarding / daycare / grooming / evaluation). */
+  category?: string | null;
   /** Grooming service name, or boarding/daycare subtype (Private Play, …). */
   serviceType?: string | null;
   lodgingName: string | null;
+  lodgingAreaId?: string | null;
   /** Live-camera link for the assigned suite, when one is set up. */
   lodgingCameraUrl?: string | null;
   startDate: string;
@@ -85,6 +88,7 @@ export default function CheckInBoard({
   parentTags,
   freshMeals,
   groomingToday,
+  lodgingAreas = [],
 }: {
   rows: CheckInRow[];
   checkedOutToday?: CheckInRow[];
@@ -96,8 +100,33 @@ export default function CheckInBoard({
   freshMeals?: Record<string, number>;
   /** Today's grooming appointment per animal id — shows on the dog's card. */
   groomingToday?: GroomingTodayRecord;
+  /** Facility suites, for the inline lodging picker on each row (Al, Sep 11). */
+  lodgingAreas?: { id: string; name: string }[];
 }) {
   const [query, setQuery] = useState("");
+  const [lodgingSaving, setLodgingSaving] = useState<string | null>(null);
+  // Optimistic suite name per reservation so the row updates the instant a
+  // suite is picked, before the server round-trip lands.
+  const [lodgingOverride, setLodgingOverride] = useState<Record<string, { id: string | null; name: string | null }>>({});
+
+  function changeLodging(r: CheckInRow, areaId: string) {
+    const area = lodgingAreas.find((a) => a.id === areaId) ?? null;
+    setLodgingOverride((m) => ({ ...m, [r.id]: { id: area?.id ?? null, name: area?.name ?? null } }));
+    setLodgingSaving(r.id);
+    startTransition(async () => {
+      try {
+        await setReservationLodging(r.id, area?.id ?? null, staffName ?? null);
+      } catch {
+        setLodgingOverride((m) => {
+          const next = { ...m };
+          delete next[r.id];
+          return next;
+        });
+      } finally {
+        setLodgingSaving(null);
+      }
+    });
+  }
   const [pill, setPill] = useState<Pill>("all");
   const [sortKey, setSortKey] = useState<SortKey>("endDate");
   const [, startTransition] = useTransition();
@@ -314,10 +343,66 @@ export default function CheckInBoard({
     );
   }
 
+  // Actions menu lives NEXT TO THE DOG'S NAME, Gingr-style (Al, Sep 11) —
+  // not off at the far right of the row.
+  function RowMenu({ r }: { r: CheckInRow }) {
+    return (
+      <ReservationActionsMenu
+        reservationId={r.id}
+        animalId={r.animalId}
+        animalName={r.animalName}
+        parentId={r.parentId}
+        parentName={r.parentName}
+        status={r.status}
+        performedBy={staffName}
+        align="left"
+        variant="lines"
+      />
+    );
+  }
+
+  // Inline suite picker (Al, Sep 11): change lodging right on the board
+  // instead of opening the menu → Edit Reservation. Grooming rows have no
+  // lodging, so they just show nothing here.
+  function LodgingInline({ r, className = "" }: { r: CheckInRow; className?: string }) {
+    const isGroomingRow = r.category === "grooming";
+    if (isGroomingRow) return null;
+    const cur = lodgingOverride[r.id] ?? { id: r.lodgingAreaId ?? null, name: r.lodgingName };
+    const canEdit = lodgingAreas.length > 0 && r.status !== "checked_out" && r.status !== "cancelled";
+    if (!canEdit) {
+      return cur.name ? <span className={className}>{cur.name}</span> : null;
+    }
+    return (
+      <span className={`inline-flex items-center gap-1 ${className}`}>
+        <select
+          value={cur.id ?? ""}
+          disabled={lodgingSaving === r.id}
+          onChange={(e) => changeLodging(r, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          title="Change suite"
+          className={`max-w-[140px] cursor-pointer truncate rounded-md border bg-transparent px-1 py-0.5 text-[12px] disabled:opacity-60 ${
+            cur.id
+              ? "border-transparent text-[#565d6d] hover:border-[#c4c9d4] dark:text-slate-400"
+              : "border-dashed border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+          }`}
+        >
+          <option value="">{cur.id ? "Unassign" : "Assign suite…"}</option>
+          {lodgingAreas.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+        {lodgingSaving === r.id && <span className="text-[11px] text-[#8a91a0]">…</span>}
+      </span>
+    );
+  }
+
   function DogCell({ r }: { r: CheckInRow }) {
     return (
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
+          <RowMenu r={r} />
           {r.animalId ? (
             <Link href={`/animals/${r.animalId}`} className="text-[14.5px] font-semibold text-[#15181d] hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-400">
               {r.animalName}
@@ -416,7 +501,26 @@ export default function CheckInBoard({
                 )}
               </div>
               <div className="min-w-0 text-[13.5px]">
-                <LodgingLink name={r.lodgingName} cameraUrl={r.lodgingCameraUrl} />
+                {/* Inline suite picker (Al, Sep 11); camera link stays beside it. */}
+                {r.category !== "grooming" && lodgingAreas.length > 0 && r.status !== "checked_out" && r.status !== "cancelled" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <LodgingInline r={r} />
+                    {r.lodgingName && r.lodgingCameraUrl && (
+                      <a
+                        href={r.lodgingCameraUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Open ${r.lodgingName} camera`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:opacity-70"
+                      >
+                        📷
+                      </a>
+                    )}
+                  </span>
+                ) : (
+                  <LodgingLink name={r.lodgingName} cameraUrl={r.lodgingCameraUrl} />
+                )}
               </div>
               <div>
                 <div className="text-[13.5px] tabular-nums text-[#15181d] dark:text-slate-200">{fmtTime(r.startDate)}</div>
@@ -430,15 +534,6 @@ export default function CheckInBoard({
               <div className="flex items-center justify-end gap-1.5">
                 <AddGroomingButton r={r} />
                 <PrimaryAction r={r} />
-                <ReservationActionsMenu
-                  reservationId={r.id}
-                  animalId={r.animalId}
-                  animalName={r.animalName}
-                  parentId={r.parentId}
-                  parentName={r.parentName}
-                  status={r.status}
-                  performedBy={staffName}
-                />
               </div>
             </div>
           ))}
@@ -461,6 +556,7 @@ export default function CheckInBoard({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
+                    <RowMenu r={r} />
                     {/* Same profile links the desktop rows have — staff on tablets
                         couldn't open a pet or parent from the board (Kath, Aug 19). */}
                     {r.animalId ? (
@@ -512,9 +608,21 @@ export default function CheckInBoard({
                     {r.serviceType}
                   </span>
                 )}
-                {r.lodgingName && (
-                  <span className="text-[12.5px]">
-                    <LodgingLink name={r.lodgingName} cameraUrl={r.lodgingCameraUrl} />
+                {(r.lodgingName || (r.category !== "grooming" && lodgingAreas.length > 0)) && (
+                  <span className="inline-flex items-center gap-1 text-[12.5px]">
+                    <LodgingInline r={r} />
+                    {r.lodgingName && r.lodgingCameraUrl && (
+                      <a
+                        href={r.lodgingCameraUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Open ${r.lodgingName} camera`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:opacity-70"
+                      >
+                        📷
+                      </a>
+                    )}
                   </span>
                 )}
               </div>
@@ -533,15 +641,6 @@ export default function CheckInBoard({
               <div className="mt-2.5 flex items-center gap-2">
                 <PrimaryAction r={r} block />
                 <AddGroomingButton r={r} />
-                <ReservationActionsMenu
-                  reservationId={r.id}
-                  animalId={r.animalId}
-                  animalName={r.animalName}
-                  parentId={r.parentId}
-                  parentName={r.parentName}
-                  status={r.status}
-                  performedBy={staffName}
-                />
               </div>
             </div>
           ))}
