@@ -85,7 +85,19 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
     .maybeSingle();
   if (!session) throw new Error("This checkout session has expired or was already used.");
 
-  const parsed = JSON.parse(rawEventMessage) as { data: Record<string, unknown>; hash: string };
+  // Helcim's SUCCESS eventMessage nests the transaction one level deeper
+  // than you'd expect: { data: { data: {…txn fields}, hash } }. The old
+  // parser assumed { data: {…txn}, hash }, so status/cardToken/transactionId
+  // all read as undefined — every card verify since launch was recorded as
+  // "unconfirmed" and no card ever saved (Edilsa Sep 14, Daisy Aug 18).
+  // Accept both shapes, and remember which one we saw for the receipt row.
+  const outer = JSON.parse(rawEventMessage) as Record<string, unknown>;
+  const lvl1 = (outer.data ?? {}) as Record<string, unknown>;
+  const doubleNested =
+    typeof lvl1 === "object" && lvl1 !== null && "data" in lvl1 && "hash" in lvl1;
+  const txnData = (doubleNested ? (lvl1 as { data: unknown }).data : lvl1) as Record<string, unknown>;
+  const receivedHash = String((doubleNested ? (lvl1 as { hash?: unknown }).hash : outer.hash) ?? "");
+  const parsed = { data: txnData, hash: receivedHash };
   const canonical = JSON.stringify(parsed.data);
   const expectedHash = crypto.createHash("sha256").update(canonical + session.secret_token).digest("hex");
   const hashValid = expectedHash === parsed.hash;
@@ -116,7 +128,7 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
   // previously that case was silently reported as "approved" here just
   // because the purpose was save_card, which could tell staff a card was
   // successfully saved/verified when Helcim actually declined it.
-  const approved = d.status === "APPROVED";
+  const approved = String(d.status ?? "").toUpperCase() === "APPROVED";
 
   // Per Helcim's own docs, even a genuinely DECLINED transaction still comes
   // back with a transactionId. A SUCCESS event whose parsed data has neither
@@ -170,6 +182,12 @@ export async function completeHelcimSession(checkoutToken: string, rawEventMessa
     type: session.purpose === "save_card" ? "verify" : "purchase",
     amount: Number(d.amount ?? session.amount ?? 0),
     status: approved ? "approved" : looksMalformed ? "unconfirmed" : "declined",
+    // Keep enough of the response shape to diagnose the NEXT surprise from
+    // the couch instead of needing runtime logs that rotate out in an hour.
+    failure_reason: approved
+      ? null
+      : `status: ${String(d.status ?? "none")} · fields: ${Object.keys(d).slice(0, 12).join("/")}` +
+        (doubleNested ? " · nested" : " · flat"),
   });
   if (payError) throw new Error(payError.message);
 

@@ -70,6 +70,15 @@ export default function SupportWidget({
       setCanvasSize({ w, h });
       setStrokes([]);
     };
+    // Some phone formats (HEIC camera photos, odd webview decoders) fail to
+    // decode — fall back to attaching the raw file instead of dying later
+    // when the canvas tries to draw a broken image.
+    img.onerror = () => {
+      imgElRef.current = null;
+      setCanvasSize(null);
+      setAttachment(file);
+      setError("Couldn\u2019t preview that image here \u2014 attached it as a file instead, which works just as well.");
+    };
     img.src = URL.createObjectURL(file);
   }
 
@@ -83,7 +92,16 @@ export default function SupportWidget({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
-    ctx.drawImage(img, 0, 0, canvasSize.w, canvasSize.h);
+    // drawImage throws InvalidStateError on a broken/undecodable image \u2014 an
+    // exception here happens inside an effect, which blanks the entire app
+    // ("Application error" \u2014 Edilsa, Sep 14). Degrade to no preview instead.
+    try {
+      ctx.drawImage(img, 0, 0, canvasSize.w, canvasSize.h);
+    } catch {
+      imgElRef.current = null;
+      setCanvasSize(null);
+      return;
+    }
     ctx.strokeStyle = "#dc2626";
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
