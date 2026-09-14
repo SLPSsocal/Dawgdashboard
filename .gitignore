@@ -9,3 +9,5 @@ node_modules
 test-results/
 playwright-report/
 .env.qa.local
+tsconfig.tsbuildinfo
+next-env.d.ts
