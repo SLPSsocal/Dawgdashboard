@@ -5,6 +5,7 @@ import FacilityHeader from "@/components/FacilityHeader";
 import PageQuickActions from "@/components/PageQuickActions";
 import ParentForm from "@/components/ParentForm";
 import { updateParent } from "../actions";
+import { usePackageDay } from "@/app/parents/package-actions";
 import { addStoreCredit } from "../billing-actions";
 import { deletePaymentMethod } from "@/app/billing/helcim-actions";
 import HelcimCardModal from "@/components/HelcimCardModal";
@@ -50,6 +51,7 @@ export default async function ParentDetailPage({
     { data: cardAttempts },
     tagCatalog,
     assignedTags,
+    { data: packageRows },
   ] = await Promise.all([
     supabase
       .from("invoices")
@@ -98,6 +100,11 @@ export default async function ParentDetailPage({
       .limit(3),
     getProfileTagCatalog("parent"),
     getProfileTagsFor("parent", id),
+    supabase
+      .from("package_credits")
+      .select("id, label, remaining, purchased_at, facilities ( name )")
+      .eq("parent_id", id)
+      .order("purchased_at", { ascending: true }),
   ]);
 
   type CardRow = {
@@ -397,6 +404,44 @@ export default async function ParentDetailPage({
               </button>
             </form>
           </details>
+
+          {(packageRows ?? []).length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                Packages
+              </h3>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {(packageRows ?? []).map((pk) => (
+                  <div
+                    key={pk.id}
+                    className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-sm dark:border-indigo-900 dark:bg-indigo-950/20"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-semibold text-indigo-900 dark:text-indigo-200">{pk.label}</span>{" "}
+                      <span className="text-indigo-700 dark:text-indigo-300">
+                        — {pk.remaining} day{pk.remaining === 1 ? "" : "s"} left
+                      </span>
+                      <span className="block text-[11px] text-slate-400 dark:text-slate-500">
+                        {(pk.facilities as unknown as { name: string } | null)?.name ?? ""}
+                        {pk.purchased_at ? ` · purchased ${pk.purchased_at}` : ""} · carried over from Gingr
+                      </span>
+                    </span>
+                    {pk.remaining > 0 && (
+                      <form action={usePackageDay.bind(null, pk.id, id)}>
+                        <button
+                          type="submit"
+                          className="shrink-0 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-slate-900 dark:text-indigo-300"
+                          title="Redeem one day from this package (use at check-in/checkout instead of billing the day)"
+                        >
+                          Use 1 day
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
