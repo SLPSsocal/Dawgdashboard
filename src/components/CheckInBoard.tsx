@@ -657,8 +657,12 @@ export default function CheckInBoard({
       {/* Search — on phones it stays pinned to the top of the screen while
           the board scrolls, so typing a dog's name always beats scrolling a
           long list (Staff, Aug 30). Sticky spans the whole board because
-          this block is a direct child of the board container. */}
-      <div className="sticky top-0 z-20 -mx-4 bg-slate-100/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-0 dark:bg-slate-950/95 md:dark:bg-transparent">
+          this block is a direct child of the board container.
+          Desktop must have NO backdrop-filter at all: `md:backdrop-blur-0`
+          still emitted `backdrop-filter: blur(0)`, which makes Safari
+          composite this box separately and leave stale paint (ghost text,
+          half-drawn card borders) over the rows below (Krishan, Sep 15). */}
+      <div className="sticky top-0 z-20 -mx-4 bg-slate-100/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-filter-none dark:bg-slate-950/95 md:dark:bg-transparent">
         <input
           type="search"
           value={query}
