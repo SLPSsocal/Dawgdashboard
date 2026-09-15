@@ -98,9 +98,23 @@ export default function QuickCheckInDialog({
         />
         <div className="mt-2 max-h-72 overflow-y-auto">
           {results.length === 0 && (
-            <p className="px-1 py-4 text-center text-sm text-slate-400 dark:text-slate-500">
-              {items.length === 0 ? "No dogs are expected right now." : "No matches."}
-            </p>
+            <div className="px-1 py-4 text-center text-sm text-slate-400 dark:text-slate-500">
+              <p>{items.length === 0 ? "No dogs are expected right now." : "No matches."}</p>
+              {/* Quick Check-in only lists dogs with a booked reservation. Staff
+                  kept reading "No matches" as a broken search when the dog
+                  simply had no reservation yet (Jasmine + 2 others, Sep 14). */}
+              <p className="mt-2 text-[12px]">
+                Only dogs with an upcoming reservation show here.{" "}
+                <a
+                  href="/reservations/new"
+                  onClick={() => setOpen(false)}
+                  className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  Create a reservation
+                </a>{" "}
+                for a walk-in, then check them in.
+              </p>
+            </div>
           )}
           {results.map((c) => (
             <button
