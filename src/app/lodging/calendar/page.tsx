@@ -7,6 +7,7 @@ import LodgingCalendar, { type CalArea, type CalReservation, type LodgingBlock }
 import LodgingBlockForm from "@/components/LodgingBlockForm";
 import { createLodgingArea, setLodgingCameraUrl } from "@/app/lodging/actions";
 import { todayLocal } from "@/lib/dates";
+import { getLodgingSegmentsFor } from "@/app/reservations/lodging-segments";
 import Link from "next/link";
 
 function fmt(d: Date) {
@@ -95,19 +96,35 @@ export default async function LodgingCalendarPage({
     .gt("end_date", `${weekStart}T00:00:00`)
     .order("start_date");
 
-  const rows = (reservationData as unknown as ReservationRow[]) ?? [];
-  const reservations: CalReservation[] = rows
-    .filter((r) => r.reservation_types?.requires_lodging !== false)
-    .map((r) => ({
-      id: r.id,
+  const rows = ((reservationData as unknown as ReservationRow[]) ?? []).filter(
+    (r) => r.reservation_types?.requires_lodging !== false
+  );
+  // A stay that changes suites mid-stay renders as one chip per segment
+  // (each draggable on its own); an unsplit stay is one chip as before.
+  const segMap = await getLodgingSegmentsFor(rows.map((r) => r.id));
+  const reservations: CalReservation[] = rows.flatMap((r) => {
+    const base = {
       animalName: r.animals?.name ?? "Unknown",
       breed: r.animals?.breed ?? null,
       status: r.status,
       typeName: r.reservation_types?.name ?? null,
-      lodgingAreaId: r.lodging_area_id,
-      startDate: r.start_date,
-      endDate: r.end_date,
-    }));
+    };
+    const segs = segMap.get(r.id);
+    if (segs && segs.length > 0) {
+      return segs.map((s, i) => ({
+        ...base,
+        id: `${r.id}#${s.id}`,
+        reservationId: r.id,
+        segmentId: s.id,
+        segmentIndex: i + 1,
+        segmentCount: segs.length,
+        lodgingAreaId: s.lodgingAreaId,
+        startDate: `${s.startYmd}T00:00:00`,
+        endDate: `${s.endYmd}T00:00:00`,
+      }));
+    }
+    return [{ ...base, id: r.id, reservationId: r.id, lodgingAreaId: r.lodging_area_id, startDate: r.start_date, endDate: r.end_date }];
+  });
 
   const blocks: LodgingBlock[] = ((blockRows as {
     id: string;
@@ -145,9 +162,9 @@ export default async function LodgingCalendarPage({
   const occupiedTonight = reservations.filter(
     (r) => todayStr >= r.startDate.slice(0, 10) && todayStr < r.endDate.slice(0, 10)
   ).length;
-  const arrivingToday = reservations.filter((r) => r.startDate.slice(0, 10) === todayStr).length;
-  const departingTomorrow = reservations.filter((r) => r.endDate.slice(0, 10) === tomorrowStr).length;
-  const unassignedCount = reservations.filter((r) => !r.lodgingAreaId).length;
+  const arrivingToday = rows.filter((r) => r.start_date.slice(0, 10) === todayStr).length;
+  const departingTomorrow = rows.filter((r) => r.end_date.slice(0, 10) === tomorrowStr).length;
+  const unassignedCount = new Set(reservations.filter((r) => !r.lodgingAreaId).map((r) => r.reservationId)).size;
   const kpis = [
     { label: "Occupied tonight", value: occupiedTonight, dot: "bg-emerald-600" },
     { label: "Arriving today", value: arrivingToday, dot: "bg-sky-600" },

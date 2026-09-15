@@ -5,6 +5,7 @@ import CartButton from "@/components/CartButton";
 import SupportWidget from "@/components/SupportWidget";
 import DawgAssistant from "@/components/DawgAssistant";
 import AppNav from "@/components/AppNav";
+import GlobalSearch from "@/components/GlobalSearch";
 import Link from "next/link";
 
 // Single ~56px app bar: identity left, consolidated nav in the middle, the
@@ -35,6 +36,8 @@ export default function FacilityHeader({ session }: { session: Session }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* Jump to any dog or parent from anywhere (Krishan, Sep 15). */}
+          <GlobalSearch />
           {/* The single primary action in the product. */}
           <Link
             href="/reservations/new"

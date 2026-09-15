@@ -6,6 +6,7 @@ import { describeDaycareDates, parseDaycareDates } from "@/lib/daycareAddon";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { rollDepositsIntoStoreCredit } from "@/app/reservations/deposit-actions";
+import { getLodgingSegmentsFor } from "@/app/reservations/lodging-segments";
 import { zonedTimeToUtc, dateTimeLocalToUtcIso } from "@/lib/timezone";
 
 function refresh() {
@@ -359,7 +360,6 @@ export async function getLodgingAvailability(
       .select("id, lodging_area_id, start_date, end_date, status, animals ( name ), reservation_types ( requires_lodging )")
       .eq("facility_id", facilityId)
       .in("status", ["booked", "checked_in"])
-      .not("lodging_area_id", "is", null)
       .lte("start_date", hi)
       .gte("end_date", lo),
     supabase
@@ -380,16 +380,36 @@ export async function getLodgingAvailability(
     animals: { name: string } | null;
     reservation_types: { requires_lodging: boolean | null } | null;
   };
-  const occupants: LodgingOccupant[] = ((resRows as unknown as ResRow[]) ?? [])
-    .filter((r) => r.lodging_area_id && r.reservation_types?.requires_lodging !== false)
-    .map((r) => ({
-      reservationId: r.id,
-      animalName: r.animals?.name ?? "Booked",
-      lodgingAreaId: r.lodging_area_id as string,
-      startYmd: String(r.start_date).slice(0, 10),
-      endYmd: String(r.end_date).slice(0, 10),
-      status: r.status,
-    }));
+  // Split stays occupy different suites on different days — expand those
+  // into one occupant per segment; everything else is the single column.
+  const lodgingRows = ((resRows as unknown as ResRow[]) ?? []).filter((r) => r.reservation_types?.requires_lodging !== false);
+  const segMap = await getLodgingSegmentsFor(lodgingRows.map((r) => r.id));
+  const occupants: LodgingOccupant[] = [];
+  for (const r of lodgingRows) {
+    const segs = segMap.get(r.id);
+    if (segs && segs.length > 0) {
+      for (const s of segs) {
+        if (!s.lodgingAreaId) continue;
+        occupants.push({
+          reservationId: r.id,
+          animalName: r.animals?.name ?? "Booked",
+          lodgingAreaId: s.lodgingAreaId,
+          startYmd: s.startYmd,
+          endYmd: s.endYmd,
+          status: r.status,
+        });
+      }
+    } else if (r.lodging_area_id) {
+      occupants.push({
+        reservationId: r.id,
+        animalName: r.animals?.name ?? "Booked",
+        lodgingAreaId: r.lodging_area_id,
+        startYmd: String(r.start_date).slice(0, 10),
+        endYmd: String(r.end_date).slice(0, 10),
+        status: r.status,
+      });
+    }
+  }
   const blocks: LodgingBlockSpan[] = ((blockRows as { lodging_area_id: string; start_at: string; end_at: string; reason: string | null }[]) ?? []).map(
     (b) => ({
       lodgingAreaId: b.lodging_area_id,
@@ -416,6 +436,8 @@ export async function setReservationLodging(
     .maybeSingle();
   const { error } = await supabase.from("reservations").update({ lodging_area_id: lodgingAreaId }).eq("id", reservationId);
   if (error) throw new Error(error.message);
+  // A whole-stay change replaces any mid-stay split.
+  await supabase.from("reservation_lodging_segments").delete().eq("reservation_id", reservationId);
   let afterName: string | null = null;
   if (lodgingAreaId) {
     const { data: area } = await supabase.from("lodging_areas").select("name").eq("id", lodgingAreaId).maybeSingle();
@@ -556,6 +578,10 @@ export async function updateReservation(reservationId: string, performedBy: stri
 
   if (error) {
     redirect(`/reservations/${reservationId}?error=${encodeURIComponent(error.message)}`);
+  }
+  // Changing the whole-stay suite here replaces any mid-stay split.
+  if (hasLodgingField && (before?.lodging_area_id ?? null) !== lodging_area_id) {
+    await supabase.from("reservation_lodging_segments").delete().eq("reservation_id", reservationId);
   }
 
   // Remember/adjust the quote whenever a grooming service + price are on the form.

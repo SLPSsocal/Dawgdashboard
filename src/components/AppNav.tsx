@@ -115,6 +115,17 @@ export default function AppNav() {
   }
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Pages can open the same dialog (e.g. the board's "Walk-in" button)
+  // without owning a second copy of it.
+  useEffect(() => {
+    function onOpen() {
+      openCheckIn();
+    }
+    window.addEventListener("dd:open-quick-checkin", onOpen);
+    return () => window.removeEventListener("dd:open-quick-checkin", onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       {/* Desktop nav — no Check-in Board link here: the facility name on the

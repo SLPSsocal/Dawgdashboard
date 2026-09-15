@@ -3,6 +3,7 @@ import { getGingrDay } from "@/lib/gingr";
 
 export type CheckInCandidate = {
   id: string;
+  animalId?: string | null;
   animalName: string;
   parentName: string | null;
   typeName: string | null;
@@ -15,7 +16,7 @@ export type CheckInCandidate = {
 type CandidateRow = {
   id: string;
   start_date: string;
-  animals: { name: string; parents: { first_name: string; last_name: string } | null } | null;
+  animals: { id: string; name: string; parents: { first_name: string; last_name: string } | null } | null;
   reservation_types: { name: string } | null;
 };
 
@@ -34,7 +35,7 @@ export async function getCheckInCandidates(facilityId: string): Promise<CheckInC
       .from("reservations")
       .select(
         `id, start_date,
-       animals ( name, parents ( first_name, last_name ) ),
+       animals ( id, name, parents ( first_name, last_name ) ),
        reservation_types ( name )`
       )
       .eq("facility_id", facilityId)
@@ -47,6 +48,7 @@ export async function getCheckInCandidates(facilityId: string): Promise<CheckInC
   const rows = (data as unknown as CandidateRow[]) ?? [];
   const dashboardCandidates = rows.map((r) => ({
     id: r.id,
+    animalId: r.animals?.id ?? null,
     animalName: r.animals?.name ?? "Unknown",
     parentName: r.animals?.parents ? `${r.animals.parents.first_name} ${r.animals.parents.last_name}` : null,
     typeName: r.reservation_types?.name ?? null,

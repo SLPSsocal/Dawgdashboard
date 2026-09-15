@@ -21,6 +21,8 @@ import { getPaidDeposits, getStoreCreditBalance } from "@/app/reservations/depos
 import { addonsTotal, parseGroomingAddons } from "@/lib/groomingAddons";
 import DaycareDaysField from "@/components/DaycareDaysField";
 import { parseDaycareDates } from "@/lib/daycareAddon";
+import LodgingSplitPanel from "@/components/LodgingSplitPanel";
+import { getLodgingSegments } from "@/app/reservations/lodging-segments";
 
 // This is a server component (renders in UTC on Vercel), so every date shown
 // or prefilled here has to be expressed in the facility's own timezone.
@@ -179,6 +181,10 @@ export default async function ReservationDetailPage({
   const vaxShield = vaccineShield(vaxStatus);
   const currentType = (types ?? []).find((t) => t.id === reservation.reservation_type_id) ?? null;
   const isGrooming = currentType?.category === "grooming";
+  // Mid-stay suite changes (Mark, Sep 14) — only meaningful for stays that
+  // sleep here; grooming has no lodging.
+  const lodgingSegments = isGrooming ? [] : await getLodgingSegments(id);
+  const currentLodgingName = (areas ?? []).find((a) => a.id === reservation.lodging_area_id)?.name ?? null;
   // Facility's daycare add-on for this boarding type (hint text only — the
   // estimate/checkout look it up again with the stay's own effective date).
   let daycarePerDay: number | null = null;
@@ -567,7 +573,25 @@ export default async function ReservationDetailPage({
                   </option>
                 ))}
               </select>
+              {lodgingSegments.length > 0 && (
+                <span className="mt-1 block text-[11px] text-indigo-600 dark:text-indigo-400">
+                  Showing today&apos;s suite — this stay changes suites mid-stay (see Suite by date below). Changing it here puts the whole stay in one suite.
+                </span>
+              )}
             </label>
+
+            {reservation.status !== "checked_out" && reservation.status !== "cancelled" && (
+              <LodgingSplitPanel
+                reservationId={id}
+                startYmd={toDateTimeLocalInZone(reservation.start_date, tz).slice(0, 10)}
+                endYmd={toDateTimeLocalInZone(reservation.end_date, tz).slice(0, 10)}
+                currentLodgingAreaId={reservation.lodging_area_id ?? null}
+                currentLodgingName={currentLodgingName}
+                segments={lodgingSegments}
+                areas={(areas ?? []).map((a) => ({ id: a.id, name: a.name }))}
+                staffName={session!.staffName ?? null}
+              />
+            )}
 
             <label className="block">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Belongings</span>

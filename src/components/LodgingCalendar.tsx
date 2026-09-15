@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useTransition } from "react";
 import { assignLodging } from "@/app/lodging/actions";
+import { moveLodgingSegment } from "@/app/reservations/lodging-segments";
 import { deleteAvailabilityBlock } from "@/app/blocks/actions";
 
 export type CalArea = {
@@ -22,7 +23,13 @@ export type LodgingBlock = {
 };
 
 export type CalReservation = {
+  /** Chip id — the reservation id, or `${reservationId}#${segmentId}` for a split stay. */
   id: string;
+  reservationId: string;
+  /** Set when this chip is one date-range segment of a split stay. */
+  segmentId?: string;
+  segmentIndex?: number;
+  segmentCount?: number;
   animalName: string;
   breed: string | null;
   status: string;
@@ -107,8 +114,12 @@ export default function LodgingCalendar({
     setReservations((prev) =>
       prev.map((r) => (r.id === reservationId ? { ...r, lodgingAreaId: areaId } : r))
     );
+    const chip = reservations.find((x) => x.id === reservationId);
     startTransition(() => {
-      assignLodging(reservationId, areaId).catch(() => {
+      // A segment chip moves only its own date range; a whole-stay chip
+      // moves the stay (and clears any split).
+      const p = chip?.segmentId ? moveLodgingSegment(chip.segmentId, areaId) : assignLodging(chip?.reservationId ?? reservationId, areaId);
+      p.catch(() => {
         setReservations(initialReservations);
       });
     });
@@ -141,7 +152,9 @@ export default function LodgingCalendar({
           e.stopPropagation();
           setSelectedId((cur) => (cur === r.id ? null : r.id));
         }}
-        title={`${r.animalName} · ${r.typeName ?? "—"} · ${r.status === "checked_in" ? "checked in" : "expected"}`}
+        title={`${r.animalName} · ${r.typeName ?? "—"} · ${r.status === "checked_in" ? "checked in" : "expected"}${
+          r.segmentId ? ` · suite ${r.segmentIndex}/${r.segmentCount} of a split stay (${r.startDate.slice(5, 10)}→${r.endDate.slice(5, 10)})` : ""
+        }`}
         className={`cursor-grab touch-manipulation truncate rounded-[8px] border px-1.5 py-1 text-[11px] font-semibold shadow-sm active:cursor-grabbing ${
           r.status === "checked_in"
             ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -149,6 +162,7 @@ export default function LodgingCalendar({
         } ${isSelected ? "ring-2 ring-indigo-500 dark:ring-indigo-400" : ""} ${dragId === r.id ? "opacity-40" : ""}`}
       >
         {r.animalName}
+        {r.segmentId && <span className="ml-1 opacity-60" aria-hidden>↔</span>}
       </div>
     );
   }

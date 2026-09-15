@@ -31,6 +31,8 @@ export type CheckInRow = {
   lodgingAreaId?: string | null;
   /** Live-camera link for the assigned suite, when one is set up. */
   lodgingCameraUrl?: string | null;
+  /** Split stay: "Suite 7 from Thu" — the next suite change after today. */
+  lodgingNext?: string | null;
   startDate: string;
   endDate: string;
   phone: string | null;
@@ -394,6 +396,11 @@ export default function CheckInBoard({
           ))}
         </select>
         {lodgingSaving === r.id && <span className="text-[11px] text-[#8a91a0]">…</span>}
+        {r.lodgingNext && !lodgingOverride[r.id] && (
+          <span className="text-[11px] text-indigo-500 dark:text-indigo-400" title="This stay changes suites mid-stay">
+            → {r.lodgingNext}
+          </span>
+        )}
       </span>
     );
   }
@@ -693,6 +700,15 @@ export default function CheckInBoard({
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {/* Walk-in (4 tickets, Sep 14–15): opens Quick Check-in, which can
+              create + check in a same-day booking for any dog on file. */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("dd:open-quick-checkin"))}
+            className="inline-flex h-9 items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3.5 text-[13px] font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300"
+          >
+            + Walk-in
+          </button>
           <span className="hidden text-[12.5px] text-[#8a91a0] sm:inline dark:text-slate-500">
             {filtered.length} of {allRows.length} reservations
           </span>

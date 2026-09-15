@@ -36,6 +36,8 @@ export async function assignLodging(reservationId: string, lodgingAreaId: string
   if (error) {
     throw new Error(error.message);
   }
+  // Dragging the whole stay replaces any mid-stay suite split.
+  await supabase.from("reservation_lodging_segments").delete().eq("reservation_id", reservationId);
 
   revalidatePath("/lodging");
   revalidatePath("/lodging/calendar");

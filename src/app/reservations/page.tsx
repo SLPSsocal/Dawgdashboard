@@ -8,6 +8,7 @@ import DailySummaryBar from "@/components/DailySummaryBar";
 import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
+import { getLodgingSegmentsFor } from "@/app/reservations/lodging-segments";
 import { syncGingrDay } from "@/lib/gingrSync";
 import Link from "next/link";
 import { formatInZone } from "@/lib/timezone";
@@ -34,6 +35,11 @@ type Row = {
   reservation_types: { name: string; category?: string | null } | null;
 };
 
+// Split stays (suite changes mid-stay): what the board should show TODAY,
+// plus the next change coming up. Filled per request from
+// reservation_lodging_segments; empty for the (usual) unsplit stay.
+let lodgingTodayByReservation = new Map<string, { id: string | null; name: string | null; next: string | null }>();
+
 let precheckinByReservation = new Map<string, string>();
 
 function toRow(r: Row): CheckInRow {
@@ -51,9 +57,10 @@ function toRow(r: Row): CheckInRow {
     // "Type" column: grooming's is its service; boarding/daycare use the
     // service_subtype picked at booking (Private Play, In Daycare, …).
     serviceType: r.grooming_service_name ?? r.service_subtype ?? null,
-    lodgingName: r.lodging_areas?.name ?? null,
-    lodgingAreaId: r.lodging_area_id ?? null,
-    lodgingCameraUrl: r.lodging_areas?.camera_url ?? null,
+    lodgingName: lodgingTodayByReservation.get(r.id)?.name ?? r.lodging_areas?.name ?? null,
+    lodgingAreaId: lodgingTodayByReservation.has(r.id) ? lodgingTodayByReservation.get(r.id)!.id : (r.lodging_area_id ?? null),
+    lodgingCameraUrl: lodgingTodayByReservation.has(r.id) ? null : (r.lodging_areas?.camera_url ?? null),
+    lodgingNext: lodgingTodayByReservation.get(r.id)?.next ?? null,
     startDate: r.start_date,
     endDate: r.end_date,
     phone: r.animals?.parents?.phone ?? null,
@@ -124,6 +131,31 @@ export default async function ReservationsPage() {
   ]);
 
   const rows = (data as unknown as Row[]) ?? [];
+
+  // Split stays: resolve today's suite and, since days roll over, nudge
+  // reservations.lodging_area_id to match so run cards / feeding / cameras
+  // that read the single column stay right without every reader knowing
+  // about segments.
+  lodgingTodayByReservation = new Map();
+  {
+    const segMap = await getLodgingSegmentsFor(rows.map((r) => r.id));
+    const areaById = new Map(((lodgingAreaRows ?? []) as { id: string; name: string }[]).map((a) => [a.id, a.name]));
+    const fmtDay = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString([], { weekday: "short" });
+    for (const r of rows) {
+      const segs = segMap.get(r.id);
+      if (!segs || segs.length === 0) continue;
+      const cur = segs.find((s) => todayStr >= s.startYmd && todayStr < s.endYmd) ?? (todayStr < segs[0].startYmd ? segs[0] : segs[segs.length - 1]);
+      const after = segs.find((s) => s.startYmd > todayStr && s.startYmd >= cur.endYmd);
+      lodgingTodayByReservation.set(r.id, {
+        id: cur.lodgingAreaId,
+        name: cur.lodgingAreaId ? areaById.get(cur.lodgingAreaId) ?? cur.lodgingName : null,
+        next: after ? `${after.lodgingAreaId ? areaById.get(after.lodgingAreaId) ?? after.lodgingName ?? "?" : "Unassigned"} from ${fmtDay(after.startYmd)}` : null,
+      });
+      if ((r.lodging_area_id ?? null) !== (cur.lodgingAreaId ?? null)) {
+        await supabase.from("reservations").update({ lodging_area_id: cur.lodgingAreaId }).eq("id", r.id);
+      }
+    }
+  }
 
   // Latest pre-check-in status per reservation ("submitted" wins) so the
   // board can show a done-marker instead of another Send button.
