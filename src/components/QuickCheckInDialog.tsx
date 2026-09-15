@@ -71,7 +71,7 @@ export default function QuickCheckInDialog({
         .then((o) => {
           setOptions(o);
           setTypeId(o.defaultTypeId ?? "");
-          setPickup(o.defaultPickup);
+          setPickup(o.defaultTypeId && o.halfDayTypeIds.includes(o.defaultTypeId) ? o.halfDayPickup : o.defaultPickup);
         })
         .catch(() => setOptions(null));
       return () => clearTimeout(t);
@@ -122,6 +122,14 @@ export default function QuickCheckInDialog({
   const walkInRows = walkIns.filter((w) => !expectedAnimalIds.has(w.id));
 
   const selectedType = options?.types.find((t) => t.id === typeId) ?? null;
+  const isHalfDay = !!options && options.halfDayTypeIds.includes(typeId);
+
+  // Switching service swaps the pickup default: half day = now + limit,
+  // anything else = the facility's usual pickup.
+  function changeType(id: string) {
+    setTypeId(id);
+    if (options) setPickup(options.halfDayTypeIds.includes(id) ? options.halfDayPickup : options.defaultPickup);
+  }
 
   function pick(c: CheckInCandidate) {
     // Gingr rows are read-only here — the proxy is a one-way feed, so there is
@@ -207,7 +215,7 @@ export default function QuickCheckInDialog({
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="col-span-2 text-[12px] text-slate-500 dark:text-slate-400">
                 Service
-                <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={`mt-1 ${input}`}>
+                <select value={typeId} onChange={(e) => changeType(e.target.value)} className={`mt-1 ${input}`}>
                   {(options?.types ?? []).map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -244,7 +252,9 @@ export default function QuickCheckInDialog({
               {isPending ? "Checking in…" : `Create booking & check in ${picked.name}`}
             </button>
             <p className="mt-1.5 text-center text-[11px] text-slate-400 dark:text-slate-500">
-              Billed at today&apos;s rates at checkout, like any other stay.
+              {isHalfDay
+                ? `Half day converts to Full Day automatically if ${picked.name} is still here after ${Math.floor((options?.halfDayMinutes ?? 260) / 60)}h${(options?.halfDayMinutes ?? 260) % 60 ? ` ${(options?.halfDayMinutes ?? 260) % 60}m` : ""}.`
+                : "Billed at today's rates at checkout, like any other stay."}
             </p>
           </div>
         ) : (

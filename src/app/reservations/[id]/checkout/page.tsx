@@ -8,6 +8,7 @@ import CheckoutCalculator from "@/components/CheckoutCalculator";
 import { getRetailCatalogForFacility } from "@/lib/retailPricing";
 import { getPaidDeposits } from "@/app/reservations/deposit-actions";
 import Link from "next/link";
+import { autoConvertHalfDays } from "@/lib/halfDay";
 
 export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -15,15 +16,20 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
 
   const supabase = createClient();
-  const { data: reservation } = await supabase
-    .from("reservations")
-    .select(
-      `*, animals ( id, name, parent_id, gingr_animal_id, parents ( id, first_name, last_name ) ),
-       reservation_types ( id, name, base_rate, rate_unit, category )`
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const resSelect = `*, animals ( id, name, parent_id, gingr_animal_id, parents ( id, first_name, last_name ) ),
+       reservation_types ( id, name, base_rate, rate_unit, category )`;
+  let { data: reservation } = await supabase.from("reservations").select(resSelect).eq("id", id).maybeSingle();
   if (!reservation) notFound();
+
+  // A Half Day dog being checked out past the half-day limit is billed as
+  // Full Day — the reservation flips before any price is computed.
+  const flipped = await autoConvertHalfDays(session!.facilityId, [
+    { id: reservation.id, reservation_type_id: reservation.reservation_type_id, checked_in_at: reservation.checked_in_at, status: reservation.status },
+  ], new Date(), session!.staffName ?? null);
+  if (flipped.converted.length) {
+    const { data: again } = await supabase.from("reservations").select(resSelect).eq("id", id).maybeSingle();
+    if (again) reservation = again;
+  }
 
   const animal = reservation.animals as unknown as {
     id: string;

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { zonedTimeToUtc } from "@/lib/timezone";
+import { getHalfDayConfig } from "@/lib/halfDay";
 
 // Walk-in check-in (4 staff tickets, Sep 14–15): daycare regulars turn up
 // with no booking, and Quick Check-in only listed dogs that already had one,
@@ -17,7 +18,12 @@ export type WalkInArea = { id: string; name: string };
 export type WalkInOptions = {
   types: WalkInType[];
   defaultTypeId: string | null;
-  defaultPickup: string; // "HH:MM" wall-clock at the facility
+  defaultPickup: string; // "HH:MM" wall-clock at the facility (full-day pickup)
+  /** Half-day types, and how long a half day lasts before it auto-converts. */
+  halfDayTypeIds: string[];
+  halfDayMinutes: number;
+  /** "HH:MM" now + half-day limit, rounded to 15 min — the half-day pickup default. */
+  halfDayPickup: string;
   areas: WalkInArea[];
   timezone: string;
 };
@@ -45,7 +51,7 @@ export async function getWalkInOptions(): Promise<WalkInOptions> {
   const supabase = createClient();
   const since = new Date(Date.now() - 45 * 86400000).toISOString();
 
-  const [{ data: typeRows }, { data: areaRows }, { data: facility }, { data: recent }] = await Promise.all([
+  const [{ data: typeRows }, { data: areaRows }, { data: facility }, { data: recent }, halfDay] = await Promise.all([
     supabase
       .from("reservation_types")
       .select("id, name, category, requires_lodging")
@@ -63,6 +69,7 @@ export async function getWalkInOptions(): Promise<WalkInOptions> {
       .gte("created_at", since)
       .not("reservation_type_id", "is", null)
       .limit(1000),
+    getHalfDayConfig(session.facilityId),
   ]);
 
   const types: WalkInType[] = ((typeRows ?? []) as { id: string; name: string; category: string | null; requires_lodging: boolean | null }[]).map(
@@ -74,13 +81,32 @@ export async function getWalkInOptions(): Promise<WalkInOptions> {
   }
   const daycare = types.filter((t) => t.category === "daycare");
   const ranked = [...(daycare.length ? daycare : types)].sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0));
+  // Walk-ins start as a Half Day (Krishan, Sep 15) — if the dog stays past
+  // the half-day limit the system converts it to Full Day on its own.
+  const halfDefault = ranked.find((t) => halfDay.halfDayTypeIds.has(t.id)) ?? null;
+
+  const tz = facility?.timezone ?? "America/Los_Angeles";
+  const halfDayPickup = (() => {
+    const at = new Date(Date.now() + halfDay.limitMinutes * 60000);
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(at);
+    let h = Number(parts.find((p) => p.type === "hour")?.value ?? "12") % 24;
+    let m = Math.ceil(Number(parts.find((p) => p.type === "minute")?.value ?? "0") / 15) * 15;
+    if (m === 60) {
+      m = 0;
+      h = (h + 1) % 24;
+    }
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  })();
 
   return {
     types,
-    defaultTypeId: ranked[0]?.id ?? null,
+    defaultTypeId: halfDefault?.id ?? ranked[0]?.id ?? null,
     defaultPickup: DEFAULT_PICKUP,
+    halfDayTypeIds: [...halfDay.halfDayTypeIds],
+    halfDayMinutes: halfDay.limitMinutes,
+    halfDayPickup,
     areas: ((areaRows ?? []) as WalkInArea[]).map((a) => ({ id: a.id, name: a.name })),
-    timezone: facility?.timezone ?? "America/Los_Angeles",
+    timezone: tz,
   };
 }
 

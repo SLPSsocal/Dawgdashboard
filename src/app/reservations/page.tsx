@@ -9,6 +9,7 @@ import ServiceBreakdownTable from "@/components/ServiceBreakdownTable";
 import { getProfileTagsBulk } from "@/lib/profileTags";
 import { todayLocal, ymdLocal } from "@/lib/dates";
 import { getLodgingSegmentsFor } from "@/app/reservations/lodging-segments";
+import { autoConvertHalfDays } from "@/lib/halfDay";
 import { syncGingrDay } from "@/lib/gingrSync";
 import Link from "next/link";
 import { formatInZone } from "@/lib/timezone";
@@ -19,6 +20,8 @@ type Row = {
   start_date: string;
   end_date: string;
   gingr_reservation_id: string | null;
+  reservation_type_id?: string | null;
+  checked_in_at?: string | null;
   grooming_service_name?: string | null;
   service_subtype?: string | null;
   lodging_area_id?: string | null;
@@ -89,7 +92,7 @@ export default async function ReservationsPage() {
   const sync = await syncGingrDay(session!.facilityId, facilityRow?.slug ?? "");
   const facilityTz: string = facilityRow?.timezone ?? "America/New_York";
 
-  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, grooming_service_name, service_subtype, lodging_area_id,
+  const selectCols = `id, status, start_date, end_date, gingr_reservation_id, reservation_type_id, checked_in_at, grooming_service_name, service_subtype, lodging_area_id,
        animals ( id, name, breed, photo_url, alert_note, gingr_animal_id, parents ( id, first_name, last_name, phone ) ),
        lodging_areas ( name, camera_url ),
        reservation_types ( name, category )`;
@@ -131,6 +134,25 @@ export default async function ReservationsPage() {
   ]);
 
   const rows = (data as unknown as Row[]) ?? [];
+
+  // Half Day dogs that have been here past the half-day limit become Full
+  // Day automatically (Krishan, Sep 15) — flipped in the DB and reflected on
+  // this render without a refetch.
+  {
+    const flip = await autoConvertHalfDays(
+      session!.facilityId,
+      rows.map((r) => ({ id: r.id, reservation_type_id: r.reservation_type_id ?? null, checked_in_at: r.checked_in_at ?? null, status: r.status }))
+    );
+    if (flip.converted.length) {
+      const ids = new Set(flip.converted);
+      for (const r of rows) {
+        if (ids.has(r.id)) {
+          r.reservation_type_id = flip.fullDayTypeId;
+          r.reservation_types = { name: flip.fullDayName ?? "Daycare | Full Day", category: "daycare" };
+        }
+      }
+    }
+  }
 
   // Split stays: resolve today's suite and, since days roll over, nudge
   // reservations.lodging_area_id to match so run cards / feeding / cameras
