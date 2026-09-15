@@ -7,9 +7,16 @@ import WalkInSaleForm from "@/components/WalkInSaleForm";
 import { getRetailCatalogForFacility } from "@/lib/retailPricing";
 import Link from "next/link";
 
-export default async function NewSalePage() {
+export default async function NewSalePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ parent_id?: string; payoff?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
+  // ?parent_id=…&payoff=<invoiceId> — "Collect payment" from an open invoice
+  // lands here with the customer preset and that invoice ticked.
+  const { parent_id: parentIdParam, payoff: payoffParam } = await searchParams;
 
   const supabase = createClient();
   const [retailCatalog, { data: parents }, { data: facilityRow }] = await Promise.all([
@@ -24,6 +31,8 @@ export default async function NewSalePage() {
     phone: p.phone,
     email: p.email,
   }));
+  const initialParent = parentIdParam ? parentOptions.find((p) => p.id === parentIdParam) ?? null : null;
+  const initialPayoffInvoiceId = initialParent && payoffParam ? payoffParam : null;
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -48,6 +57,8 @@ export default async function NewSalePage() {
             retailItems={retailCatalog.map((r) => ({ id: r.id, name: r.name, price: r.price, taxable: r.taxable }))}
             taxRate={Number(facilityRow?.tax_rate ?? 0)}
             parents={parentOptions}
+            initialParent={initialParent}
+            initialPayoffInvoiceId={initialPayoffInvoiceId}
           />
         </div>
       </div>

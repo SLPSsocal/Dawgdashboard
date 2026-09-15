@@ -10,12 +10,15 @@ export type ParentOption = { id: string; name: string; phone: string | null; ema
 export default function ParentPicker({
   parents,
   onSelect,
+  initial = null,
 }: {
   parents: ParentOption[];
   onSelect: (p: ParentOption | null) => void;
+  /** Pre-selected customer, e.g. when arriving from a parent's open invoice. */
+  initial?: ParentOption | null;
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<ParentOption | null>(null);
+  const [selected, setSelected] = useState<ParentOption | null>(initial);
   const [openList, setOpenList] = useState(false);
   const [walkIn, setWalkIn] = useState(false);
 

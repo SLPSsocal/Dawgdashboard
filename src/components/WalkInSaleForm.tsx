@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import ParentPicker, { type ParentOption } from "@/components/ParentPicker";
 import {
@@ -31,17 +31,26 @@ export default function WalkInSaleForm({
   retailItems,
   taxRate,
   parents,
+  initialParent = null,
+  initialPayoffInvoiceId = null,
 }: {
   facilityId: string;
   staffName?: string | null;
   retailItems: RetailItem[];
   taxRate: number;
   parents: ParentOption[];
+  /** Arriving from an open invoice ("Collect payment"): customer is preset
+   *  and that invoice is already ticked in Pay Off Open Invoices, with no
+   *  retail item auto-added to the cart. (Kathleen + Celeste, Sep 15.) */
+  initialParent?: ParentOption | null;
+  initialPayoffInvoiceId?: string | null;
 }) {
-  const [selectedParent, setSelectedParent] = useState<ParentOption | null>(null);
+  const [selectedParent, setSelectedParent] = useState<ParentOption | null>(initialParent);
   const [rows, setRows] = useState<{ itemId: string; qty: number }[]>(
-    retailItems.length > 0 ? [{ itemId: retailItems[0].id, qty: 1 }] : []
+    retailItems.length > 0 && !initialPayoffInvoiceId ? [{ itemId: retailItems[0].id, qty: 1 }] : []
   );
+  // Consumed once, on the first load of the preset parent's open invoices.
+  const pendingPayoffRef = useRef<string | null>(initialPayoffInvoiceId);
   const [openItems, setOpenItems] = useState<{ type: OpenItemType; description: string; amount: number }[]>([]);
   const [openType, setOpenType] = useState<OpenItemType>("Other");
   const [openDesc, setOpenDesc] = useState("");
@@ -66,7 +75,12 @@ export default function WalkInSaleForm({
       return;
     }
     getSavedCardsForParent(facilityId, selectedParent.id).then(setCards);
-    getOpenInvoicesForParent(selectedParent.id).then(setOpenInvoices);
+    getOpenInvoicesForParent(selectedParent.id).then((list) => {
+      setOpenInvoices(list);
+      const preset = pendingPayoffRef.current;
+      pendingPayoffRef.current = null;
+      if (preset && list.some((inv) => inv.id === preset)) setPayoffIds([preset]);
+    });
   }, [selectedParent, facilityId]);
 
   const retailLineItems: SaleLineItem[] = useMemo(() => {
@@ -232,7 +246,7 @@ export default function WalkInSaleForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <ParentPicker parents={parents} onSelect={setSelectedParent} />
+      <ParentPicker parents={parents} onSelect={setSelectedParent} initial={initialParent} />
 
       <div>
         <div className="flex items-center justify-between">
@@ -242,10 +256,13 @@ export default function WalkInSaleForm({
           </button>
         </div>
         <div className="mt-2 flex flex-col gap-2">
-          {rows.length === 0 && (
+          {rows.length === 0 && retailItems.length === 0 && (
             <p className="text-xs text-slate-400 dark:text-slate-500">
               No items in the catalog yet — <Link href="/retail" className="underline">add one first</Link>.
             </p>
+          )}
+          {rows.length === 0 && retailItems.length > 0 && (
+            <p className="text-xs text-slate-400 dark:text-slate-500">No retail items — add one above if needed.</p>
           )}
           {rows.map((row, i) => {
             const item = retailItems.find((r) => r.id === row.itemId);

@@ -344,6 +344,18 @@ export default async function ParentDetailPage({
               >
                 {money(openBalance)}
               </div>
+              {openBalance > 0 && (
+                <Link
+                  href={`/sale/new?parent_id=${id}${
+                    invoiceRows.filter((i) => i.status === "open").length === 1
+                      ? `&payoff=${invoiceRows.find((i) => i.status === "open")!.id}`
+                      : ""
+                  }`}
+                  className="mt-2 inline-block rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 dark:bg-slate-100 dark:text-slate-900"
+                >
+                  Collect Payment →
+                </Link>
+              )}
             </div>
           </div>
 

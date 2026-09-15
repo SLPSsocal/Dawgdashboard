@@ -114,6 +114,29 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </p>
         )}
 
+        {/* Open balance → straight into the cart with this invoice ticked, so
+            staff can charge it (card on file, new card, or cash) without
+            re-finding the parent. Requested by Kathleen + Celeste, Sep 15. */}
+        {invoice.status === "open" && Number(invoice.total) > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/30">
+            <span className="text-sm text-amber-800 dark:text-amber-300">
+              {money(Number(invoice.total))} still owed on this invoice.
+            </span>
+            {parent ? (
+              <Link
+                href={`/sale/new?parent_id=${parent.id}&payoff=${invoice.id}`}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 dark:bg-slate-100 dark:text-slate-900"
+              >
+                Collect Payment →
+              </Link>
+            ) : (
+              <span className="text-xs text-amber-700 dark:text-amber-400">
+                No parent on this invoice — collect it through Walk-in Sale.
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 sm:p-6 dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
             <thead>
